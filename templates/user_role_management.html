@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Powers</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .powers-page { padding: 24px; max-width: 1180px; margin: 0 auto; width: 100%; }
+        .powers-card { background: #fff; border: 1px solid #cfe3f5; border-radius: 8px; box-shadow: 0 8px 22px rgba(31,95,147,0.08); overflow: hidden; }
+        .powers-header { padding: 20px 22px; border-bottom: 1px solid #e2e8f0; }
+        .powers-header h1 { color: #174a73; margin: 0 0 6px; font-size: 1.45rem; }
+        .powers-header p { color: #64748b; margin: 0; }
+        .user-picker { padding: 18px 22px; border-bottom: 1px solid #edf2f7; background: #f7fbff; display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+        .field { display: grid; gap: 6px; min-width: 320px; }
+        .field label, .section-label { color: #64748b; font-size: 0.78rem; font-weight: 600; }
+        .user-select { border: 1px solid #b9d7ef; border-radius: 6px; padding: 10px 12px; background: #fff; color: #1f2937; min-height: 40px; }
+        .powers-body { padding: 22px; display: grid; gap: 18px; }
+        .editor-overlay { position: fixed; inset: 0; background: rgba(18, 58, 90, 0.28); display: none; align-items: center; justify-content: center; padding: 24px; z-index: 2000; }
+        .editor-overlay.active { display: flex; }
+        .editor-window { width: min(1040px, 96vw); height: min(760px, 88vh); background: #fff; border: 1px solid var(--theme-button-border); border-radius: 8px; box-shadow: 0 24px 60px rgba(31, 95, 147, 0.22); display: flex; flex-direction: column; overflow: hidden; }
+        .editor-titlebar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; background: var(--theme-page-bg); border-bottom: 1px solid var(--theme-button-border); flex-shrink: 0; }
+        .editor-titlebar h2 { margin: 0; color: #174a73; font-size: 1.05rem; }
+        .editor-user { color: #64748b; font-size: 0.85rem; margin-top: 3px; word-break: break-word; }
+        .close-btn { border: 1px solid #b9d7ef; background: #fff; color: #174a73; width: 34px; height: 34px; border-radius: 6px; cursor: pointer; font-size: 1.1rem; line-height: 1; }
+        .close-btn:hover { background: #eaf5ff; }
+        .editor-content { padding: 18px; overflow: hidden; display: flex; flex-direction: column; gap: 16px; min-height: 0; flex: 1; }
+        .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--theme-button-border); padding: 0; flex-wrap: wrap; background: var(--theme-page-bg); flex-shrink: 0; }
+        .tab-btn {
+            border: 1px solid transparent;
+            border-bottom: none;
+            background: transparent;
+            color: var(--theme-heading);
+            border-radius: 5px 5px 0 0;
+            padding: 8px 11px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.93rem;
+            margin: 0 1px -1px 0;
+        }
+        .tab-btn:hover { background: var(--theme-button-hover-bg); color: #123a5a; }
+        .tab-btn.active { background: #fff; border-color: var(--theme-button-border); color: #123a5a; position: relative; }
+        .tab-icon { font-size: 0.95rem; color: inherit; line-height: 1; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; flex: 1; min-height: 0; overflow: auto; }
+        .power-section { border: 1px solid #dbeafe; border-radius: 8px; overflow: hidden; }
+        .section-title { background: #f7fbff; color: #174a73; padding: 12px 14px; font-weight: 600; border-bottom: 1px solid #dbeafe; }
+        .section-content { padding: 14px; }
+        .dept-table { width: 100%; border-collapse: collapse; }
+        .dept-table th, .dept-table td { border-bottom: 1px solid #edf2f7; padding: 10px; text-align: left; }
+        .dept-table th { color: #475569; font-size: 0.82rem; background: #fbfdff; }
+        .access-options { display: flex; gap: 14px; flex-wrap: wrap; }
+        .radio-option, .check-option, .power-switch { display: inline-flex; align-items: center; gap: 8px; color: #334155; font-size: 0.9rem; }
+        .radio-option input, .check-option input, .power-switch input { width: 16px; height: 16px; accent-color: #1f5f93; }
+        .checkbox-grid { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 10px 14px; }
+        .save-row { display: flex; align-items: center; gap: 12px; justify-content: flex-end; flex-shrink: 0; }
+        .save-btn { background: #174a73; color: white; border: none; border-radius: 6px; padding: 10px 18px; cursor: pointer; min-width: 92px; }
+        .save-btn:hover { background: #1f5f93; }
+        .save-btn:disabled { opacity: 0.65; cursor: wait; }
+        .save-status { color: #64748b; font-size: 0.86rem; min-width: 80px; }
+        .empty-state { padding: 24px; color: #64748b; text-align: center; border: 1px dashed #cbd5e1; border-radius: 8px; }
+        @media (max-width: 760px) {
+            .powers-page { padding: 14px; }
+            .field { min-width: 100%; }
+            .checkbox-grid { grid-template-columns: 1fr; }
+            .dept-table { min-width: 620px; }
+            .dept-scroll { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="nav-brand">Task Manager</div>
+            <nav class="nav-links">
+                <span class="user-status-text">User: {{ session.get('user_email', 'Unknown') }}</span>
+                <a href="/" class="nav-btn">Home</a>
+                <a href="/control-panel" class="nav-btn active">Control Panel</a>
+                <button class="nav-btn nav-btn-logout" onclick="handleLogout()">Logout</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="powers-page">
+        <section class="powers-card">
+            <div class="powers-header">
+                <h1>User Powers</h1>
+                <p>Select one user, then assign department access, page access, and approval power.</p>
+            </div>
+            <div class="user-picker">
+                <div class="field">
+                    <label for="userSelect">User Name</label>
+                    <select id="userSelect" class="user-select" onchange="renderSelectedUser()">
+                        <option value="">Loading users...</option>
+                    </select>
+                </div>
+            </div>
+            <div id="powersBody" class="powers-body">
+                <div class="empty-state">Select a user to edit powers.</div>
+            </div>
+        </section>
+    </main>
+
+    <div id="editorOverlay" class="editor-overlay">
+        <div class="editor-window">
+            <div class="editor-titlebar">
+                <div>
+                    <h2>User Powers</h2>
+                    <div id="editorUser" class="editor-user"></div>
+                </div>
+                <button type="button" class="close-btn" onclick="closeEditor()">×</button>
+            </div>
+            <div id="editorContent" class="editor-content"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        const pagePermissions = {{ page_permissions|tojson }};
+        const specialPermissions = {{ special_permissions|tojson }};
+        let allUsers = [];
+        let allAssignees = [];
+
+        async function loadData() {
+            try {
+                const [usersRes, assigneesRes] = await Promise.all([
+                    fetch('/api/user-roles'),
+                    fetch('/api/assignees')
+                ]);
+
+                if (!usersRes.ok || !assigneesRes.ok) throw new Error('Unable to load users or departments');
+
+                allUsers = await usersRes.json();
+                allAssignees = await assigneesRes.json();
+                renderUserSelect();
+            } catch (err) {
+                console.error(err);
+                document.getElementById('powersBody').innerHTML = '<div class="empty-state" style="color:#dc2626;">Error loading user powers.</div>';
+            }
+        }
+
+        function renderUserSelect() {
+            const select = document.getElementById('userSelect');
+            if (!allUsers.length) {
+                select.innerHTML = '<option value="">No users found</option>';
+                return;
+            }
+
+            select.innerHTML = '<option value="">Select user...</option>' + allUsers.map(user => (
+                `<option value="${user.id}">${escapeHtml(user.email)}</option>`
+            )).join('');
+        }
+
+        function renderSelectedUser() {
+            const userId = parseInt(document.getElementById('userSelect').value);
+            const body = document.getElementById('editorContent');
+            const user = allUsers.find(item => item.id === userId);
+            if (!user) {
+                closeEditor();
+                return;
+            }
+
+            const permissionSet = new Set(user.permissions || []);
+            const accessMap = {};
+            (user.department_access || []).forEach(item => {
+                accessMap[item.assignee_id] = item.access_level || 'edit';
+            });
+
+            document.getElementById('editorUser').textContent = user.email;
+            body.innerHTML = `
+                <div class="tabs">
+                    <button type="button" class="tab-btn active" data-tab="department" onclick="switchTab('department')"><span class="tab-icon">◆</span>Department / Person</button>
+                    <button type="button" class="tab-btn" data-tab="pages" onclick="switchTab('pages')"><span class="tab-icon">▤</span>Page Access</button>
+                    <button type="button" class="tab-btn" data-tab="approval" onclick="switchTab('approval')"><span class="tab-icon">₹</span>Approval</button>
+                </div>
+
+                <div id="tab-department" class="tab-panel active">
+                <section class="power-section">
+                    <div class="section-title">Can see work for</div>
+                    <div class="section-content dept-scroll">
+                        <table class="dept-table">
+                            <thead>
+                                <tr>
+                                    <th>Department / Person</th>
+                                    <th>Access</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${allAssignees.map(a => {
+                                    const level = accessMap[a.id] || 'hide';
+                                    return `
+                                        <tr>
+                                            <td>${escapeHtml(a.name)}</td>
+                                            <td>
+                                                <div class="access-options">
+                                                    ${accessRadio(user.id, a.id, 'view', 'View', level)}
+                                                    ${accessRadio(user.id, a.id, 'edit', 'Edit', level)}
+                                                    ${accessRadio(user.id, a.id, 'hide', 'Hide', level)}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                </div>
+
+                <div id="tab-pages" class="tab-panel">
+                <section class="power-section">
+                    <div class="section-title">Page Access</div>
+                    <div class="section-content checkbox-grid">
+                        ${pagePermissions.map(p => `
+                            <label class="check-option">
+                                <input type="checkbox" data-kind="permission" value="${p.key}" ${permissionSet.has(p.key) ? 'checked' : ''}>
+                                <span>${escapeHtml(p.label)}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </section>
+                </div>
+
+                <div id="tab-approval" class="tab-panel">
+                <section class="power-section">
+                    <div class="section-title">Approval</div>
+                    <div class="section-content">
+                        <label class="power-switch">
+                            <input type="checkbox" data-kind="permission" value="${specialPermissions[0].key}" ${permissionSet.has('approve_requests') ? 'checked' : ''}>
+                            <span>${escapeHtml(specialPermissions[0].label)}</span>
+                        </label>
+                    </div>
+                </section>
+                </div>
+
+                <div class="save-row">
+                    <span class="save-status" id="saveStatus"></span>
+                    <button class="save-btn" id="saveButton" onclick="savePowers(${user.id})">Save</button>
+                </div>
+            `;
+            document.getElementById('editorOverlay').classList.add('active');
+        }
+
+        function closeEditor() {
+            document.getElementById('editorOverlay').classList.remove('active');
+            document.getElementById('editorContent').innerHTML = '';
+            document.getElementById('editorUser').textContent = '';
+            document.getElementById('userSelect').value = '';
+        }
+
+        document.getElementById('editorOverlay').addEventListener('click', function(event) {
+            if (event.target === this) closeEditor();
+        });
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tabName);
+            });
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.toggle('active', panel.id === `tab-${tabName}`);
+            });
+        }
+
+        function accessRadio(userId, assigneeId, value, label, selectedLevel) {
+            return `
+                <label class="radio-option">
+                    <input type="radio" name="dept-${userId}-${assigneeId}" data-kind="dept-access" data-assignee="${assigneeId}" value="${value}" ${selectedLevel === value ? 'checked' : ''}>
+                    <span>${label}</span>
+                </label>
+            `;
+        }
+
+        async function savePowers(userId) {
+            const saveBtn = document.getElementById('saveButton');
+            const status = document.getElementById('saveStatus');
+            const departmentAccess = Array.from(document.querySelectorAll('input[data-kind="dept-access"]:checked'))
+                .filter(input => input.value !== 'hide')
+                .map(input => ({
+                    assignee_id: parseInt(input.dataset.assignee),
+                    access_level: input.value
+                }));
+            const permissions = Array.from(document.querySelectorAll('input[data-kind="permission"]:checked')).map(cb => cb.value);
+
+            try {
+                saveBtn.disabled = true;
+                status.textContent = 'Saving...';
+
+                const response = await fetch('/api/user-roles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, department_access: departmentAccess, permissions })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'Failed to save powers');
+
+                const user = allUsers.find(item => item.id === userId);
+                user.department_access = departmentAccess;
+                user.assigned_ids = departmentAccess.map(item => item.assignee_id);
+                user.permissions = permissions;
+                status.textContent = 'Saved';
+                if (typeof showNotification === 'function') showNotification('User powers updated', 'success');
+            } catch (err) {
+                console.error(err);
+                status.textContent = 'Failed';
+                alert(err.message || 'Unable to save powers');
+            } finally {
+                saveBtn.disabled = false;
+            }
+        }
+
+        function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) return;
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.href = '/logout';
+        }
+
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>

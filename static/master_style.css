@@ -1,0 +1,30 @@
+.inline-form {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.inline-form input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-family: inherit;
+}
+
+.btn-add {
+    background: var(--theme-button-bg);
+    color: var(--theme-heading);
+    border: 1px solid var(--theme-button-border);
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: normal;
+    transition: all 0.3s ease;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+}

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Clients</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='client_master.css') }}">
+</head>
+<body>
+    {% set active_page = 'client_group_master' %}
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <div class="report-card">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <div class="header-actions">
+                <header>
+                    <h1>{{ group.group_name }} Clients</h1>
+                </header>
+                <a class="secondary-btn" href="{{ debtor_url('/client-group-master') }}">Back to Groups</a>
+            </div>
+
+            <div class="client-table-toolbar">
+                <input type="search" id="clientQuickSearch" placeholder="Search clients">
+            </div>
+
+            <main>
+                <table id="clientTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Client Name</th>
+                            <th>Group</th>
+                            <th>Category</th>
+                            <th>CRP</th>
+                            <th>Referred By</th>
+                            <th>WhatsApp</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>GSTIN</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for client in clients %}
+                        <tr
+                            data-client-id="{{ client.id }}"
+                            data-client-name="{{ client.client_name or '' }}"
+                            data-client-group="{{ client.client_group or '' }}"
+                            data-client-category="{{ client.client_category or '' }}"
+                            data-crp-of-group="{{ client.crp_of_group or '' }}"
+                            data-reffered-by="{{ client.reffered_by or '' }}"
+                            data-whatapp-group="{{ client.whatapp_group or '' }}"
+                            data-phone="{{ client.phone or '' }}"
+                            data-email="{{ client.email or '' }}"
+                            data-gstin="{{ client.gstin or '' }}"
+                        >
+                            <td>{{ client.id }}</td>
+                            <td>{{ client.client_name }}</td>
+                            <td>{{ client.client_group }}</td>
+                            <td>{{ client.client_category }}</td>
+                            <td>{{ client.crp_of_group }}</td>
+                            <td>{{ client.reffered_by }}</td>
+                            <td>{{ client.whatapp_group }}</td>
+                            <td>{{ client.phone }}</td>
+                            <td>{{ client.email }}</td>
+                            <td>{{ client.gstin }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </main>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client_master.js') }}"></script>
+</body>
+</html>

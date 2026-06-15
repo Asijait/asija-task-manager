@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Panel</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='client_master.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='control_panel.css') }}">
+</head>
+<body>
+    {% set active_page = 'control_panel' %}
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <div class="report-card">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <header>
+                <h1>Control Panel</h1>
+            </header>
+
+            <div class="control-panel-shell">
+                <section class="control-panel-actions">
+                    <div class="control-panel-box">
+                        <h2>Access Control</h2>
+                        <p class="control-panel-note">Manage which users can see and open debtor navbar buttons.</p>
+                        <a href="{{ debtor_url('/control-panel/navbar-access') }}" class="submit-btn control-panel-link-btn">Navbar Access</a>
+                    </div>
+
+                    <div class="control-panel-box">
+                        <h2>Deleted Records</h2>
+                        <p class="control-panel-note">Recall soft-deleted main report rows when needed.</p>
+                        <a href="{{ debtor_url('/deleted-records') }}" class="submit-btn control-panel-link-btn">Deleted Records</a>
+                    </div>
+
+                    <div class="control-panel-box">
+                        <h2>Bulk Delete Report</h2>
+                        <p class="control-panel-note">Select multiple main report rows and move them to Deleted Records.</p>
+                        <a href="{{ debtor_url('/control-panel/bulk-delete-report') }}" class="submit-btn control-panel-link-btn danger-btn">Bulk Delete Report</a>
+                    </div>
+
+                    <form action="{{ debtor_url('/control-panel/report-update') }}" method="POST" class="control-panel-box">
+                        <h2>Report Update</h2>
+                        <label>
+                            Report as on
+                            <input type="date" name="report_as_on_date" value="{{ report_update_dates.report_as_on_date }}" required>
+                        </label>
+                        <label>
+                            Last Bill update
+                            <input type="date" name="last_bill_update_date" value="{{ report_update_dates.last_bill_update_date }}" required>
+                        </label>
+                        <label>
+                            Last Receipt update
+                            <input type="date" name="last_receipt_update_date" value="{{ report_update_dates.last_receipt_update_date }}" required>
+                        </label>
+                        <button type="submit" class="submit-btn">Save Report Update</button>
+                    </form>
+
+                    <form action="{{ debtor_url('/control-panel/backup') }}" method="POST" class="control-panel-box">
+                        <h2>Backup</h2>
+                        <label>
+                            Note
+                            <input type="text" name="note" placeholder="Manual backup note">
+                        </label>
+                        <button type="submit" class="submit-btn">Create Backup</button>
+                    </form>
+
+                    <form action="{{ debtor_url('/control-panel/restore') }}" method="POST" class="control-panel-box" onsubmit="return confirm('Rollback to this backup? A fresh backup will be created before restore.');">
+                        <h2>Restore</h2>
+                        <label>
+                            Select Backup
+                            <select name="backup_id" required>
+                                <option value="">Select date</option>
+                                {% for backup in backups %}
+                                {% if backup.type != 'rollback' %}
+                                <option value="{{ backup.id }}">{{ backup.created_at }} - {{ backup.note }}</option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <button type="submit" class="submit-btn danger-btn">Rollback</button>
+                    </form>
+                </section>
+
+                <section class="control-panel-log">
+                    <h2 class="section-title">Backup & Rollback Log</h2>
+                    <div class="backup-log-list">
+                        {% for backup in backups %}
+                        <article class="backup-log-card">
+                            <div class="backup-log-main">
+                                <div>
+                                    <div class="backup-date">{{ backup.created_at }}</div>
+                                    <div class="backup-note">{{ backup.note }}</div>
+                                    <div class="backup-file">{{ backup.file }}</div>
+                                </div>
+                                <span class="backup-type">{{ backup.type }}</span>
+                            </div>
+                            <div class="backup-log-actions">
+                                <span>Skipped: {{ backup.skipped|length if backup.skipped else 0 }}</span>
+                                {% if backup.type != 'rollback' %}
+                                <form action="{{ debtor_url('/control-panel/restore') }}" method="POST" onsubmit="return confirm('Rollback to {{ backup.created_at }}? A fresh backup will be created before restore.');">
+                                    <input type="hidden" name="backup_id" value="{{ backup.id }}">
+                                    <button type="submit" class="client-edit-btn master-action-btn">Rollback</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </article>
+                        {% else %}
+                        <div class="empty-log">No backups found.</div>
+                        {% endfor %}
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+</body>
+</html>

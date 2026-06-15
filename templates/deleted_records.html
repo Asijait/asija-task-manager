@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deleted Records</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .deleted-page { max-width: 1200px; margin: 0 auto; padding: 30px 20px; }
+        .deleted-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .muted { color: #64748b; font-size: 0.9rem; }
+        .table-wrap { overflow-x: auto; margin-top: 16px; }
+        .deleted-table { width: 100%; border-collapse: collapse; min-width: 980px; }
+        .deleted-table th, .deleted-table td { border-bottom: 1px solid #edf2f7; padding: 10px; text-align: left; vertical-align: top; }
+        .deleted-table th { color: #475569; font-size: 0.82rem; background: #f8fafc; }
+        .task-name { font-weight: 600; color: #1f2937; }
+        .subtext { display: block; color: #64748b; font-size: 0.8rem; margin-top: 3px; }
+        .deleted-actions { display: flex; gap: 8px; align-items: center; }
+        .action-btn { border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 6px; padding: 7px 10px; cursor: pointer; font-size: 0.85rem; }
+        .action-btn:hover { background: #f8fafc; }
+        .restore-btn { border-color: #86efac; color: #166534; }
+        .restore-btn:hover { background: #f0fdf4; }
+        .hide-btn { border-color: #fecaca; color: #991b1b; }
+        .hide-btn:hover { background: #fef2f2; }
+        .empty-state { color: #64748b; padding: 28px; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="nav-brand">Task Manager</div>
+            <nav class="nav-links">
+                <span class="user-status-text">User: {{ session.get('user_email', 'Unknown') }}</span>
+                <a href="/" class="nav-btn">Home</a>
+                <a href="/work-master" class="nav-btn">Task Master</a>
+                <a href="/pending-approvals" class="nav-btn">Pending Approvals</a>
+                <a href="/deleted-records" class="nav-btn active">Deleted Records</a>
+                <button class="nav-btn nav-logout" onclick="handleLogout()" style="background: #dc2626; border: none; cursor: pointer;">Logout</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="deleted-page">
+        <div class="deleted-card">
+            <h1>Deleted Records</h1>
+            <p class="muted">Deleted Task Master records are hidden from normal work screens but kept in the database.</p>
+            <div id="emptyState" class="empty-state" style="display:none;">No deleted records found.</div>
+            <div id="tableWrap" class="table-wrap" style="display:none;">
+                <table class="deleted-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Task Name</th>
+                            <th>Schedule</th>
+                            <th>Department</th>
+                            <th>User</th>
+                            <th>Deleted By</th>
+                            <th>Deleted At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deletedBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        async function loadDeletedRecords() {
+            const tableWrap = document.getElementById('tableWrap');
+            const emptyState = document.getElementById('emptyState');
+            const tbody = document.getElementById('deletedBody');
+            tbody.innerHTML = '<tr><td colspan="8">Loading...</td></tr>';
+            tableWrap.style.display = 'block';
+            emptyState.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/deleted-works');
+                const records = await response.json();
+                if (!records.length) {
+                    tableWrap.style.display = 'none';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+
+                tbody.innerHTML = records.map((record, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>
+                            <span class="task-name">${escapeHtml(record.work_name || '')}</span>
+                            <span class="subtext">Task ID: ${record.id}</span>
+                        </td>
+                        <td>${escapeHtml(formatSchedule(record))}</td>
+                        <td>${escapeHtml(record.assignee_name || 'N/A')}</td>
+                        <td>${escapeHtml(record.assigned_user_email || 'Whole Department')}</td>
+                        <td>
+                            ${escapeHtml(record.deleted_by_email || 'Unknown')}
+                            ${record.requested_by_email ? `<span class="subtext">Requested by ${escapeHtml(record.requested_by_email)}</span>` : ''}
+                        </td>
+                        <td>${escapeHtml(record.deleted_at || '')}</td>
+                        <td>
+                            <div class="deleted-actions">
+                                <button class="action-btn restore-btn" onclick="restoreRecord(${record.id})">Restore</button>
+                                <button class="action-btn hide-btn" onclick="hideRecord(${record.id})">Permanent Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error(error);
+                tbody.innerHTML = '<tr><td colspan="8" style="color:#dc2626;">Unable to load deleted records.</td></tr>';
+            }
+        }
+
+        function formatSchedule(record) {
+            const frequency = record.work_tat ? capitalize(record.work_tat) : '';
+            return record.work_date ? `${frequency} from ${record.work_date}` : frequency;
+        }
+
+        async function restoreRecord(workId) {
+            if (!confirm('Restore this task back to Task Master and normal work screens?')) return;
+            const response = await fetch(`/api/deleted-works/${workId}/restore`, { method: 'POST' });
+            const result = await response.json();
+            if (response.ok && result.success) {
+                loadDeletedRecords();
+            } else {
+                alert('Error: ' + (result.error || 'Unable to restore record'));
+            }
+        }
+
+        async function hideRecord(workId) {
+            if (!confirm('Permanent Delete will hide this record from this deleted-records page. It will still remain in the database. Continue?')) return;
+            const response = await fetch(`/api/deleted-works/${workId}/hide`, { method: 'POST' });
+            const result = await response.json();
+            if (response.ok && result.success) {
+                loadDeletedRecords();
+            } else {
+                alert('Error: ' + (result.error || 'Unable to hide record'));
+            }
+        }
+
+        function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) return;
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.href = '/logout';
+        }
+
+        document.addEventListener('DOMContentLoaded', loadDeletedRecords);
+    </script>
+</body>
+</html>

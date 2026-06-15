@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRP Master</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='client_master.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='crp_master.css') }}">
+</head>
+<body>
+    {% set active_page = 'crp_master' %}
+    {% set can_edit_crp_master = 'crp_master_edit' in debtor_nav_access %}
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <div class="report-card crp-master-card">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <header class="crp-master-header">
+                <h1>CRP Master</h1>
+                <div class="crp-count">{{ crps|length }} CRP</div>
+            </header>
+
+            <div class="client-table-toolbar">
+                <input type="search" id="crpQuickSearch" placeholder="Search CRP">
+                <div class="crp-toolbar-actions">
+                    {% if can_edit_crp_master %}
+                    <button type="button" class="secondary-btn crp-add-toggle" id="showCrpAddRow">Add CRP</button>
+                    {% endif %}
+                    <a class="excel-icon-btn" href="{{ debtor_url('/download/crp-master-excel') }}" title="Export CRP Master" aria-label="Export CRP Master">XLS</a>
+                </div>
+            </div>
+
+            <main class="crp-master-table-scroll">
+                {% if can_edit_crp_master %}
+                <form action="{{ debtor_url('/crp-master/add') }}" method="POST" id="crpAddForm"></form>
+                {% endif %}
+                <table id="crpTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>CRP Name</th>
+                            <th>Groups</th>
+                            {% if can_edit_crp_master %}
+                            <th>Edit</th>
+                            <th>Delete</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if can_edit_crp_master %}
+                        <tr class="crp-add-row" id="crpAddRow" hidden>
+                            <td>New</td>
+                            <td><input type="text" name="crp_name" form="crpAddForm" placeholder="CRP Name" required></td>
+                            <td>0</td>
+                            <td class="crp-add-actions">
+                                <button type="submit" class="crp-row-action" form="crpAddForm" title="Save CRP" aria-label="Save CRP">Save</button>
+                            </td>
+                            <td>
+                                <button type="button" class="crp-row-action" id="hideCrpAddRow" title="Cancel" aria-label="Cancel">Cancel</button>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% for crp in crps %}
+                        <tr class="crp-click-row" data-groups-url="{{ debtor_url('/crp-master/' ~ crp.id ~ '/groups-data') }}">
+                            <td>{{ crp.id }}</td>
+                            <td class="crp-name-cell">{{ crp.crp_name }}</td>
+                            <td>{{ crp.group_count or 0 }}</td>
+                            {% if can_edit_crp_master %}
+                            <td>
+                                <button
+                                    type="button"
+                                    class="client-edit-btn master-action-btn crp-edit-btn"
+                                    title="Edit CRP"
+                                    aria-label="Edit CRP"
+                                    data-crp-id="{{ crp.id }}"
+                                    data-crp-name="{{ crp.crp_name }}"
+                                >✎</button>
+                            </td>
+                            <td>
+                                <form action="{{ debtor_url('/crp-master/delete') }}" method="POST" onsubmit="return confirm('Delete this CRP from master? Group and client records will not be deleted.');">
+                                    <input type="hidden" name="crp_id" value="{{ crp.id }}">
+                                    <button type="submit" class="client-edit-btn master-action-btn delete-btn" title="Delete CRP" aria-label="Delete CRP">Del</button>
+                                </form>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </main>
+        </div>
+    </div>
+
+    <div class="crp-groups-modal" id="crpGroupsModal" aria-hidden="true">
+        <div class="crp-groups-panel" role="dialog" aria-modal="true" aria-labelledby="crpGroupsTitle">
+            <div class="client-modal-header">
+                <h2 id="crpGroupsTitle">CRP Groups</h2>
+                <div class="crp-groups-header-actions">
+                    <a class="excel-icon-btn crp-groups-export" id="crpGroupsExport" href="#" title="Export CRP groups" aria-label="Export CRP groups">XLS</a>
+                    <button type="button" class="client-modal-close" id="crpGroupsClose" aria-label="Close">x</button>
+                </div>
+            </div>
+            <div class="crp-groups-summary" id="crpGroupsSummary"></div>
+            <div class="crp-groups-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Group Name</th>
+                            <th>CRP</th>
+                            <th>Referred By</th>
+                            <th>Clients</th>
+                        </tr>
+                    </thead>
+                    <tbody id="crpGroupsBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% if can_edit_crp_master %}
+    <div class="client-modal" id="crpEditModal" aria-hidden="true">
+        <div class="client-modal-panel crp-edit-panel" role="dialog" aria-modal="true" aria-labelledby="crpEditTitle">
+            <form action="{{ debtor_url('/crp-master/update') }}" method="POST" id="crpEditForm">
+                <div class="client-modal-header">
+                    <h2 id="crpEditTitle">Edit CRP</h2>
+                    <button type="button" class="client-modal-close" id="crpEditClose" aria-label="Close">x</button>
+                </div>
+                <input type="hidden" name="crp_id" id="editCrpId">
+                <div class="client-modal-grid crp-modal-grid">
+                    <label>
+                        CRP Name
+                        <input type="text" name="crp_name" id="editCrpName" required>
+                    </label>
+                </div>
+                <div class="client-modal-actions">
+                    <button type="button" class="secondary-btn" id="crpEditCancel">Cancel</button>
+                    <button type="submit" class="secondary-btn primary-btn">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script>
+        const crpQuickSearch = document.getElementById('crpQuickSearch');
+        const crpTable = document.getElementById('crpTable');
+        const crpAddRow = document.getElementById('crpAddRow');
+        const showCrpAddRow = document.getElementById('showCrpAddRow');
+        const hideCrpAddRow = document.getElementById('hideCrpAddRow');
+        const crpGroupsModal = document.getElementById('crpGroupsModal');
+        const crpGroupsTitle = document.getElementById('crpGroupsTitle');
+        const crpGroupsSummary = document.getElementById('crpGroupsSummary');
+        const crpGroupsBody = document.getElementById('crpGroupsBody');
+        const crpGroupsClose = document.getElementById('crpGroupsClose');
+        const crpGroupsExport = document.getElementById('crpGroupsExport');
+
+        if (showCrpAddRow && crpAddRow) {
+            showCrpAddRow.addEventListener('click', function() {
+                crpAddRow.hidden = false;
+                const firstInput = crpAddRow.querySelector('input');
+                if (firstInput) firstInput.focus();
+            });
+        }
+
+        if (hideCrpAddRow && crpAddRow) {
+            hideCrpAddRow.addEventListener('click', function() {
+                crpAddRow.hidden = true;
+            });
+        }
+
+        if (crpQuickSearch && crpTable) {
+            crpQuickSearch.addEventListener('input', function() {
+                const term = crpQuickSearch.value.trim().toLowerCase();
+                crpTable.querySelectorAll('tbody tr.crp-click-row').forEach(function(row) {
+                    row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+                });
+            });
+        }
+
+        function textCell(value) {
+            const td = document.createElement('td');
+            td.textContent = value || '';
+            return td;
+        }
+
+        function closeCrpGroupsModal() {
+            if (!crpGroupsModal) return;
+            crpGroupsModal.classList.remove('is-open');
+            crpGroupsModal.setAttribute('aria-hidden', 'true');
+        }
+
+        function openCrpGroupsModal(url) {
+            if (!url || !crpGroupsModal || !crpGroupsBody) return;
+            crpGroupsTitle.textContent = 'CRP Groups';
+            crpGroupsSummary.textContent = 'Loading...';
+            crpGroupsBody.innerHTML = '';
+            if (crpGroupsExport) {
+                crpGroupsExport.removeAttribute('href');
+                crpGroupsExport.classList.add('is-disabled');
+            }
+            crpGroupsModal.classList.add('is-open');
+            crpGroupsModal.setAttribute('aria-hidden', 'false');
+
+            fetch(url, { headers: { 'Accept': 'application/json' } })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Unable to load groups');
+                    return response.json();
+                })
+                .then(function(data) {
+                    const groups = data.groups || [];
+                    crpGroupsTitle.textContent = (data.crp_name || 'CRP') + ' Groups';
+                    crpGroupsSummary.textContent = groups.length + ' group(s)';
+                    if (crpGroupsExport && data.export_url) {
+                        crpGroupsExport.href = data.export_url;
+                        crpGroupsExport.classList.remove('is-disabled');
+                    }
+                    if (!groups.length) {
+                        const tr = document.createElement('tr');
+                        const td = document.createElement('td');
+                        td.colSpan = 5;
+                        td.textContent = 'No groups allocated to this CRP.';
+                        tr.appendChild(td);
+                        crpGroupsBody.appendChild(tr);
+                        return;
+                    }
+                    groups.forEach(function(group) {
+                        const tr = document.createElement('tr');
+                        tr.appendChild(textCell(group.id));
+                        tr.appendChild(textCell(group.group_name));
+                        tr.appendChild(textCell(group.crp_name));
+                        tr.appendChild(textCell(group.reffered_by));
+                        tr.appendChild(textCell(group.client_count));
+                        crpGroupsBody.appendChild(tr);
+                    });
+                })
+                .catch(function() {
+                    crpGroupsSummary.textContent = 'Unable to load groups.';
+                });
+        }
+
+        document.querySelectorAll('.crp-click-row').forEach(function(row) {
+            row.addEventListener('click', function(event) {
+                if (event.target.closest('button, form, input')) return;
+                openCrpGroupsModal(row.dataset.groupsUrl);
+            });
+        });
+
+        if (crpGroupsClose) crpGroupsClose.addEventListener('click', closeCrpGroupsModal);
+        if (crpGroupsModal) {
+            crpGroupsModal.addEventListener('click', function(event) {
+                if (event.target === crpGroupsModal) closeCrpGroupsModal();
+            });
+        }
+
+        {% if can_edit_crp_master %}
+        const crpEditModal = document.getElementById('crpEditModal');
+        const editCrpId = document.getElementById('editCrpId');
+        const editCrpName = document.getElementById('editCrpName');
+        const crpEditClose = document.getElementById('crpEditClose');
+        const crpEditCancel = document.getElementById('crpEditCancel');
+
+        function closeCrpEditModal() {
+            if (!crpEditModal) return;
+            crpEditModal.classList.remove('is-open');
+            crpEditModal.setAttribute('aria-hidden', 'true');
+        }
+
+        document.querySelectorAll('.crp-edit-btn').forEach(function(button) {
+            button.addEventListener('click', function() {
+                editCrpId.value = button.dataset.crpId || '';
+                editCrpName.value = button.dataset.crpName || '';
+                crpEditModal.classList.add('is-open');
+                crpEditModal.setAttribute('aria-hidden', 'false');
+                editCrpName.focus();
+            });
+        });
+
+        if (crpEditClose) crpEditClose.addEventListener('click', closeCrpEditModal);
+        if (crpEditCancel) crpEditCancel.addEventListener('click', closeCrpEditModal);
+        if (crpEditModal) {
+            crpEditModal.addEventListener('click', function(event) {
+                if (event.target === crpEditModal) closeCrpEditModal();
+            });
+        }
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') closeCrpEditModal();
+        });
+        {% endif %}
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') closeCrpGroupsModal();
+        });
+    </script>
+</body>
+</html>

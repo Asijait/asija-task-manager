@@ -1,0 +1,42 @@
+services:
+  web:
+    build: .
+    container_name: asija-app-web
+    ports:
+      - "5001:5001"
+    environment:
+      APP_DATABASE_URL: postgresql://postgres:postgres@db:5432/asijaapp?sslmode=disable
+      DEBTOR_DATABASE_URL: postgresql://postgres:postgres@db:5432/debtorapp?sslmode=disable
+      APP_SQLITE_PATH: /app/tasks.db
+      DEBTOR_SQLITE_PATH: /app/debtorapp/database.db
+    volumes:
+      - ./client_analytic:/app/client_analytic
+      - ./debtorapp/uploads:/app/debtorapp/uploads
+      - ./logs:/app/logs
+      - ./linksandothers:/app/linksandothers
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: asija-app-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: asijaapp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d asijaapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

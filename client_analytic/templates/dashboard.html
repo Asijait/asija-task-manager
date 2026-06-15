@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="client-dashboard-page" data-active-page="{{ active_page }}">
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <div class="report-card">
+            <div class="compact-page-header">
+                <h1>Client Analytic</h1>
+                <div class="compact-actions">
+                    <a href="{{ url_for('year_wise_report') }}" class="secondary-btn">Year Wise Report</a>
+                    <button type="button" class="secondary-btn">Refresh</button>
+                    <button type="button" class="secondary-btn excel-export-btn">XLS</button>
+                </div>
+            </div>
+
+            <div class="summary-container">
+                <div class="summary-item grand-total">
+                    <b>Total Clients | <span class="count">{{ summary.clients }}</span></b>
+                    <b>Amount: Rs {{ "{:,.2f}".format(summary.outstanding) }}</b>
+                </div>
+                <div class="summary-item">
+                    <b>Total Bills | <span class="count">{{ summary.bills }}</span></b>
+                    <b>Amount: Rs {{ "{:,.2f}".format(summary.received) }}</b>
+                </div>
+                <div class="summary-item">
+                    <b>Overdue Bills | <span class="count">{{ summary.overdue }}</span></b>
+                    <b>Amount: Rs {{ "{:,.2f}".format(summary.outstanding - summary.received) }}</b>
+                </div>
+            </div>
+
+            <main class="table-scroll">
+                <table id="clientAnalyticTable">
+                    <colgroup>
+                        <col class="col-client">
+                        <col class="col-group">
+                        <col class="col-category">
+                        <col class="col-crp">
+                        <col class="col-followup">
+                        <col class="col-count">
+                        <col class="col-amount">
+                        <col class="col-amount">
+                        <col class="col-count">
+                        <col class="col-date">
+                        <col class="col-status">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Client Name</th>
+                            <th>Group</th>
+                            <th>Category</th>
+                            <th>CRP</th>
+                            <th>Followup Partner</th>
+                            <th>Total Bills</th>
+                            <th>Outstanding</th>
+                            <th>Received</th>
+                            <th>Overdue Bills</th>
+                            <th>Last Activity</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr>
+                            <td>{{ row.client_name }}</td>
+                            <td>{{ row.client_group }}</td>
+                            <td>{{ row.category }}</td>
+                            <td>{{ row.crp }}</td>
+                            <td>{{ row.followup_partner }}</td>
+                            <td>{{ row.total_bills }}</td>
+                            <td class="amount">Rs {{ "{:,.2f}".format(row.outstanding) }}</td>
+                            <td class="amount">Rs {{ "{:,.2f}".format(row.received) }}</td>
+                            <td class="{{ 'status-red' if row.overdue_bills > 3 else 'status-green' }}">{{ row.overdue_bills }}</td>
+                            <td>{{ row.last_activity }}</td>
+                            <td><span class="status-pill status-{{ row.status | lower }}">{{ row.status }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </main>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+</body>
+</html>

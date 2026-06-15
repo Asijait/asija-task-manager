@@ -1,0 +1,37 @@
+<div class="top-nav" data-client-analytic-root="{{ client_analytic_url('/') }}">
+    <a href="/" class="nav-home-btn" title="Home Page" aria-label="Home Page">&#8962;</a>
+    <button type="button" class="nav-menu-btn" id="navMenuBtn" aria-controls="appSidebar" aria-expanded="false">
+        Menu
+    </button>
+    <nav class="top-nav-links" aria-label="Client analytic navigation">
+        <a href="{{ client_analytic_url('/') }}" class="nav-dashboard-btn {{ 'active' if active_page == 'client_dashboard' else '' }}" aria-label="Client Dashboard" data-tooltip="Client Dashboard">&#8962;</a>
+        <div class="nav-dropdown">
+            <button type="button" class="nav-dropdown-btn {{ 'active' if active_page in ['client_dashboard', 'client_summary', 'year_wise_report'] else '' }}" aria-expanded="false">Analytics</button>
+            <div class="nav-dropdown-menu">
+                <a href="{{ client_analytic_url('/') }}" class="{{ 'active' if active_page == 'client_dashboard' else '' }}">Client Dashboard</a>
+                <a href="{{ url_for('year_wise_report') }}" class="{{ 'active' if active_page == 'year_wise_report' else '' }}">Year Wise Report</a>
+            </div>
+        </div>
+        <div class="nav-dropdown">
+            <button type="button" class="nav-dropdown-btn" aria-expanded="false">Reports</button>
+            <div class="nav-dropdown-menu">
+                <a href="{{ client_analytic_url('/') }}">Outstanding Analysis</a>
+                <a href="{{ client_analytic_url('/') }}">Recovery Analysis</a>
+            </div>
+        </div>
+    </nav>
+    <div class="report-as-on-title"><span>{{ report_as_on_label }}</span></div>
+</div>
+
+<div class="sidebar-hover-zone" aria-hidden="true"></div>
+
+<aside class="sidebar" id="appSidebar" aria-label="Quick actions">
+    <div class="sidebar-header">Quick Actions</div>
+    <a href="/" class="sidebar-btn">Main Window</a>
+
+    <div class="sidebar-section-title">Client Analytic</div>
+    <a href="{{ client_analytic_url('/') }}" class="sidebar-btn {{ 'active' if active_page == 'client_dashboard' else '' }}">Dashboard</a>
+    <a href="{{ url_for('year_wise_report') }}" class="sidebar-btn {{ 'active' if active_page == 'year_wise_report' else '' }}">Year Wise Report</a>
+    <a href="{{ client_analytic_url('/') }}" class="sidebar-btn">Outstanding Analysis</a>
+    <a href="{{ client_analytic_url('/') }}" class="sidebar-btn">Recovery Analysis</a>
+</aside>

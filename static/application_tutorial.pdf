@@ -1,0 +1,605 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> /F2 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 5457 >>
+stream
+BT
+0.090 0.290 0.450 rg
+/F2 18 Tf
+1 0 0 1 42 790 Tm
+(Task Management System) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F2 12 Tf
+1 0 0 1 42 768 Tm
+(End-User Tutorial with Simple Page Snapshots) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 738 Tm
+(This guide is for daily users. It explains the front-end pages and buttons used for) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 723 Tm
+(normal work. It does not explain admin setup.) Tj
+ET
+q
+1.000 1.000 1.000 rg
+42 499 500 190 re f
+0.550 0.750 0.900 RG
+0.8 w
+42 499 500 190 re S
+Q
+q
+0.920 0.970 1.000 rg
+42 652 500 37 re f
+0.550 0.750 0.900 RG
+0.8 w
+42 652 500 37 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 11 Tf
+1 0 0 1 54 666 Tm
+(Welcome Page - Main Buttons) Tj
+ET
+q
+0.880 0.950 1.000 rg
+60 622 175 24 re f
+0.550 0.750 0.900 RG
+0.8 w
+60 622 175 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 68 630 Tm
+(1) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F1 8 Tf
+1 0 0 1 90 630 Tm
+(Today Work) Tj
+ET
+q
+1.000 1.000 1.000 rg
+60 591 175 24 re f
+0.550 0.750 0.900 RG
+0.8 w
+60 591 175 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 68 599 Tm
+(2) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F1 8 Tf
+1 0 0 1 90 599 Tm
+(Report Section) Tj
+ET
+q
+1.000 1.000 1.000 rg
+60 560 175 24 re f
+0.550 0.750 0.900 RG
+0.8 w
+60 560 175 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 68 568 Tm
+(3) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F1 8 Tf
+1 0 0 1 90 568 Tm
+(Task Master) Tj
+ET
+q
+1.000 1.000 1.000 rg
+60 529 175 24 re f
+0.550 0.750 0.900 RG
+0.8 w
+60 529 175 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 68 537 Tm
+(4) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F1 8 Tf
+1 0 0 1 90 537 Tm
+(Pending Approvals) Tj
+ET
+q
+1.000 1.000 1.000 rg
+60 498 175 24 re f
+0.550 0.750 0.900 RG
+0.8 w
+60 498 175 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 68 506 Tm
+(5) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F1 8 Tf
+1 0 0 1 90 506 Tm
+(Logs) Tj
+ET
+q
+1.000 1.000 1.000 rg
+272 542 245 88 re f
+0.700 0.820 0.920 RG
+0.8 w
+272 542 245 88 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 10 Tf
+1 0 0 1 290 608 Tm
+(Main welcome area) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 9 Tf
+1 0 0 1 290 588 Tm
+(Click Tutorial PDF to open this guide.) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 9 Tf
+1 0 0 1 290 570 Tm
+(Use sidebar buttons for daily work.) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F2 13 Tf
+1 0 0 1 42 476 Tm
+(1. Login and Welcome Page) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 451 Tm
+(Login with your email and password. After login, the welcome page shows the buttons) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 436 Tm
+(available to your user account. If a button is missing, you may not have access to that) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 421 Tm
+(page.) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F2 13 Tf
+1 0 0 1 42 398 Tm
+(2. What the Main Buttons Do) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 373 Tm
+(Today Work opens your daily task list. Report Section opens work reports. Task Master is) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 358 Tm
+(for creating or requesting task changes. Pending Approvals shows waiting requests. Logs) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 343 Tm
+(shows request history.) Tj
+ET
+q
+1.000 1.000 1.000 rg
+42 129 500 180 re f
+0.550 0.750 0.900 RG
+0.8 w
+42 129 500 180 re S
+Q
+q
+0.920 0.970 1.000 rg
+42 272 500 37 re f
+0.550 0.750 0.900 RG
+0.8 w
+42 272 500 37 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 11 Tf
+1 0 0 1 54 286 Tm
+(Today's Work - Daily Task Screen) Tj
+ET
+q
+1.000 1.000 1.000 rg
+60 242 130 26 re f
+0.700 0.820 0.920 RG
+0.8 w
+60 242 130 26 re S
+Q
+BT
+0.000 0.000 0.000 rg
+/F1 9 Tf
+1 0 0 1 70 251 Tm
+(Date) Tj
+ET
+q
+0.880 0.950 1.000 rg
+207 242 110 24 re f
+0.550 0.750 0.900 RG
+0.8 w
+207 242 110 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 215 250 Tm
+(Go) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F1 8 Tf
+1 0 0 1 237 250 Tm
+(Load Work) Tj
+ET
+q
+0.920 0.970 1.000 rg
+60 206 88 24 re f
+0.450 0.650 0.800 RG
+0.8 w
+60 206 88 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 67 215 Tm
+(Task Name) Tj
+ET
+q
+1.000 1.000 1.000 rg
+60 175 88 29 re f
+0.820 0.890 0.950 RG
+0.8 w
+60 175 88 29 re S
+Q
+q
+0.920 0.970 1.000 rg
+148 206 88 24 re f
+0.450 0.650 0.800 RG
+0.8 w
+148 206 88 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 155 215 Tm
+(Status) Tj
+ET
+q
+1.000 1.000 1.000 rg
+148 175 88 29 re f
+0.820 0.890 0.950 RG
+0.8 w
+148 175 88 29 re S
+Q
+q
+0.920 0.970 1.000 rg
+236 206 88 24 re f
+0.450 0.650 0.800 RG
+0.8 w
+236 206 88 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 243 215 Tm
+(Start) Tj
+ET
+q
+1.000 1.000 1.000 rg
+236 175 88 29 re f
+0.820 0.890 0.950 RG
+0.8 w
+236 175 88 29 re S
+Q
+q
+0.920 0.970 1.000 rg
+324 206 88 24 re f
+0.450 0.650 0.800 RG
+0.8 w
+324 206 88 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 331 215 Tm
+(End) Tj
+ET
+q
+1.000 1.000 1.000 rg
+324 175 88 29 re f
+0.820 0.890 0.950 RG
+0.8 w
+324 175 88 29 re S
+Q
+q
+0.920 0.970 1.000 rg
+412 206 88 24 re f
+0.450 0.650 0.800 RG
+0.8 w
+412 206 88 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 419 215 Tm
+(Remarks) Tj
+ET
+q
+1.000 1.000 1.000 rg
+412 175 88 29 re f
+0.820 0.890 0.950 RG
+0.8 w
+412 175 88 29 re S
+Q
+BT
+0.000 0.000 0.000 rg
+/F1 9 Tf
+1 0 0 1 60 150 Tm
+(Update status and remarks where your access allows.) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F2 13 Tf
+1 0 0 1 42 105 Tm
+(3. Today's Work) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 80 Tm
+(Select a date and load work. Review task rows and update status, start time, end time,) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 65 Tm
+(and remarks when allowed. View-only access means you can see the task but should not) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> /F2 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 2700 >>
+stream
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 790 Tm
+(edit or create work for that department/person.) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F2 13 Tf
+1 0 0 1 42 767 Tm
+(4. Task Master) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 742 Tm
+(Use Task Master only when you need to add a task or request a change. If approval is) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 727 Tm
+(required, your change will be sent as a request.) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F2 13 Tf
+1 0 0 1 42 704 Tm
+(5. Pending Approvals and Logs) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 679 Tm
+(Pending Approvals shows requests waiting for review. Logs shows whether your request is) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 664 Tm
+(pending, approved, or rejected.) Tj
+ET
+q
+1.000 1.000 1.000 rg
+42 490 500 140 re f
+0.550 0.750 0.900 RG
+0.8 w
+42 490 500 140 re S
+Q
+q
+0.920 0.970 1.000 rg
+42 593 500 37 re f
+0.550 0.750 0.900 RG
+0.8 w
+42 593 500 37 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 11 Tf
+1 0 0 1 54 607 Tm
+(Report Section - Filter Screen) Tj
+ET
+q
+1.000 1.000 1.000 rg
+60 563 110 24 re f
+0.550 0.750 0.900 RG
+0.8 w
+60 563 110 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 68 571 Tm
+(D1) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F1 8 Tf
+1 0 0 1 90 571 Tm
+(Start Date) Tj
+ET
+q
+1.000 1.000 1.000 rg
+180 563 110 24 re f
+0.550 0.750 0.900 RG
+0.8 w
+180 563 110 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 188 571 Tm
+(D2) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F1 8 Tf
+1 0 0 1 210 571 Tm
+(End Date) Tj
+ET
+q
+1.000 1.000 1.000 rg
+300 563 130 24 re f
+0.550 0.750 0.900 RG
+0.8 w
+300 563 130 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 308 571 Tm
+(F) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F1 8 Tf
+1 0 0 1 330 571 Tm
+(Status Filter) Tj
+ET
+q
+0.880 0.950 1.000 rg
+440 563 90 24 re f
+0.550 0.750 0.900 RG
+0.8 w
+440 563 90 24 re S
+Q
+BT
+0.090 0.290 0.450 rg
+/F2 8 Tf
+1 0 0 1 448 571 Tm
+(Go) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F1 8 Tf
+1 0 0 1 470 571 Tm
+(View) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 9 Tf
+1 0 0 1 60 529 Tm
+(Select date range and status, then view the report.) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F2 13 Tf
+1 0 0 1 42 466 Tm
+(6. Report Section) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 441 Tm
+(Choose start date, end date, and status filter, then view the report. Use this page to) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 426 Tm
+(check due, WIP, completed, and final approved work.) Tj
+ET
+BT
+0.090 0.290 0.450 rg
+/F2 13 Tf
+1 0 0 1 42 403 Tm
+(7. Best Daily Practice) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 378 Tm
+(Start from Today Work, update each task status honestly, write useful remarks, and use) Tj
+ET
+BT
+0.000 0.000 0.000 rg
+/F1 10 Tf
+1 0 0 1 42 363 Tm
+(Logs to check raised requests.) Tj
+ET
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000121 00000 n 
+0000000360 00000 n 
+0000005869 00000 n 
+0000006108 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+8860
+%%EOF

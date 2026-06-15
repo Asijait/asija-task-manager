@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debtor Navbar Access</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='navbar_access.css') }}">
+</head>
+<body>
+    {% set active_page = 'control_panel' %}
+    {% include 'navbar.html' %}
+
+    <main class="navbar-access-page">
+        <section class="navbar-access-card">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <header class="navbar-access-header">
+                <div>
+                    <h1>Debtor Navbar Access</h1>
+                    <p>Set Hide, View, or Full Access for each page and option.</p>
+                </div>
+                <a href="{{ debtor_url('/control-panel') }}" class="access-back-btn">Control Panel</a>
+            </header>
+
+            <form action="{{ debtor_url('/control-panel/navbar-access/update') }}" method="POST">
+                <div class="access-table-wrap">
+                    <table class="access-table">
+                        <thead>
+                            <tr>
+                                <th>User Name</th>
+                                <th>Option / Page</th>
+                                <th>Hide</th>
+                                <th>View</th>
+                                <th>Full Access</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                                {% for item in access_items %}
+                                    {% set has_view = item.view_key and item.view_key in user.access_keys %}
+                                    {% set has_full = item.full_key and item.full_key in user.access_keys %}
+                                    {% set mode = 'full' if has_full else ('view' if has_view else 'hide') %}
+                                    <tr>
+                                        {% if loop.first %}
+                                        <td class="user-cell" rowspan="{{ access_items|length }}">
+                                            <strong>{{ user.email }}</strong>
+                                            {% if user.is_arif %}
+                                            <small>Full access locked</small>
+                                            {% endif %}
+                                            {% if not user.has_debtor_report %}
+                                            <small class="access-warning">Main Debtor Report access not assigned.</small>
+                                            {% endif %}
+                                        </td>
+                                        {% endif %}
+                                        <td class="option-cell">
+                                            <span>{{ item.group }}</span>
+                                            {{ item.label }}
+                                        </td>
+                                        <td class="radio-cell">
+                                            <input type="radio" name="access_{{ user.id }}_{{ item.id }}" value="hide" {% if mode == 'hide' %}checked{% endif %} {% if user.is_arif %}disabled{% endif %}>
+                                        </td>
+                                        <td class="radio-cell">
+                                            <input type="radio" name="access_{{ user.id }}_{{ item.id }}" value="view" {% if mode == 'view' %}checked{% endif %} {% if not item.view_key or user.is_arif %}disabled{% endif %}>
+                                        </td>
+                                        <td class="radio-cell">
+                                            <input type="radio" name="access_{{ user.id }}_{{ item.id }}" value="full" {% if mode == 'full' %}checked{% endif %} {% if user.is_arif %}disabled{% endif %}>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="access-actions">
+                    <button type="submit">Save Access</button>
+                </div>
+            </form>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+</body>
+</html>

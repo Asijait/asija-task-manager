@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Executive Partner Master</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='client_master.css') }}">
+</head>
+<body>
+    {% set active_page = 'executive_partner' %}
+    {% set can_edit_executive_partner_master = 'executive_partner_master_edit' in debtor_nav_access %}
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <div class="report-card">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <header>
+                <h1>Executive Partner Master</h1>
+                <p class="subtitle">Store executive partner names</p>
+            </header>
+
+            {% if can_edit_executive_partner_master %}
+            <section class="client-form-section">
+                <form action="{{ debtor_url('/executive-partner-master/add') }}" method="POST" class="client-form">
+                    <div class="form-group">
+                        <input type="text" name="partner_name" placeholder="Input" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" name="final_ep" placeholder="Final EP">
+                    </div>
+                    <button type="submit" class="submit-btn">Add Partner</button>
+                </form>
+            </section>
+            {% endif %}
+
+            <main class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Input</th>
+                            <th>Final EP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for partner in partners %}
+                        <tr>
+                            <td>{{ partner.id }}</td>
+                            <td>{{ partner.partner_name }}</td>
+                            <td>{{ partner.final_ep or '' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </main>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client_master.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,386 @@
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: #174a73;
+    color: #2c3e50;
+    font-family: "Segoe UI", sans-serif;
+}
+
+.tally-page {
+    padding: calc(var(--nav-content-offset, 64px) + 8px) 12px 16px;
+    box-sizing: border-box;
+    transition: padding-top 0.22s ease;
+}
+
+.tally-panel {
+    width: 100%;
+    min-height: calc(100vh - 88px);
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+    padding: 14px;
+    box-sizing: border-box;
+}
+
+.tally-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.tally-header h1 {
+    margin: 0 0 4px;
+    color: #34495e;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 24px;
+}
+
+.tally-header p {
+    margin: 0;
+    color: #5d6d76;
+    font-size: 13px;
+}
+
+.trial-badge {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    border-radius: 4px;
+    background: #fff4d8;
+    border: 1px solid #f1c76b;
+    color: #7a5600;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tally-controls {
+    display: flex;
+    align-items: end;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.tally-controls label {
+    display: grid;
+    gap: 5px;
+    min-width: 190px;
+    color: #34495e;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tally-controls input {
+    height: 34px;
+    padding: 6px 9px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.tally-controls button {
+    min-height: 34px;
+    padding: 7px 14px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    background: #ecf0f1;
+    color: #2c3e50;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.tally-controls button[type="submit"] {
+    background: #34495e;
+    border-color: #34495e;
+    color: #ffffff;
+}
+
+.receipt-file-import {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.receipt-file-import button {
+    min-height: 34px;
+    padding: 7px 14px;
+    border: 1px solid #235f9c;
+    border-radius: 4px;
+    background: #235f9c;
+    color: #ffffff;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.receipt-file-import span {
+    color: #5d6d76;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.tally-import-summary-form {
+    display: flex;
+    align-items: end;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 0 0 10px;
+    padding: 10px;
+    border: 1px solid #d8e1e7;
+    border-radius: 6px;
+    background: #f7fafc;
+}
+
+.tally-import-summary-form label {
+    display: grid;
+    gap: 5px;
+    min-width: 160px;
+    color: #34495e;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tally-import-summary-form input {
+    height: 32px;
+    padding: 6px 9px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.tally-import-summary-form button {
+    min-height: 32px;
+    padding: 7px 14px;
+    border: 1px solid #235f9c;
+    border-radius: 4px;
+    background: #235f9c;
+    color: #ffffff;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.tally-import-summary-form span {
+    color: #5d6d76;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.tally-summary-panel {
+    margin: 0 0 10px;
+    border: 1px solid #d8e1e7;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.tally-summary-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 8px 10px;
+    background: #eef4f8;
+    color: #34495e;
+    font-size: 13px;
+}
+
+.tally-summary-table-wrap {
+    overflow-x: auto;
+}
+
+.tally-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.tally-summary-table th,
+.tally-summary-table td {
+    padding: 7px 8px;
+    border: 1px solid #d8e1e7;
+    text-align: left;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12px;
+}
+
+.tally-summary-table th {
+    background: #34495e;
+    color: #ffffff;
+}
+
+.tally-detail-head {
+    border-top: 1px solid #d8e1e7;
+}
+
+.tally-detail-head span {
+    color: #5d6d76;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tally-detail-wrap {
+    max-height: 320px;
+    overflow: auto;
+}
+
+.tally-detail-table {
+    min-width: 1280px;
+}
+
+.tally-flashes {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.tally-flash {
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.tally-flash.is-success {
+    background: #eaf7ef;
+    color: #1f7a4d;
+}
+
+.tally-flash.is-error {
+    background: #fdecea;
+    color: #a93226;
+}
+
+#postTallyReceipts {
+    background: #1f7a4d;
+    border-color: #1f7a4d;
+    color: #ffffff;
+}
+
+#postTallyReceipts:disabled {
+    background: #cfd8dc;
+    border-color: #cfd8dc;
+    color: #607d8b;
+    cursor: not-allowed;
+}
+
+.tally-status {
+    margin: 8px 0;
+    padding: 8px 10px;
+    border-radius: 4px;
+    background: #eef4f8;
+    color: #34495e;
+    font-size: 13px;
+}
+
+.tally-status.is-error {
+    background: #fdecea;
+    color: #a93226;
+}
+
+.tally-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.tally-meta span {
+    padding: 5px 8px;
+    border-radius: 4px;
+    background: #f1f4f6;
+    border: 1px solid #cfd8dc;
+    font-size: 12px;
+}
+
+.tally-table-wrap {
+    max-height: calc(100vh - 225px);
+    overflow: auto;
+    border: 1px solid #b7c4cc;
+}
+
+.tally-table {
+    width: 100%;
+    min-width: 1040px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.tally-table th {
+    position: sticky;
+    top: 0;
+    background: #34495e;
+    color: #ffffff;
+    padding: 7px;
+    border: 1px solid #b7c4cc;
+    text-align: left;
+    font-family: "Times New Roman", Times, serif;
+}
+
+.tally-table td {
+    padding: 6px 7px;
+    border: 1px solid #cfd8dc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12px;
+}
+
+.amount-cell {
+    text-align: right;
+}
+
+.ready-row {
+    background: #f3fbf6;
+}
+
+.blocked-row {
+    background: #fffafa;
+}
+
+.already-posted-row {
+    background: #f4fff7;
+    color: #3fa85a;
+}
+
+.status-ready {
+    color: #1f7a4d;
+    font-weight: 700;
+}
+
+.status-already-posted {
+    color: #3fa85a;
+    font-weight: 700;
+}
+
+.status-blocked {
+    color: #a93226;
+    font-weight: 700;
+}
+
+.empty-row td {
+    text-align: center;
+    color: #5d6d76;
+    padding: 18px;
+}
+
+@media (max-width: 768px) {
+    .tally-page {
+        padding: var(--nav-content-offset, 18px) 8px 10px;
+    }
+
+    .tally-header {
+        flex-direction: column;
+    }
+
+    .tally-controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .tally-controls label,
+    .tally-controls button,
+    .receipt-file-import button {
+        width: 100%;
+    }
+}

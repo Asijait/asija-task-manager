@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='overdue_report.css') }}">
+</head>
+<body class="overdue-report-page" data-active-page="overdue_report">
+    {% include 'navbar.html' %}
+
+    <main class="overdue-shell">
+        <section class="overdue-header">
+            <div>
+                <h1>Overdue Amount Report</h1>
+                <p>{{ rows | length }} bills | Rs {{ total_amount | indian_currency(decimals=False) }}</p>
+            </div>
+            <div class="overdue-actions">
+                <button type="button" id="clearTableFiltersBtn">Clear Filters</button>
+                <a href="{{ debtor_url('/report') }}">Main Report</a>
+                <a href="{{ debtor_url('/download/overdue-report-excel') }}" class="excel-export-btn" data-current-export-url="{{ debtor_url('/download/current-overdue-report-excel') }}">Excel Export</a>
+            </div>
+        </section>
+
+        <section class="overdue-card">
+            <div class="table-wrap">
+                <table class="overdue-table" id="reportTable">
+                    <thead>
+                        <tr>
+                            <th>Bill Date</th>
+                            <th>Firm</th>
+                            <th>Bill No</th>
+                            <th>Entity</th>
+                            <th>Amount</th>
+                            <th>Due Date</th>
+                            <th>Over Due</th>
+                            <th>Group</th>
+                            <th>Followup Partner</th>
+                            <th>EP</th>
+                            <th>CRP</th>
+                            <th>Category</th>
+                            <th>F.Y.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr data-row-id="{{ row.id }}">
+                            <td>{{ row.bill_date_display }}</td>
+                            <td>{{ row.short_name }}</td>
+                            <td class="bill-no-cell">
+                                <span class="bill-no-text">{{ row.ref_no }}</span>
+                                {% if (row.import_batch_id or '').startswith('cheque_bounce_') %}
+                                <span class="cheque-bounce-note">Re-added Due to Cheque Bounced</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ row.party_name }}</td>
+                            <td class="amount">Rs {{ row.amount_display }}</td>
+                            <td>{{ row.due_date_display }}</td>
+                            <td class="overdue-days">{{ row.overdue_days }}</td>
+                            <td>{{ row.client_group }}</td>
+                            <td>{{ row.followup_partner }}</td>
+                            <td>{{ row.final_ep }}</td>
+                            <td>{{ row.crp_of_group }}</td>
+                            <td>{{ row.client_category }}</td>
+                            <td>{{ row.financial_year }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="13" class="empty-state">No overdue bills found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

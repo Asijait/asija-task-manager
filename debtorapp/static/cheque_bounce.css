@@ -1,0 +1,109 @@
+body {
+    font-family: "Segoe UI", sans-serif;
+    background: #174a73;
+    margin: 0;
+    min-height: 100vh;
+}
+
+.container {
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--nav-content-offset, 18px) 10px 10px;
+}
+
+.report-card {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+}
+
+.flash-message {
+    margin: 0 0 8px;
+    padding: 8px 10px;
+    border: 1px solid #b8d7c3;
+    border-radius: 4px;
+    background: #e8f6ed;
+    color: #1f5c35;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.page-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.page-heading h1 {
+    color: #34495e;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 24px;
+    margin: 0;
+}
+
+.secondary-btn {
+    display: inline-block;
+    padding: 7px 14px;
+    background-color: #ecf0f1;
+    color: #2c3e50;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.secondary-btn:hover {
+    background-color: #bdc3c7;
+}
+
+.table-scroll {
+    overflow: auto;
+    max-height: calc(100vh - 150px);
+    border: 1px solid #d8e0e6;
+}
+
+.cheque-bounce-table {
+    width: 100%;
+    min-width: 1500px;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.cheque-bounce-table th,
+.cheque-bounce-table td {
+    border: 1px solid #d8e0e6;
+    padding: 6px 8px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.cheque-bounce-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #34495e;
+    color: #ffffff;
+}
+
+.cheque-bounce-table tbody tr:nth-child(even) {
+    background: #f7fafc;
+}
+
+.cheque-bounce-table tbody tr.is-highlighted {
+    background: #fff3cd;
+}
+
+.amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.empty-state {
+    text-align: center;
+    color: #6b7a89;
+    padding: 18px;
+}

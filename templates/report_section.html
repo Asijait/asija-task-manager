@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Section</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Layout with Sidebar */
+        .page-wrapper { display: flex; flex: 1; overflow: hidden; }
+        
+        .report-sidebar {
+            width: 280px;
+            background: #eaf5ff;
+            border-right: 1px solid #e1e4e8;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.02);
+        }
+
+        .sidebar-title { color: #174a73; font-size: 1.1rem; font-weight: normal; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+
+        .btn-sidebar {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #ddd;
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            font-weight: normal;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-sidebar:hover { background: #9fd0ff; color: #123a5a; border-color: #9fd0ff; }
+        .btn-sidebar.active { background: #9fd0ff; color: #123a5a; box-shadow: 0 4px 10px rgba(31, 95, 147, 0.18); }
+
+        .main-report-area { flex: 1; padding: 30px; overflow-y: auto; }
+        
+        .report-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #888;
+            text-align: center;
+        }
+
+        .report-card { background: #eaf5ff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); display: none; }
+        .report-card.visible { display: block; animation: fadeIn 0.4s ease; }
+
+        /* Monthly Grid Styles */
+        .summary-scroll-container { width: 100%; overflow-x: auto; margin-top: 20px; border: 1px solid #eee; border-radius: 8px; }
+        .summary-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        .summary-table th, .summary-table td { border: 1px solid #eee; padding: 8px 6px; text-align: center; }
+        .summary-table th:first-child, .summary-table td:first-child { 
+            position: sticky; left: 0; background: #eaf5ff; z-index: 10; min-width: 120px; text-align: left; padding-left: 15px; font-weight: normal; 
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+        }
+
+        /* Enhanced styling for the Remark column */
+        .remark-col-header { text-align: left !important; padding-left: 15px !important; }
+        .remark-cell { 
+            text-align: left !important; 
+            padding-left: 15px !important; 
+            color: #64748b; 
+            font-style: italic;
+            max-width: 250px;
+            white-space: normal;
+            word-wrap: break-word;
+        }
+
+        .day-col { min-width: 40px; padding: 8px 10px !important; }
+        
+        /* Monthly Summary Icons */
+        .status-icon { font-size: 1.2rem; font-weight: bold; line-height: 1; display: inline-block; vertical-align: middle; }
+        .icon-completed { color: #4ade80; } /* Light Green */
+        .icon-approved { color: #4ade80; }  /* Light Green (Same as completed) */
+        .icon-wip { color: #facc15; }       /* Yellow */
+        .icon-due { color: #cbd5e1; }       /* Light Gray */
+        .icon-overdue { color: #ef4444; }   /* Red */
+
+        .report-legend { display: flex; gap: 20px; margin-bottom: 15px; padding: 10px; background: #f8fafc; border-radius: 8px; font-size: 0.85rem; color: #475569; border: 1px solid #e2e8f0; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+
+        /* Maximized View (Browser Window Full) */
+        .maximized-view {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 2000 !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            padding: 30px !important;
+            overflow-y: auto;
+        }
+
+        /* Status Text Styles */
+        .status-text { font-size: 0.65rem; font-weight: bold; text-transform: uppercase; white-space: nowrap; }
+        .text-due { color: #94a3b8; }
+        .text-wip { color: #d97706; }
+        .text-completed { color: #16a34a; }
+        .text-final { color: #9fd0ff; }
+        .text-future { color: #cbd5e1; }
+        .text-overdue { color: #dc2626; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="nav-brand">Task Manager</div>
+            <nav class="nav-links">
+                <span class="user-status-text">User: {{ session.get('user_email', 'Unknown') }}</span>
+                <a href="/" class="nav-btn">🏠 Home</a>
+                <a href="/work-master" class="nav-btn">⚙️ Task Master</a>
+                <a href="/today-work" class="nav-btn">📅 Today's Work</a>
+                <a href="/daily-debtor-report" class="nav-btn" target="_blank" rel="noopener">Debtor Report</a>
+                <a href="/report-section" class="nav-btn active">📊 Report Section</a>
+                <a href="/control-panel" class="nav-btn">🛠️ Control Panel</a>
+                <button class="nav-btn nav-logout" onclick="handleLogout()" style="background: #dc2626; border: none; cursor: pointer;">🚪 Logout</button>
+            </nav>
+        </div>
+    </header>
+
+    <div class="page-wrapper">
+        <aside class="report-sidebar">
+            <div class="sidebar-title">Reports Menu</div>
+            <button id="monthlySummaryBtn" class="btn-sidebar" onclick="toggleMonthlySummary()">📅 Datewise Monthly Summary</button>
+            <button id="compactMonthlySummaryBtn" class="btn-sidebar" onclick="toggleCompactMonthlySummary()">📋 Monthly Summary</button>
+            <button id="detailedReportBtn" class="btn-sidebar" onclick="toggleDetailedReport()">📑 Detailed Report</button>
+            <button id="pendingWorksBtn" class="btn-sidebar" onclick="togglePendingWorksReport()">Pending Works</button>
+            <button id="lateCompletionBtn" class="btn-sidebar" onclick="toggleLateCompletionReport()">🕒 Late Completion Report</button>
+            <button id="clientYearWiseBtn" class="btn-sidebar" onclick="toggleClientYearWiseReport()">Client Year Wise Report</button>
+        </aside>
+
+        <main class="main-report-area" id="mainContent">
+            <div id="placeholder" class="report-placeholder">
+                <h2>Report Section</h2>
+                <p>Please select a report from the sidebar to view data.</p>
+            </div>
+
+            <!-- Detailed Report Section -->
+            <div id="detailedReportArea" class="report-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <h1 style="margin: 0; font-size: 1.4rem;">Detailed Report</h1>
+                    <div class="report-controls" style="display: flex; gap: 8px; align-items: center; background: #f8fafc; padding: 5px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <label style="font-size: 0.8rem; font-weight: normal; color: #475569;">From:</label>
+                        <input type="date" id="reportStart" style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                        <label style="font-size: 0.8rem; font-weight: normal; color: #475569;">To:</label>
+                        <input type="date" id="reportEnd" style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                        <button class="btn btn-add" style="margin: 0; padding: 5px 15px; font-size: 0.8rem; font-weight: normal;" onclick="generateDetailedReport()">Generate</button>
+                        <button class="btn" style="margin: 0; padding: 5px 15px; font-size: 0.8rem; font-weight: normal; background: #9fd0ff; color: #123a5a; border: none; border-radius: 5px;" onclick="exportDetailedToExcel()">📥 Export</button>
+                    </div>
+                </div>
+                <div id="reportResults" class="summary-scroll-container" style="margin-top: 0;">
+                    <p style="color: #666; font-style: italic;">Click generate to view the report.</p>
+                </div>
+            </div>
+
+            <!-- Pending Works Report Section -->
+            <div id="pendingWorksArea" class="report-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <h1 style="margin: 0; font-size: 1.4rem;">Pending Works List</h1>
+                    <div class="report-controls" style="display: flex; gap: 8px; align-items: center; background: #f8fafc; padding: 5px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <label style="font-size: 0.8rem; font-weight: normal; color: #475569;">From:</label>
+                        <input type="date" id="pendingStart" style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                        <label style="font-size: 0.8rem; font-weight: normal; color: #475569;">To:</label>
+                        <input type="date" id="pendingEnd" style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                        <button class="btn btn-add" style="margin: 0; padding: 5px 15px; font-size: 0.8rem; font-weight: normal;" onclick="generatePendingWorksReport()">Generate</button>
+                        <button class="btn" style="margin: 0; padding: 5px 15px; font-size: 0.8rem; font-weight: normal; background: #9fd0ff; color: #123a5a; border: none; border-radius: 5px;" onclick="exportPendingWorksToExcel()">Export</button>
+                    </div>
+                </div>
+                <p style="color:#64748b; margin-top:0;">Daily/ongoing work is shown once per task. Weekly and other scheduled work is shown for every pending target date in the selected range.</p>
+                <div id="pendingWorksResults" class="summary-scroll-container" style="margin-top: 0;">
+                    <p style="color: #666; font-style: italic;">Click generate to view pending works.</p>
+                </div>
+            </div>
+
+            <!-- Late Completion Report Section -->
+            <div id="lateCompletionArea" class="report-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <h1 style="margin: 0; font-size: 1.4rem;">Late Completion Report</h1>
+                    <div class="report-controls" style="display: flex; gap: 8px; align-items: center; background: #f8fafc; padding: 5px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <label style="font-size: 0.8rem; font-weight: normal; color: #475569;">From:</label>
+                        <input type="date" id="lateStart" style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                        <label style="font-size: 0.8rem; font-weight: normal; color: #475569;">To:</label>
+                        <input type="date" id="lateEnd" style="padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.8rem;">
+                        <button class="btn btn-add" style="margin: 0; padding: 5px 15px; font-size: 0.8rem; font-weight: normal;" onclick="generateLateCompletionReport()">Generate</button>
+                        <button class="btn" style="margin: 0; padding: 5px 15px; font-size: 0.8rem; font-weight: normal; background: #9fd0ff; color: #123a5a; border: none; border-radius: 5px;" onclick="exportLateToExcel()">📥 Export</button>
+                    </div>
+                </div>
+                <div id="lateResults" class="summary-scroll-container" style="margin-top: 0;">
+                    <p style="color: #666; font-style: italic;">Click generate to see tasks completed after their target date.</p>
+                </div>
+            </div>
+
+            <!-- Monthly Summary Section -->
+            <div id="monthlySummaryArea" class="report-card">
+                <h1>Datewise Monthly Summary Grid</h1>
+                <p>Day-wise status overview for all tasks in the selected month.</p>
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+                
+                <div class="report-legend">
+                    <div class="legend-item"><span class="status-icon icon-due">🕒</span> Due</div>
+                    <div class="legend-item"><span class="status-icon icon-overdue">⚠</span> Overdue</div>
+                    <div class="legend-item"><span class="status-icon icon-wip">⚙</span> WIP</div>
+                    <div class="legend-item"><span class="status-icon icon-completed">✓</span> Completed</div>
+                    <div class="legend-item"><span class="status-icon icon-approved">✓</span> Approved</div>
+                    <div class="legend-item"><span>-</span> Not Scheduled</div>
+                </div>
+                
+                <div class="report-controls">
+                    <div class="form-group">
+                        <label>Select Month</label>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <input type="month" id="summaryMonth" class="form-control" style="padding: 8px; border-radius: 5px; border: 1px solid #ddd;">
+                            <button class="btn btn-add" style="margin: 0; padding: 8px 20px;" onclick="generateMonthlySummary()">View Summary</button>
+                            <button id="toggleDisplayBtn" class="btn" style="margin: 0; background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: 500;" onclick="toggleStatusDisplay()">🔀 Show Text</button>
+                            <button class="btn" style="margin: 0; background: #9fd0ff; color: #123a5a; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: 500;" onclick="exportMonthlyToExcel()">📥 Export</button>
+                            <button class="btn" style="margin: 0; background: #9fd0ff; color: #123a5a; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: 500;" onclick="toggleFullScreen()">⛶ Full Screen</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="summaryResults" class="summary-scroll-container">
+                    <!-- Grid Table will be injected here -->
+                </div>
+            </div>
+
+            <!-- Compact Monthly Summary Section -->
+            <div id="compactMonthlySummaryArea" class="report-card">
+                <h1>Monthly Summary</h1>
+                <p>Task-wise status count for the selected month.</p>
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+
+                <div class="report-controls">
+                    <div class="form-group">
+                        <label>Select Month</label>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <input type="month" id="compactSummaryMonth" class="form-control" style="padding: 8px; border-radius: 5px; border: 1px solid #ddd;">
+                            <button class="btn btn-add" style="margin: 0; padding: 8px 20px;" onclick="generateCompactMonthlySummary()">View Summary</button>
+                            <button class="btn" style="margin: 0; background: #9fd0ff; color: #123a5a; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: 500;" onclick="exportCompactMonthlyToExcel()">📥 Export</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="compactSummaryResults" class="summary-scroll-container">
+                    <!-- Compact monthly summary will be injected here -->
+                </div>
+            </div>
+            <div id="clientYearWiseArea" class="report-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <h1 style="margin: 0; font-size: 1.4rem;">Client Year Wise Report</h1>
+                    <a href="/client-analytic/year-wise-report" target="_blank" rel="noopener" class="btn" style="margin: 0; background: #9fd0ff; color: #123a5a; border: none; padding: 8px 15px; border-radius: 5px; text-decoration:none;">Open Full Page</a>
+                </div>
+                <iframe title="Client Year Wise Report" src="/client-analytic/year-wise-report" style="width:100%; min-height: calc(100vh - 210px); border:1px solid #cbd5e1; border-radius:8px; background:#ffffff;"></iframe>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        let summaryDisplayMode = 'dot';
+        let currentDetailedData = [];
+        let currentLateData = [];
+        let currentPendingWorksData = [];
+        let currentMonthlyData = null;
+        let currentMonthlyAssignees = {};
+        let currentMonthlyMeta = {};
+        let currentCompactMonthlyRows = [];
+        let currentCompactMonthlyMeta = {};
+
+        function hideAllReports() {
+            document.getElementById('placeholder').style.display = 'none';
+            document.getElementById('detailedReportArea').classList.remove('visible');
+            document.getElementById('pendingWorksArea').classList.remove('visible');
+            document.getElementById('lateCompletionArea').classList.remove('visible');
+            document.getElementById('monthlySummaryArea').classList.remove('visible');
+            document.getElementById('compactMonthlySummaryArea').classList.remove('visible');
+            document.getElementById('clientYearWiseArea').classList.remove('visible');
+            document.getElementById('detailedReportBtn').classList.remove('active');
+            document.getElementById('pendingWorksBtn').classList.remove('active');
+            document.getElementById('lateCompletionBtn').classList.remove('active');
+            document.getElementById('monthlySummaryBtn').classList.remove('active');
+            document.getElementById('compactMonthlySummaryBtn').classList.remove('active');
+            document.getElementById('clientYearWiseBtn').classList.remove('active');
+        }
+
+        function toggleDetailedReport() {
+            hideAllReports();
+            document.getElementById('detailedReportArea').classList.add('visible');
+            document.getElementById('detailedReportBtn').classList.add('active');
+            showNotification('Opening Detailed Report...', 'info');
+        }
+
+        function toggleLateCompletionReport() {
+            hideAllReports();
+            document.getElementById('lateCompletionArea').classList.add('visible');
+            document.getElementById('lateCompletionBtn').classList.add('active');
+            showNotification('Opening Late Completion Report...', 'info');
+        }
+
+        function togglePendingWorksReport() {
+            hideAllReports();
+            document.getElementById('pendingWorksArea').classList.add('visible');
+            document.getElementById('pendingWorksBtn').classList.add('active');
+            showNotification('Opening Pending Works List...', 'info');
+        }
+
+        function toggleMonthlySummary() {
+            hideAllReports();
+            document.getElementById('monthlySummaryArea').classList.add('visible');
+            document.getElementById('monthlySummaryBtn').classList.add('active');
+            showNotification('Opening Datewise Monthly Summary...', 'info');
+        }
+
+        function toggleCompactMonthlySummary() {
+            hideAllReports();
+            document.getElementById('compactMonthlySummaryArea').classList.add('visible');
+            document.getElementById('compactMonthlySummaryBtn').classList.add('active');
+            showNotification('Opening Monthly Summary...', 'info');
+        }
+
+        function toggleClientYearWiseReport() {
+            hideAllReports();
+            document.getElementById('clientYearWiseArea').classList.add('visible');
+            document.getElementById('clientYearWiseBtn').classList.add('active');
+            showNotification('Opening Client Year Wise Report...', 'info');
+        }
+
+        function toggleStatusDisplay() {
+            summaryDisplayMode = (summaryDisplayMode === 'dot') ? 'text' : 'dot';
+            const btn = document.getElementById('toggleDisplayBtn');
+            btn.innerText = summaryDisplayMode === 'dot' ? '🔀 Show Text' : '🔀 Show Dots';
+            generateMonthlySummary();
+        }
+
+        function toggleFullScreen() {
+            const elem = document.getElementById('monthlySummaryArea');
+            elem.classList.toggle('maximized-view');
+        }
+
+        async function generateDetailedReport() {
+            const start = document.getElementById('reportStart').value;
+            const end = document.getElementById('reportEnd').value;
+            
+            if (!start || !end) return alert('Please select both start and end dates');
+
+            const resultsDiv = document.getElementById('reportResults');
+            resultsDiv.innerHTML = '<p style="padding: 20px;">Generating report...</p>';
+
+            try {
+                const response = await fetch(`/api/reports/status?status=All&start_date=${start}&end_date=${end}`);
+                const data = await response.json();
+                currentDetailedData = data;
+
+                if (data.length === 0) {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px; border: 1px solid #eee; border-radius: 8px;">No records found for this period.</p>';
+                    return;
+                }
+
+                let tableHtml = `<table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Work Name</th>
+                            <th>Assignee</th>
+                            <th>Target Date</th>
+                            <th>Actual Start</th>
+                            <th>Actual End</th>
+                            <th>Status</th>
+                            <th class="remark-col-header">Remark</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                data.forEach(item => {
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    const scheduledDate = new Date(item.scheduled_date + 'T00:00:00');
+                    scheduledDate.setHours(0,0,0,0);
+
+                    let effectiveStatus = item.status;
+                    let statusClass = 'text-due';
+
+                    if (item.status === 'Due') {
+                        if (scheduledDate > today) {
+                            effectiveStatus = 'No Due';
+                            statusClass = 'text-future';
+                        } else {
+                            const diffTime = today - scheduledDate;
+                            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                            if (diffDays > 7) {
+                                effectiveStatus = 'Overdue';
+                                statusClass = 'text-overdue';
+                            }
+                        }
+                    } else if (item.status === 'WIP') {
+                        statusClass = 'text-wip';
+                    } else if (item.status === 'completed') {
+                        effectiveStatus = 'Completed';
+                        statusClass = 'text-completed';
+                    } else if (item.status === 'final and approved') {
+                        effectiveStatus = 'Final & Approved';
+                        statusClass = 'text-final';
+                    }
+
+                    tableHtml += `
+                        <tr>
+                            <td style="text-align:left; padding-left:15px;">${escapeHtml(item.work_name)}</td>
+                            <td>${escapeHtml(item.assignee_name || 'N/A')}</td>
+                            <td>${formatDate(item.scheduled_date)}</td>
+                            <td>${item.actual_start || '-'}</td>
+                            <td>${item.actual_end || '-'}</td>
+                            <td><span class="status-text ${statusClass}">${effectiveStatus}</span></td>
+                            <td class="remark-cell">${item.remarks ? escapeHtml(item.remarks) : '<span style="color:#cbd5e1;">-</span>'}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHtml += `</tbody></table>`;
+                resultsDiv.innerHTML = tableHtml;
+            } catch (error) {
+                console.error(error);
+                resultsDiv.innerHTML = '<p style="color:red; padding: 20px;">Error loading data.</p>';
+            }
+        }
+
+        function exportDetailedToExcel() {
+            if (!currentDetailedData.length) return alert('No data to export. Please generate the report first.');
+            const start = document.getElementById('reportStart').value;
+            const end = document.getElementById('reportEnd').value;
+            const period = `${formatDate(start)} to ${formatDate(end)}`;
+            const title = `Detailed Report: ${period}`;
+            const headers = ['Work Name', 'Assignee', 'Report Period', 'Target Date', 'Actual Start', 'Actual End', 'Status', 'Remark'];
+            const rows = currentDetailedData.map(item => [
+                item.work_name,
+                item.assignee_name || 'N/A',
+                period,
+                formatDate(item.scheduled_date),
+                item.actual_start || '-',
+                item.actual_end || '-',
+                item.status,
+                item.remarks || '-'
+            ]);
+            exportToExcel(`detailed_report.xlsx`, headers, rows, title);
+        }
+
+        function getPendingDisplayStatus(item) {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const scheduledDate = new Date(item.scheduled_date + 'T00:00:00');
+            scheduledDate.setHours(0,0,0,0);
+
+            if (item.status === 'WIP') return { text: 'WIP', className: 'text-wip' };
+            if (scheduledDate > today) return { text: 'Upcoming', className: 'text-future' };
+            const diffDays = Math.floor((today - scheduledDate) / (1000 * 60 * 60 * 24));
+            if (diffDays > 7) return { text: 'Overdue', className: 'text-overdue' };
+            return { text: 'Due', className: 'text-due' };
+        }
+
+        function buildPendingWorksRows(data) {
+            const pending = data
+                .filter(item => ['Due', 'WIP'].includes(item.status))
+                .sort((a, b) => {
+                    if (a.scheduled_date === b.scheduled_date) return a.work_name.localeCompare(b.work_name);
+                    return a.scheduled_date.localeCompare(b.scheduled_date);
+                });
+
+            const dailySeen = new Set();
+            const rows = [];
+            pending.forEach(item => {
+                const frequency = (item.frequency || item.work_tat || '').toLowerCase();
+                if (['daily', 'ongoing'].includes(frequency)) {
+                    const key = item.work_id || item.work_name;
+                    if (dailySeen.has(key)) return;
+                    dailySeen.add(key);
+                    rows.push({ ...item, pending_note: 'Daily task shown once' });
+                    return;
+                }
+                rows.push({ ...item, pending_note: 'Scheduled pending occurrence' });
+            });
+            return rows;
+        }
+
+        async function generatePendingWorksReport() {
+            const start = document.getElementById('pendingStart').value;
+            const end = document.getElementById('pendingEnd').value;
+            if (!start || !end) return alert('Please select both start and end dates');
+
+            const resultsDiv = document.getElementById('pendingWorksResults');
+            resultsDiv.innerHTML = '<p style="padding: 20px;">Loading pending works...</p>';
+
+            try {
+                const response = await fetch(`/api/reports/status?status=Due,WIP&start_date=${start}&end_date=${end}`);
+                const data = await response.json();
+                if (!response.ok || data.error) throw new Error(data.error || 'Unable to load pending works');
+
+                currentPendingWorksData = buildPendingWorksRows(data);
+                if (!currentPendingWorksData.length) {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px; border: 1px solid #eee; border-radius: 8px;">No pending works found for this date range.</p>';
+                    return;
+                }
+
+                let tableHtml = `<table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Work Name</th>
+                            <th>Assignee</th>
+                            <th>Target Date</th>
+                            <th>Frequency</th>
+                            <th>Status</th>
+                            <th>Note</th>
+                            <th class="remark-col-header">Remark</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                currentPendingWorksData.forEach((item, index) => {
+                    const status = getPendingDisplayStatus(item);
+                    tableHtml += `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td style="text-align:left; padding-left:15px;">${escapeHtml(item.work_name)}</td>
+                            <td>${escapeHtml(item.assignee_name || 'N/A')}</td>
+                            <td>${formatDate(item.scheduled_date)}</td>
+                            <td>${escapeHtml(capitalize(item.frequency || item.work_tat || '-'))}</td>
+                            <td><span class="status-text ${status.className}">${status.text}</span></td>
+                            <td>${escapeHtml(item.pending_note || '')}</td>
+                            <td class="remark-cell">${item.remarks ? escapeHtml(item.remarks) : '<span style="color:#cbd5e1;">-</span>'}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHtml += `</tbody></table>`;
+                resultsDiv.innerHTML = tableHtml;
+            } catch (error) {
+                console.error(error);
+                resultsDiv.innerHTML = '<p style="color:red; padding: 20px;">Error loading pending works.</p>';
+            }
+        }
+
+        function exportPendingWorksToExcel() {
+            if (!currentPendingWorksData.length) return alert('No data to export. Please generate the report first.');
+            const start = document.getElementById('pendingStart').value;
+            const end = document.getElementById('pendingEnd').value;
+            const period = `${formatDate(start)} to ${formatDate(end)}`;
+            const title = `Pending Works List: ${period}`;
+            const headers = ['#', 'Work Name', 'Assignee', 'Report Period', 'Target Date', 'Frequency', 'Status', 'Note', 'Remark'];
+            const rows = currentPendingWorksData.map((item, index) => {
+                const status = getPendingDisplayStatus(item);
+                return [
+                    index + 1,
+                    item.work_name,
+                    item.assignee_name || 'N/A',
+                    period,
+                    formatDate(item.scheduled_date),
+                    capitalize(item.frequency || item.work_tat || '-'),
+                    status.text,
+                    item.pending_note || '',
+                    item.remarks || '-'
+                ];
+            });
+            exportToExcel(`pending_works_report.xlsx`, headers, rows, title);
+        }
+
+        async function generateLateCompletionReport() {
+            const start = document.getElementById('lateStart').value;
+            const end = document.getElementById('lateEnd').value;
+            
+            if (!start || !end) return alert('Please select both start and end dates');
+
+            const resultsDiv = document.getElementById('lateResults');
+            resultsDiv.innerHTML = '<p style="padding: 20px;">Analyzing completion dates...</p>';
+
+            try {
+                // Fetch completed and approved tasks for the period
+                const response = await fetch(`/api/reports/status?status=completed,final and approved&start_date=${start}&end_date=${end}`);
+                const data = await response.json();
+
+                // Filter for tasks where actual completion is after the scheduled date
+                const lateTasks = data.filter(item => {
+                    if (!item.actual_end) return false;
+                    const scheduled = new Date(item.scheduled_date + 'T00:00:00');
+                    const actual = new Date(item.actual_end + 'T00:00:00');
+                    return actual > scheduled;
+                });
+                currentLateData = lateTasks;
+
+                if (lateTasks.length === 0) {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px; border: 1px solid #eee; border-radius: 8px;">No tasks were found completed after their target date in this period.</p>';
+                    return;
+                }
+
+                let tableHtml = `<table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Work Name</th>
+                            <th>Assignee</th>
+                            <th>Target Date</th>
+                            <th>Actual End</th>
+                            <th>Delay (Days)</th>
+                            <th>Status</th>
+                            <th class="remark-col-header">Remark</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                lateTasks.forEach(item => {
+                    const scheduled = new Date(item.scheduled_date + 'T00:00:00');
+                    const actual = new Date(item.actual_end + 'T00:00:00');
+                    const delayDays = Math.floor((actual - scheduled) / (1000 * 60 * 60 * 24));
+
+                    let statusLabel = item.status === 'completed' ? 'Completed' : 'Final & Approved';
+                    let statusClass = item.status === 'completed' ? 'text-completed' : 'text-final';
+
+                    tableHtml += `
+                        <tr>
+                            <td style="text-align:left; padding-left:15px;">${escapeHtml(item.work_name)}</td>
+                            <td>${escapeHtml(item.assignee_name || 'N/A')}</td>
+                            <td>${formatDate(item.scheduled_date)}</td>
+                            <td style="color: #dc2626; font-weight: 600;">${formatDate(item.actual_end)}</td>
+                            <td>
+                                <span style="background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 10px; font-weight: bold;">
+                                    ${delayDays} Days
+                                </span>
+                            </td>
+                            <td><span class="status-text ${statusClass}">${statusLabel}</span></td>
+                            <td class="remark-cell">${item.remarks ? escapeHtml(item.remarks) : '<span style="color:#cbd5e1;">-</span>'}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHtml += `</tbody></table>`;
+                resultsDiv.innerHTML = tableHtml;
+            } catch (error) {
+                console.error(error);
+                resultsDiv.innerHTML = '<p style="color:red; padding: 20px;">Error loading data.</p>';
+            }
+        }
+
+        function exportLateToExcel() {
+            if (!currentLateData.length) return alert('No data to export. Please generate the report first.');
+            const start = document.getElementById('lateStart').value;
+            const end = document.getElementById('lateEnd').value;
+            const period = `${formatDate(start)} to ${formatDate(end)}`;
+            const title = `Late Completion Report: ${period}`;
+            const headers = ['Work Name', 'Assignee', 'Report Period', 'Target Date', 'Actual End', 'Delay (Days)', 'Status', 'Remark'];
+            const rows = currentLateData.map(item => {
+                const scheduled = new Date(item.scheduled_date + 'T00:00:00');
+                const actual = new Date(item.actual_end + 'T00:00:00');
+                const delayDays = Math.floor((actual - scheduled) / (1000 * 60 * 60 * 24));
+                return [
+                    item.work_name, item.assignee_name || 'N/A', period, formatDate(item.scheduled_date), formatDate(item.actual_end),
+                    `${delayDays} Days`, item.status, item.remarks || '-'
+                ];
+            });
+            exportToExcel(`late_completion_report.xlsx`, headers, rows, title);
+        }
+
+        async function generateMonthlySummary() {
+            const monthVal = document.getElementById('summaryMonth').value;
+            if(!monthVal) return alert('Please select a month');
+
+            const [year, month] = monthVal.split('-');
+            const startDate = `${year}-${month}-01`;
+            const lastDay = new Date(year, month, 0).getDate();
+            const endDate = `${year}-${month}-${lastDay}`;
+
+            const resultsDiv = document.getElementById('summaryResults');
+            resultsDiv.innerHTML = '<p style="padding: 20px;">Generating grid...</p>';
+
+            try {
+                const response = await fetch(`/api/reports/status?status=All&start_date=${startDate}&end_date=${endDate}`);
+                const data = await response.json();
+
+                // Group data by task name
+                const tasksMap = {};
+                const assigneeMap = {};
+                data.forEach(item => {
+                    if (!tasksMap[item.work_name]) {
+                        tasksMap[item.work_name] = {};
+                        assigneeMap[item.work_name] = item.assignee_name || 'N/A';
+                    }
+                    const day = parseInt(item.scheduled_date.split('-')[2]);
+                    tasksMap[item.work_name][day] = item.status;
+                });
+                currentMonthlyData = tasksMap;
+                currentMonthlyAssignees = assigneeMap;
+                currentMonthlyMeta = { lastDay, year, month };
+
+                let tableHtml = `<table class="summary-table"><thead><tr><th>Work Name</th>`;
+                for(let d=1; d<=lastDay; d++) tableHtml += `<th class="day-col">${d}</th>`;
+                tableHtml += `</tr></thead><tbody>`;
+
+                Object.keys(tasksMap).sort().forEach(taskName => {
+                    tableHtml += `<tr><td>${taskName}</td>`;
+                    for(let d=1; d<=lastDay; d++) {
+                        const status = tasksMap[taskName][d] || '';
+                        
+                        // Calculate dynamic status logic
+                        const today = new Date();
+                        today.setHours(0,0,0,0);
+                        const scheduledDate = new Date(year, month - 1, d);
+                        scheduledDate.setHours(0,0,0,0);
+
+                        let effectiveStatus = status;
+                        if (status === 'Due') {
+                            if (scheduledDate > today) {
+                                effectiveStatus = 'Future';
+                            } else {
+                                const diffTime = today - scheduledDate;
+                                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                if (diffDays > 7) {
+                                    effectiveStatus = 'Overdue';
+                                }
+                            }
+                        }
+
+                        let cellContent = '-';
+                        if (status) {
+                            if (summaryDisplayMode === 'dot') {
+                                let iconClass = 'icon-due';
+                                let iconChar = '◌'; // Dotted Circle for Due/Future
+                                if (effectiveStatus === 'WIP') { iconClass = 'icon-wip'; iconChar = '⚙'; } // Gear for WIP
+                                else if (effectiveStatus === 'completed') { iconClass = 'icon-completed'; iconChar = '✓'; }
+                                else if (effectiveStatus === 'final and approved') { iconClass = 'icon-approved'; iconChar = '✓'; }
+                                else if (effectiveStatus === 'Future') { iconClass = 'icon-due'; iconChar = '◌'; } // Dotted Circle for Future
+                                else if (effectiveStatus === 'Overdue') { iconClass = 'icon-overdue'; iconChar = '⚠'; } // Warning sign for Overdue
+                                
+                                cellContent = `<span class="status-icon ${iconClass}" title="${effectiveStatus} on Day ${d}">${iconChar}</span>`;
+                            } else {
+                                let textClass = 'text-due';
+                                let displayText = effectiveStatus;
+                                if (effectiveStatus === 'WIP') { textClass = 'text-wip'; }
+                                else if (effectiveStatus === 'completed') { textClass = 'text-completed'; displayText = 'Completed'; }
+                                else if (effectiveStatus === 'final and approved') { textClass = 'text-final'; displayText = 'Final & Approved'; }
+                                else if (effectiveStatus === 'Future') { textClass = 'text-future'; displayText = 'No Due'; }
+                                else if (effectiveStatus === 'Overdue') { textClass = 'text-overdue'; displayText = 'Overdue'; }
+                                
+                                cellContent = `<span class="status-text ${textClass}" title="${status}">${displayText}</span>`;
+                            }
+                        }
+                        tableHtml += `<td>${cellContent}</td>`;
+                    }
+                    tableHtml += `</tr>`;
+                });
+
+                tableHtml += `</tbody></table>`;
+                resultsDiv.innerHTML = tableHtml;
+
+            } catch (error) {
+                console.error(error);
+                resultsDiv.innerHTML = '<p style="color:red; padding: 20px;">Error loading data.</p>';
+            }
+        }
+
+        function exportMonthlyToExcel() {
+            if (!currentMonthlyData) return alert('No data to export. Please view summary first.');
+            const { lastDay, year, month } = currentMonthlyMeta;
+            const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+            const title = `Datewise Monthly Summary Report: ${monthName} ${year}`;
+            
+            const headers = ['Work Name', 'Assignee', 'Month'];
+            for(let d=1; d<=lastDay; d++) headers.push(d.toString());
+            
+            const rows = Object.keys(currentMonthlyData).sort().map(taskName => {
+                const assignee = currentMonthlyAssignees[taskName] || 'N/A';
+                const row = [taskName, assignee, monthName];
+                for(let d=1; d<=lastDay; d++) {
+                    row.push(currentMonthlyData[taskName][d] || '-');
+                }
+                return row;
+            });
+            exportToExcel(`datewise_monthly_summary_${year}_${month}.xlsx`, headers, rows, title);
+        }
+
+        function getMonthlySummaryStatusText(counts) {
+            const labels = [
+                ['Due', 'Due'],
+                ['WIP', 'WIP'],
+                ['completed', 'Completed'],
+                ['final and approved', 'Final & Approved']
+            ];
+            const knownKeys = labels.map(([key]) => key);
+            const parts = labels
+                .filter(([key]) => counts[key])
+                .map(([key, label]) => `${label}: ${counts[key]}`);
+            Object.keys(counts)
+                .filter(key => !knownKeys.includes(key))
+                .sort()
+                .forEach(key => parts.push(`${capitalize(key)}: ${counts[key]}`));
+            return parts.length ? parts.join(', ') : '-';
+        }
+
+        async function generateCompactMonthlySummary() {
+            const monthVal = document.getElementById('compactSummaryMonth').value;
+            if(!monthVal) return alert('Please select a month');
+
+            const [year, month] = monthVal.split('-');
+            const startDate = `${year}-${month}-01`;
+            const lastDay = new Date(year, month, 0).getDate();
+            const endDate = `${year}-${month}-${lastDay}`;
+            const resultsDiv = document.getElementById('compactSummaryResults');
+            resultsDiv.innerHTML = '<p style="padding: 20px;">Generating summary...</p>';
+
+            try {
+                const response = await fetch(`/api/reports/status?status=All&start_date=${startDate}&end_date=${endDate}`);
+                const data = await response.json();
+                const taskMap = {};
+
+                data.forEach(item => {
+                    const taskKey = item.work_id || item.work_name;
+                    if (!taskMap[taskKey]) {
+                        taskMap[taskKey] = {
+                            work_name: item.work_name,
+                            schedule: getScheduleDescription(item),
+                            work_tat: item.work_tat || item.frequency,
+                            counts: {}
+                        };
+                    }
+
+                    const scheduledDate = new Date(item.scheduled_date + 'T00:00:00');
+                    const isSunday = scheduledDate.getDay() === 0;
+                    const isDailyTask = ['daily', 'ongoing'].includes(taskMap[taskKey].work_tat);
+                    if (isDailyTask && isSunday) return;
+
+                    taskMap[taskKey].counts[item.status] = (taskMap[taskKey].counts[item.status] || 0) + 1;
+                });
+
+                currentCompactMonthlyRows = Object.values(taskMap)
+                    .sort((a, b) => a.work_name.localeCompare(b.work_name))
+                    .map((task, index) => ({
+                        serial: index + 1,
+                        work_name: task.work_name,
+                        schedule: task.schedule,
+                        status: getMonthlySummaryStatusText(task.counts)
+                    }));
+                currentCompactMonthlyMeta = { year, month };
+
+                if (!currentCompactMonthlyRows.length) {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">No tasks found for this month.</p>';
+                    return;
+                }
+
+                let tableHtml = `<table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th style="width:70px;">#</th>
+                            <th style="text-align:left;">Task Name</th>
+                            <th>Schedule</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                currentCompactMonthlyRows.forEach(row => {
+                    tableHtml += `
+                        <tr>
+                            <td>${row.serial}</td>
+                            <td style="text-align:left; padding-left:15px;">${escapeHtml(row.work_name)}</td>
+                            <td>${escapeHtml(row.schedule)}</td>
+                            <td>${escapeHtml(row.status)}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHtml += `</tbody></table>`;
+                resultsDiv.innerHTML = tableHtml;
+            } catch (error) {
+                console.error(error);
+                resultsDiv.innerHTML = '<p style="color:red; padding: 20px;">Error loading data.</p>';
+            }
+        }
+
+        function exportCompactMonthlyToExcel() {
+            if (!currentCompactMonthlyRows.length) return alert('No data to export. Please view summary first.');
+            const { year, month } = currentCompactMonthlyMeta;
+            const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+            const title = `Monthly Summary Report: ${monthName} ${year}`;
+            const headers = ['#', 'Task Name', 'Schedule', 'Status'];
+            const rows = currentCompactMonthlyRows.map(row => [row.serial, row.work_name, row.schedule, row.status]);
+            exportToExcel(`monthly_summary_compact_${year}_${month}.xlsx`, headers, rows, title);
+        }
+
+        async function exportToExcel(filename, headers, rows, title = '') {
+            const response = await fetch('/api/export/excel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename, headers, rows, title })
+            });
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = filename;
+                document.body.appendChild(a); a.click();
+                window.URL.revokeObjectURL(url); a.remove();
+            } else { alert('Export failed'); }
+        }
+
+        // Auto-set dates to current month for convenience
+        document.addEventListener('DOMContentLoaded', () => {
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+            const currentMonth = now.toISOString().substring(0, 7);
+            
+            document.getElementById('reportStart').value = firstDay;
+            document.getElementById('reportEnd').value = lastDay;
+            document.getElementById('pendingStart').value = firstDay;
+            document.getElementById('pendingEnd').value = lastDay;
+            document.getElementById('lateStart').value = firstDay;
+            document.getElementById('lateEnd').value = lastDay;
+            document.getElementById('summaryMonth').value = currentMonth;
+            document.getElementById('compactSummaryMonth').value = currentMonth;
+        });
+
+        // Handle logout functionality
+        function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) {
+                return;
+            }
+            sessionStorage.clear();
+            localStorage.clear();
+            history.replaceState(null, null, window.location.href);
+            window.location.href = '/logout';
+        }
+
+        // Prevent back navigation after page load
+        window.addEventListener('load', function() {
+            history.pushState(null, null, location.href);
+            window.onpopstate = function() {
+                history.go(1);
+            };
+        });
+
+        // Redirect if accessed via browser back button
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                window.location.href = '/login';
+            }
+        });
+    </script>
+</body>
+</html>

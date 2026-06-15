@@ -1,0 +1,66 @@
+.side-panel {
+    position: fixed;
+    right: -350px;
+    top: 0;
+    width: 320px;
+    height: 100vh;
+    background: #fff;
+    box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    box-sizing: border-box;
+}
+.side-panel.active { right: 0; }
+.panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1abc9c; padding-bottom: 10px; margin-bottom: 20px; font-weight: bold; color: #2c3e50; }
+.close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #e74c3c; }
+
+.sudoku-grid { 
+    display: grid; 
+    grid-template-columns: repeat(9, 1fr); 
+    border: 2px solid #2c3e50;
+    background: #2c3e50;
+    gap: 1px;
+}
+.sudoku-grid input {
+    width: 30px;
+    height: 30px;
+    text-align: center;
+    border: none;
+    font-size: 16px;
+    font-weight: bold;
+    background: white;
+    padding: 0;
+}
+.sudoku-grid input:focus { background: #e0f2f1; outline: none; }
+.sudoku-grid input.prefilled { background: #f1f1f1; color: #7f8c8d; cursor: not-allowed; }
+
+/* 3x3 Subgrid Borders */
+.sudoku-grid input:nth-child(3n) { border-right: 2px solid #2c3e50; }
+.sudoku-grid input:nth-child(9n) { border-right: none; }
+.sudoku-grid input:nth-child(n+19):nth-child(-n+27),
+.sudoku-grid input:nth-child(n+46):nth-child(-n+54) { border-bottom: 2px solid #2c3e50; }
+
+.sudoku-controls { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.game-btn { 
+    padding: 10px; 
+    border: none; 
+    border-radius: 6px; 
+    background: #34495e; 
+    color: white; 
+    cursor: pointer; 
+    font-weight: bold;
+    transition: background 0.2s;
+}
+.game-btn:hover { background: #2c3e50; }
+.game-btn.check { background: #1abc9c; }
+.game-btn.check:hover { background: #16a085; }
+
+#sudoku-message { 
+    margin-top: 15px; 
+    text-align: center; 
+    font-size: 14px; 
+    min-height: 20px;
+}

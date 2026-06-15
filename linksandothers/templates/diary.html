@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Daily Work Diary</title>
+    <link rel="stylesheet" href="/static/diary.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/dmuy/MDTimePicker@v2.0.0/dist/mdtimepicker.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="diary-container">
+        <div class="diary-main-layout" id="diaryMainLayout">
+            <aside class="calendar-sidebar" id="calendarSidebar">
+                <div class="calendar-sidebar-header">
+                    <h3>Calendar</h3>
+                    <button onclick="toggleSidebar()" class="btn-toggle" id="sidebarToggle">☰</button>
+                </div>
+                <div class="calendar-controls">
+                    <input type="month" id="monthPicker" class="month-input">
+                    <button onclick="clearFilter()" class="btn-show-all">Show All</button>
+                </div>
+                <div id="calendarContainer" class="calendar-grid-container"></div>
+            </aside>
+
+            <div class="diary-content" id="diaryContent">
+                <div class="header">
+                    <h1>📔 Daily Work Diary</h1>
+                    <div class="header-btns">
+                        <button onclick="location.href='/'" class="btn-back">⬅ Home</button>
+                        <button onclick="addRow()" class="btn-add">+ New Entry</button>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table id="diaryTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 130px;">Date</th>
+                                <th>Particulars</th>
+                                <th style="width: 110px;">Start Time</th>
+                                <th style="width: 110px;">End Time</th>
+                                <th style="width: 110px;">Spend Time</th>
+                                <th>Remark</th>
+                                <th style="width: 50px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="diaryBody"></tbody>
+                    </table>
+                </div>
+                <div class="footer-actions">
+                    <button onclick="exportDiary()" class="btn-export">📊 Export to Excel</button>
+                    <button onclick="saveAll()" class="btn-save">💾 Save All Records</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/gh/dmuy/MDTimePicker@v2.0.0/dist/mdtimepicker.js"></script>
+    <script src="/static/diary.js"></script>
+</body>
+</html>

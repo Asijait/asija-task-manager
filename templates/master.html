@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assign To Master</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='master_style.css') }}">
+</head>
+<body>
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="nav-brand">Task Manager</div>
+            <nav class="nav-links">
+                <span class="user-status-text">User: {{ session.get('user_email', 'Unknown') }}</span>
+                <a href="/" class="nav-btn">🏠 Home</a>
+                <a href="/work-master" class="nav-btn">⚙️ Task Master</a>
+                <a href="/today-work" class="nav-btn">📅 Today's Work</a>
+                <a href="/daily-debtor-report" class="nav-btn" target="_blank" rel="noopener">Debtor Report</a>
+                <a href="/control-panel" class="nav-btn active">🛠️ Control Panel</a>
+                <button class="nav-btn nav-logout" onclick="handleLogout()" style="background: #dc2626; border: none; cursor: pointer;">🚪 Logout</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <h1>Assign To Master</h1>
+            
+            <div class="form-section">
+                <h2>Add New Person/Department</h2>
+                <form id="assigneeForm" class="inline-form">
+                    <input type="text" id="assigneeName" placeholder="Enter name..." required>
+                    <button type="submit" class="btn-add">Add Master</button>
+                </form>
+            </div>
+
+            <div class="table-section">
+                <h2>Assigned Persons/Departments</h2>
+                <div class="summary-scroll-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="col-id">#</th>
+                                <th>Name</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="assigneeTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit Modal -->
+    <div id="editAssigneeModal" class="modal">
+        <div class="modal-content">
+            <h2>Edit Name</h2>
+            <input type="hidden" id="editAssigneeId">
+            <div class="form-group">
+                <input type="text" id="editAssigneeName" class="form-control" required>
+            </div>
+            <button onclick="updateAssignee()" class="btn-save">Save Changes</button>
+            <button onclick="closeModal()" class="btn-cancel">Cancel</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('static', filename='master_script.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body class="dashboard-page">
+    {% include 'navbar.html' %}
+
+    <main class="dashboard-shell">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="flash-message">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <section class="dashboard-header">
+            <div>
+                <h1>Debtor Dashboard</h1>
+                <p>Outstanding overview, collection concentration, ageing and ownership summary.</p>
+            </div>
+            <div class="dashboard-actions">
+                <a href="{{ debtor_url('/report') }}">Open Report</a>
+                <a href="{{ debtor_url('/sub-report') }}">Sub Report</a>
+                <a href="{{ debtor_url('/download/report-excel') }}">Export Excel</a>
+            </div>
+        </section>
+
+        <section class="kpi-grid">
+            <a class="kpi-card kpi-link-card" href="{{ debtor_url('/report') }}" title="Open Main Report">
+                <span>Total Outstanding</span>
+                <strong>₹ {{ total_amount | indian_currency(decimals=False) }}</strong>
+                <small>{{ total_bills }} open bills</small>
+            </a>
+            <a class="kpi-card kpi-link-card" href="{{ debtor_url('/overdue-report') }}" target="_blank" rel="noopener" title="Open Overdue Report">
+                <span>Overdue Amount</span>
+                <strong>₹ {{ overdue_total | indian_currency(decimals=False) }}</strong>
+                <small>{{ overdue_count }} overdue bills</small>
+            </a>
+            <!-- <article class="kpi-card">
+                <span>Average Bill</span>
+                <strong>₹ {{ avg_bill | indian_currency(decimals=False) }}</strong>
+                <small>Across active receivables</small>
+            </article> -->
+            <!-- <article class="kpi-card">
+                <span>Followup Owners</span>
+                <strong>{{ chart_data.followup | length }}</strong>
+                <small>Active collection partners</small>
+            </article> -->
+        </section>
+
+        <section class="dashboard-grid">
+            <article class="panel panel-wide">
+                <div class="panel-head">
+                    <h2>Ageing Mix</h2>
+                    <span>Amount by Over Due column</span>
+                </div>
+                <canvas id="ageingChart" height="150"></canvas>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Followup Wise</h2>
+                    <span>Top owners</span>
+                </div>
+                <canvas id="followupChart" height="180"></canvas>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Category Wise</h2>
+                    <span>Client categories</span>
+                </div>
+                <canvas id="categoryChart" height="180"></canvas>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>EP Wise</h2>
+                    <span>Executive partner exposure</span>
+                </div>
+                <canvas id="epChart" height="190"></canvas>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Financial Year</h2>
+                    <span>Period spread</span>
+                </div>
+                <canvas id="fyChart" height="190"></canvas>
+            </article>
+        </section>
+
+        <!-- <section class="insight-grid">
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Top Followup Partners</h2>
+                    <span>By outstanding</span>
+                </div>
+                <div class="rank-list">
+                    {% for item in top_followups %}
+                    <a href="{{ debtor_url('/sub-report/followup-detail') }}?partner={{ item.label | urlencode }}">
+                        <span>{{ item.label }}</span>
+                        <strong>₹ {{ item.total | indian_currency(decimals=False) }}</strong>
+                    </a>
+                    {% endfor %}
+                </div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <h2>Top Categories</h2>
+                    <span>By outstanding</span>
+                </div>
+                <div class="rank-list">
+                    {% for item in top_categories %}
+                    <a href="{{ debtor_url('/sub-report/detail') }}?category={{ item.label | urlencode }}">
+                        <span>{{ item.label }}</span>
+                        <strong>₹ {{ item.total | indian_currency(decimals=False) }}</strong>
+                    </a>
+                    {% endfor %}
+                </div>
+            </article>
+
+            <article class="panel high-risk-panel">
+                <div class="panel-head">
+                    <h2>Largest Open Bills</h2>
+                    <span>Highest amount first</span>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Party</th>
+                                <th>Followup</th>
+                                <th>FY</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in high_risk_rows %}
+                            <tr>
+                                <td>{{ row.party_name }}</td>
+                                <td>{{ row.followup_partner or 'Unassigned' }}</td>
+                                <td>{{ row.financial_year }}</td>
+                                <td class="amount">₹ {{ row.amount | indian_currency(decimals=False) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section> -->
+    </main>
+
+    <script id="dashboardData" type="application/json">{{ chart_data | tojson }}</script>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sub Report Summary - Billing System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .sub-report-body { padding: var(--nav-content-offset, 18px) 12px 14px; color: #333; max-width: 1280px; margin: 0 auto; box-sizing: border-box; transition: padding-top 0.22s ease; }
+        .report-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 10px; align-items: start; }
+        .section-card { grid-column: span 4; background: white; padding: 12px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); min-width: 0; }
+        .wide-card { grid-column: 1 / -1; }
+        .summary-card .scroll-box { max-height: 145px; }
+        .period-card .scroll-box { max-height: 340px; }
+        .detail-card { display: none; margin-top: 28px; }
+        .detail-card { min-height: calc(100vh - 86px); }
+        .detail-card .scroll-box { max-height: calc(100vh - 125px); }
+        h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 6px; margin: 0 0 10px; font-size: 1.15rem; font-family: "Times New Roman", serif; }
+        .summary-table { width: 100%; border-collapse: collapse; }
+        .summary-table th, .summary-table td { padding: 8px 10px; border: 1px solid #ddd; text-align: left; font-size: 14px; }
+        .summary-table th { background: #34495e; font-weight: 600; color: white; position: sticky; top: 0; z-index: 1; }
+        .amount-cell { text-align: right; font-weight: bold; color: #2c3e50; white-space: nowrap; }
+        .scroll-box { max-height: 320px; overflow: auto; border: 1px solid #eee; background: #fff; }
+        .back-link { display: inline-block; margin-top: 10px; color: #3498db; text-decoration: none; font-weight: 600; padding: 10px 20px; background: white; border-radius: 4px; }
+        .summary-link { color: #1f618d; cursor: pointer; font: inherit; font-weight: 600; padding: 0; text-align: left; text-decoration: none; }
+        .summary-link:hover { color: #154360; text-decoration: underline; }
+        .clickable-summary-row { cursor: pointer; }
+        .clickable-summary-row:hover td { background: #eef6fc; }
+        .clickable-summary-cell { cursor: pointer; }
+        .clickable-summary-cell:hover { background: #eef6fc; }
+        
+        /* Column Filter Styles */
+        .th-filter { display: flex; align-items: center; justify-content: space-between; gap: 5px; width: 100%; }
+        .filter-toggle {
+            background: none; border: none; color: #ecf0f1; cursor: pointer; padding: 2px 4px;
+            font-size: 10px; border-radius: 3px; transition: all 0.2s;
+        }
+        .filter-toggle:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .filter-toggle.is-filtered { color: #3498db; font-weight: bold; }
+
+        .filter-menu {
+            position: fixed; background: white; border: 1px solid #ddd; border-radius: 4px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15); z-index: 1000; width: 220px;
+            display: none; flex-direction: column; padding: 10px; box-sizing: border-box;
+        }
+        .filter-menu.is-open { display: flex; }
+        .filter-search {
+            width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 3px;
+            margin-bottom: 8px; font-size: 12px; box-sizing: border-box;
+        }
+        .filter-actions { display: flex; gap: 5px; margin-bottom: 8px; }
+        .filter-actions button {
+            flex: 1; padding: 5px; font-size: 11px; cursor: pointer;
+            background: #f8f9fa; border: 1px solid #ddd; border-radius: 3px;
+        }
+        .filter-actions button:hover { background: #e9ecef; }
+        .filter-options { max-height: 200px; overflow-y: auto; border-top: 1px solid #eee; padding-top: 5px; }
+        .filter-option {
+            display: flex; align-items: center; padding: 4px; font-size: 12px; cursor: pointer;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 3px; color: #333;
+        }
+        .filter-option:hover { background: #f1f4f6; }
+        .filter-option input { margin-right: 8px; }
+
+        /* Conditional Amount Colors */
+        .amt-red { color: #e74c3c !important; font-weight: bold; }
+        .amt-orange { color: #f39c12 !important; font-weight: bold; }
+
+        @media (max-width: 1100px) {
+            .report-grid { grid-template-columns: 1fr; }
+            .summary-card .scroll-box,
+            .period-card .scroll-box,
+            .detail-card .scroll-box { max-height: none; }
+            .detail-card { min-height: auto; margin-top: 0; }
+            .section-card,
+            .wide-card { grid-column: 1; }
+        }
+    </style>
+</head>
+<body style="background: #174a73;">
+    {% include 'navbar.html' %}
+
+    <div class="sub-report-body">
+        {% set total_f = followup_summary.values() | map(attribute='total') | sum %}
+        {% set total_e = ep_summary.values() | map(attribute='total') | sum %}
+        {% set total_c = category_summary.values() | map(attribute='total') | sum %}
+
+        <div class="report-grid">
+            <!-- Followup Partner Summary -->
+            <div class="section-card summary-card">
+                <h2>Followup Wise Summary</h2>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Followup Partner</th>
+                            <th style="width: 130px;">Total</th>
+                            <th style="width: 50px;">%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set f_total = namespace(val=0) %}
+                        {% for partner, data in followup_summary.items() %}
+                        <tr class="clickable-summary-row" data-detail-url="{{ debtor_url('/sub-report/followup-detail') }}?partner={{ partner | urlencode }}">
+                            <td>
+                                <a href="{{ debtor_url('/sub-report/followup-detail') }}?partner={{ partner | urlencode }}" class="summary-link" target="_blank" rel="noopener">
+                                    {{ partner }}
+                                </a>
+                            </td>
+                            <td class="amount-cell {{ 'amt-red' if data.total >= 2000000 else 
+                                                     'amt-orange' if data.total >= 1000000 else '' }}">
+                                ₹ {{ data.total | indian_currency(decimals=False) }}</td>
+                            <td class="amount-cell" style="font-size: 11px; color: #7f8c8d;">{{ "%.0f"|format(data.total / total_f * 100) if total_f > 0 else '0' }}%</td>
+                        </tr>
+                        {% set f_total.val = f_total.val + data.total %}
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: #f1f4f6; font-weight: bold; border-top: 2px solid #ddd;">
+                            <td>Grand Total</td>
+                            <td class="amount-cell {{ 'amt-red' if f_total.val >= 2000000 else 
+                                                     'amt-orange' if f_total.val >= 1000000 else '' }}">
+                                ₹ {{ f_total.val | indian_currency(decimals=False) }}</td>
+                            <td class="amount-cell" style="font-size: 11px;">100%</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- EP Wise Summary -->
+            <div class="section-card summary-card">
+                <h2>EP Wise Summary</h2>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>EP Name</th>
+                            <th style="width: 130px;">Total</th>
+                            <th style="width: 50px;">%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set e_total = namespace(val=0) %}
+                        {% for ep, data in ep_summary.items() %}
+                        <tr class="clickable-summary-row" data-detail-url="{{ debtor_url('/sub-report/detail') }}?ep={{ ep | urlencode }}">
+                            <td>{{ ep }}</td>
+                            <td class="amount-cell {{ 'amt-red' if data.total >= 2000000 else 
+                                                     'amt-orange' if data.total >= 1000000 else '' }}">
+                                ₹ {{ data.total | indian_currency(decimals=False) }}</td>
+                            <td class="amount-cell" style="font-size: 11px; color: #7f8c8d;">{{ "%.0f"|format(data.total / total_e * 100) if total_e > 0 else '0' }}%</td>
+                        </tr>
+                        {% set e_total.val = e_total.val + data.total %}
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: #f1f4f6; font-weight: bold; border-top: 2px solid #ddd;">
+                            <td>Grand Total</td>
+                            <td class="amount-cell {{ 'amt-red' if e_total.val >= 2000000 else 
+                                                     'amt-orange' if e_total.val >= 1000000 else '' }}">
+                                ₹ {{ e_total.val | indian_currency(decimals=False) }}</td>
+                            <td class="amount-cell" style="font-size: 11px;">100%</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Category Wise Summary -->
+            <div class="section-card summary-card">
+                <h2>Category Wise Summary</h2>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th style="width: 130px;">Total</th>
+                            <th style="width: 50px;">%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set c_total = namespace(val=0) %}
+                        {% for cat, data in category_summary.items() %}
+                        <tr class="clickable-summary-row" data-detail-url="{{ debtor_url('/sub-report/detail') }}?category={{ cat | urlencode }}">
+                            <td>{{ cat }}</td>
+                            <td class="amount-cell {{ 'amt-red' if data.total >= 2000000 else 
+                                                     'amt-orange' if data.total >= 1000000 else '' }}">
+                                ₹ {{ data.total | indian_currency(decimals=False) }}</td>
+                            <td class="amount-cell" style="font-size: 11px; color: #7f8c8d;">{{ "%.0f"|format(data.total / total_c * 100) if total_c > 0 else '0' }}%</td>
+                        </tr>
+                        {% set c_total.val = c_total.val + data.total %}
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: #f1f4f6; font-weight: bold; border-top: 2px solid #ddd;">
+                            <td>Grand Total</td>
+                            <td class="amount-cell {{ 'amt-red' if c_total.val >= 2000000 else 
+                                                     'amt-orange' if c_total.val >= 1000000 else '' }}">
+                                ₹ {{ c_total.val | indian_currency(decimals=False) }}</td>
+                            <td class="amount-cell" style="font-size: 11px;">100%</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- EP Wise Period Wise Report -->
+            <div class="section-card wide-card period-card">
+                <h2>EP Wise Period Wise Summary</h2>
+                <div class="scroll-box">
+                    <table class="summary-table">
+                        <thead>
+                            <tr>
+                                <th>Financial Year</th>
+                                {% for ep in all_eps %}
+                                <th>{{ ep }}</th>
+                                {% endfor %}
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fy in all_fys %}
+                            <tr>
+                                <td class="clickable-summary-cell" data-detail-url="{{ debtor_url('/sub-report/detail') }}?fy={{ fy | urlencode }}">{{ fy }}</td>
+                                {% set row_total = namespace(value=0) %}
+                                {% for ep in all_eps %}
+                                    {% set cell_data = period_ep_summary.get(ep, {}).get(fy, {'total': 0}) %}
+                                    <td class="amount-cell clickable-summary-cell {{ 'amt-red' if cell_data.total >= 2000000 else 
+                                                             'amt-orange' if cell_data.total >= 1000000 else '' }}"
+                                        data-detail-url="{{ debtor_url('/sub-report/detail') }}?ep={{ ep | urlencode }}&fy={{ fy | urlencode }}">
+                                        ₹ {{ cell_data.total | indian_currency(decimals=False) }}</td>
+                                    {% set row_total.value = row_total.value + cell_data.total %}
+                                {% endfor %}
+                                <td class="amount-cell clickable-summary-cell {{ 'amt-red' if row_total.value >= 2000000 else 
+                                                         'amt-orange' if row_total.value >= 1000000 else '' }}"
+                                    data-detail-url="{{ debtor_url('/sub-report/detail') }}?fy={{ fy | urlencode }}">
+                                    ₹ {{ row_total.value | indian_currency(decimals=False) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #f1f4f6; font-weight: bold;">
+                                <td>Grand Total</td>
+                                {% set grand_total = namespace(value=0) %}
+                                {% for ep in all_eps %}
+                                    {% set col_total = namespace(value=0) %}
+                                    {% for fy in all_fys %}
+                                        {% set col_total.value = col_total.value + period_ep_summary.get(ep, {}).get(fy, {'total': 0}).total %}
+                                    {% endfor %}
+                                    <td class="amount-cell clickable-summary-cell {{ 'amt-red' if col_total.value >= 2000000 else 
+                                                             'amt-orange' if col_total.value >= 1000000 else '' }}"
+                                        data-detail-url="{{ debtor_url('/sub-report/detail') }}?ep={{ ep | urlencode }}">
+                                        ₹ {{ col_total.value | indian_currency(decimals=False) }}</td>
+                                    {% set grand_total.value = grand_total.value + col_total.value %}
+                                {% endfor %}
+                                <td class="amount-cell {{ 'amt-red' if grand_total.value >= 2000000 else 
+                                                         'amt-orange' if grand_total.value >= 1000000 else '' }}">
+                                    ₹ {{ grand_total.value | indian_currency(decimals=False) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Detailed Data View -->
+            <div class="section-card wide-card detail-card">
+                <h2>Detailed Report Data</h2>
+                <div class="scroll-box">
+                    <table class="summary-table" id="detailedReportTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Ref No</th>
+                                <th>Party Name</th>
+                                <th>Group</th>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>EP</th>
+                                <th>Followup</th>
+                                <th>FY</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                            <tr>
+                                <td>{{ row.bill_date_display }}</td>
+                                <td>{{ row.ref_no }}</td>
+                                <td>{{ row.party_name }}</td>
+                                <td>{{ row.client_group or '' }}</td>
+                                <td>{{ row.client_category or '' }}</td>
+                                <td class="amount-cell {{ 'amt-red' if row.amount >= 2000000 else 
+                                                         'amt-orange' if row.amount >= 1000000 else '' }}">
+                                    ₹ {{ row.amount | indian_currency(decimals=False) }}</td>
+                                <td>{{ row.final_ep }}</td>
+                                <td>{{ row.followup_partner }}</td>
+                                <td>{{ row.financial_year }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div> <!-- End report-grid -->
+
+        <div style="text-align: center; margin-bottom: 12px;">
+            <a href="{{ debtor_url('/') }}" class="back-link">← Return to Main Dashboard</a>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/sub_report.js') }}"></script>
+</body>
+</html>

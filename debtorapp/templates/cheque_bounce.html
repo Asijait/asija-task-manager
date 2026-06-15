@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cheque Bounce</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='cheque_bounce.css') }}">
+</head>
+<body class="cheque-bounce-page" data-active-page="cheque_bounce">
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <section class="report-card">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <div class="page-heading">
+                <h1>Cheque Bounce</h1>
+                <a href="{{ debtor_url('/receipt-register') }}" class="secondary-btn">Receipt Register</a>
+            </div>
+
+            <main class="table-scroll">
+                <table class="cheque-bounce-table">
+                    <thead>
+                        <tr>
+                            <th>Bounce Date</th>
+                            <th>Marked At</th>
+                            <th>Receipt ID</th>
+                            <th>Re-added Bill ID</th>
+                            <th>Receipt Date</th>
+                            <th>Firm</th>
+                            <th>Bill Date</th>
+                            <th>Bill No</th>
+                            <th>Entity</th>
+                            <th>Bill Amount</th>
+                            <th>Bounced Amount</th>
+                            <th>Due Date</th>
+                            <th>Over Due</th>
+                            <th>Group</th>
+                            <th>Followup Partner</th>
+                            <th>EP</th>
+                            <th>CRP</th>
+                            <th>Category</th>
+                            <th>Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr>
+                            <td>{{ row.bounce_date_display }}</td>
+                            <td>{{ row.bounced_at_display }}</td>
+                            <td>{{ row.receipt_register_id }}</td>
+                            <td>{{ row.readded_bill_id }}</td>
+                            <td>{{ row.receipt_date_display }}</td>
+                            <td>{{ row.short_name or row.firm_name }}</td>
+                            <td>{{ row.bill_date_display }}</td>
+                            <td>{{ row.ref_no }}</td>
+                            <td>{{ row.party_name }}</td>
+                            <td class="amount">Rs {{ "{:,.2f}".format(row.bill_amount or 0) }}</td>
+                            <td class="amount">Rs {{ "{:,.2f}".format(row.bounced_amount or 0) }}</td>
+                            <td>{{ row.due_date_display }}</td>
+                            <td>{{ row.overdue_days }}</td>
+                            <td>{{ row.client_group }}</td>
+                            <td>{{ row.followup_partner }}</td>
+                            <td>{{ row.final_ep }}</td>
+                            <td>{{ row.crp_of_group }}</td>
+                            <td>{{ row.client_category }}</td>
+                            <td>{{ row.reason }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="19" class="empty-state">No cheque bounce records yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </main>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/cheque_bounce.js') }}"></script>
+</body>
+</html>

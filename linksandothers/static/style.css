@@ -1,0 +1,582 @@
+:root { --primary-bg: #2c3e50; --accent-color: #1abc9c; --gold: #d4af37; }
+/* Purane body style ko replace karein */
+body { 
+    font-family: 'Segoe UI', sans-serif; 
+    background: #eef2f3; 
+    margin: 0; 
+    display: flex; 
+    min-height: 100vh; /* height: 100vh ko badal kar min-height karein */
+    overflow-y: auto;  /* overflow: hidden ko badal kar auto karein */
+}
+
+.sidebar-header {
+  /* Vahi Rainbow Mesh Background */
+  background-image: 
+    radial-gradient(at 0% 0%, #ff0000 0, transparent 50%),
+    radial-gradient(at 50% 0%, #ff8000 0, transparent 50%),
+    radial-gradient(at 100% 0%, #ffff00 0, transparent 50%),
+    radial-gradient(at 0% 50%, #00ff00 0, transparent 50%),
+    radial-gradient(at 100% 50%, #00ffff 0, transparent 50%),
+    radial-gradient(at 0% 100%, #0000ff 0, transparent 50%),
+    radial-gradient(at 50% 100%, #8000ff 0, transparent 50%),
+    radial-gradient(at 100% 100%, #ff00ff 0, transparent 50%);
+  
+  background-size: 200% 200%;
+  animation: rainbowMesh 8s ease infinite;
+
+  color: white;
+  padding: 12px 10px; /* Padding kam kar di - Pura patla ho gaya */
+  text-align: center;
+  font-weight: 800;
+  font-size: 1rem; /* Font size thoda chota kiya */
+  letter-spacing: 1px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  text-transform: uppercase;
+  
+  /* Glassy 3D look */
+  border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+  text-shadow: 1px 1px 4px rgba(0,0,0,0.5);
+  height: auto; /* Height auto taaki space na le */
+}
+
+/* Animation vahi rahegi */
+@keyframes rainbowMesh {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+  
+
+
+/* ********************************************** */
+
+.sidebar {
+  width: 300px;
+  background: #fff;
+  border-right: 2px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 10px rgba(0, 0, 0, 0.05);
+  overflow-y: auto;
+  height: 100vh;
+}
+
+.menu-item {
+  margin: 15px;
+}
+
+/*
+.menu-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--primary-bg);
+  border: none;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  box-shadow: 0 4px 0 #1a252f;
+  transition: 0.1s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+*/
+/* --- MENU BUTTON WITH HOVER EFFECT --- */
+.menu-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--primary-bg);
+  border: none;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  box-shadow: 0 4px 0 #1a252f;
+  transition: all 0.2s ease; /* Transition smooth kiya */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Mouse Hover karne par ye hoga */
+.menu-btn:hover {
+  background: #34495e; /* Thoda light blue */
+  transform: translateY(-2px); /* Button upar uthega */
+  box-shadow: 0 6px 0 #1a252f, 0 0 15px rgba(26, 188, 156, 0.4); /* Glow effect */
+  color: var(--accent-color); /* Text color mint green ho jayega */
+}
+
+/* Arrow icon ghumane ke liye agar aap use kar rahe ho */
+.menu-btn:hover span {
+  transform: scale(1.2);
+  transition: 0.2s;
+}
+
+/* Click karne par dabne wala effect */
+.menu-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #1a252f;
+}
+
+
+
+
+.submenu {
+  display: none;
+  padding-top: 10px;
+}
+
+/* --- YAHAN HUMNE ICON KO ADJUST KIYA HAI --- */
+.link-container {
+  position: relative; /* Icons ko position karne ke liye */
+  margin: 10px 0;
+}
+
+.submenu a {
+  display: block;
+  padding: 10px;
+  background: #f8f9fa;
+  color: #333;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 6px;
+  text-align: center; /* Wahi center look jo aapne diya tha */
+  box-shadow: 0 4px 0 #d1d8e0;
+  transition: 0.1s;
+  border: 1px solid #eee;
+}
+
+.submenu a:hover {
+  background: #fff;
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+/* Edit/Delete Icons (Overlaying on your original design) */
+.edit-delete-group {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.edit-delete-group span {
+  cursor: pointer;
+  font-size: 12px;
+  background: white;
+  padding: 2px;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  display: inline-block;
+}
+
+.edit-delete-group span:hover {
+  transform: scale(1.2);
+}
+
+.special-link {
+  background: #e67e22 !important;
+  color: white !important;
+  box-shadow: 0 4px 0 #d35400 !important;
+  border: none !important;
+}
+
+
+/* Dashboard UI */
+.content-area { flex: 1; padding: 25px; display: flex; flex-direction: column; box-sizing: border-box; }
+/* .task-container { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); flex: 1; overflow: hidden; display: flex; flex-direction: column; } */
+.task-container { 
+    background: white; 
+    border-radius: 12px; 
+    padding: 20px; 
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08); 
+    display: flex; 
+    flex-direction: column;
+    height: auto;      /* height: 100% ya flex: 1 hatayein */
+    overflow: visible; /* hidden ko hata kar visible karein */
+}
+.table-wrapper { 
+    overflow: visible !important; /* hidden ki jagah visible karein */
+    border: 1px solid #eee; 
+    border-radius: 8px; 
+    margin-bottom: 80px; /* Buttons ke liye niche thodi extra jagah */
+}
+table { width: 100%; border-collapse: collapse; }
+th { background: #f8f9fa; padding: 15px; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid #ddd; }
+td { padding: 12px; border-bottom: 1px solid #f1f1f1; }
+
+/* LOCK Logic */
+.locked textarea, .locked input, .locked select { 
+    background: #fcfcfc !important; 
+    pointer-events: none !important; 
+    color: #666 !important; 
+    border: none !important; 
+}
+
+/* Excel Filter Style */
+.excel-filter-container { position: relative; width: 180px; }
+#dropdownTrigger { padding: 8px; border: 1px solid #ddd; border-radius: 5px; background: white; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+#filterMenu { display: none; position: absolute; top: 100%; left: 0; width: 220px; background: white; border: 1px solid #ccc; box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 1000; padding: 10px; border-radius: 6px; }
+#filterMenu label { display: block; padding: 5px 0; cursor: pointer; font-size: 13px; }
+
+/* Summary Pills */
+.summary-pills { display: flex; gap: 8px; margin-bottom: 15px; }
+.pill { padding: 6px 15px; border-radius: 6px; font-size: 12px; font-weight: bold; color: white; }
+.blue { background: #3498db; } .green { background: #27ae60; } .orange { background: #e67e22; } .gray { background: #7f8c8d; }
+
+.btn-main { padding: 10px 15px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+.start-btn { background: #2ecc71; color: white; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; box-shadow: 0 3px 0 #27ae60; }
+.stop-btn { background: #e74c3c; color: white; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; box-shadow: 0 3px 0 #c0392b; }
+
+
+/* Work Name Area bada karne ke liye */
+.work-cell {
+    width: 45% !important; /* Table ka 45% area sirf work name lega */
+}
+.work-cell textarea {
+    width: 100%;
+    min-height: 40px;
+    font-size: 14px;
+}
+
+/* Vertical Stacking for Timer/Buttons */
+.vertical-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 0;
+}
+
+.timer-display {
+    font-family: monospace;
+    font-weight: 900;
+    font-size: 14px;
+    background: #2c3e50;
+    color: #1abc9c;
+    padding: 2px 8px;
+    border-radius: 4px;
+    width: 100px;
+    text-align: center;
+}
+
+.btn-group, .action-group {
+    display: flex;
+    gap: 4px;
+    width: 100%;
+    justify-content: center;
+}
+
+.start-btn, .stop-btn, .edit-btn, .del-btn {
+    flex: 1;
+    padding: 4px 0;
+    font-size: 10px;
+    font-weight: bold;
+    max-width: 55px;
+}
+
+/* Table layout fix */
+table {
+    table-layout: fixed; /* Width control ke liye zaroori hai */
+}
+
+.mas-logo { 
+    position: fixed; 
+    bottom: 30px; 
+    right: 30px; 
+    font-size: 51px; 
+    color: var(--gold); 
+    font-family: 'Monotype Corsiva', cursive; 
+    animation: spinY 5s linear infinite; 
+    cursor: pointer; 
+    z-index: 1000; 
+    user-select: none;
+}
+
+@keyframes spinY { 
+    from { transform: rotateY(0deg); } 
+    to { transform: rotateY(360deg); } 
+}
+
+/* Rainbow Class jo JS se trigger hogi */
+.rainbow-mode {
+    animation: rainbow-bg 2s linear infinite, spinY 1s linear infinite !important;
+}
+
+@keyframes rainbow-bg {
+    0% { color: #ff0000; }
+    20% { color: #ff8000; }
+    40% { color: #ffff00; }
+    60% { color: #00ff00; }
+    80% { color: #0000ff; }
+    100% { color: #ff0000; }
+}
+
+
+
+/* --- HEADER INTEGRATED TOGGLE --- */
+
+/* Sidebar ki transition */
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1000;
+    transition: all 0.3s ease-in-out;
+}
+
+.sidebar.collapsed {
+    left: -300px;
+}
+
+/* Sidebar Header ko Relative karein taaki button uske andar set ho sake */
+.sidebar-header {
+    position: relative;
+    padding-right: 50px; /* Button ke liye jagah */
+}
+
+.toggle-nav-btn {position: absolute; right: 10px; top: 10px; background: transparent; color: #1abc9c; border: 1px solid #1abc9c; padding: 2px 8px; cursor: pointer; font-size: 18px; z-index: 1100; transition: 0.3s;}
+.toggle-nav-btn:hover {background: #1abc9c; color: white;}
+/* Jab Sidebar band ho - Poori lambi patti */
+.sidebar.collapsed .toggle-nav-btn {position: fixed; left: 0; top: 0; width: 12px; height: 100vh; background: #2c3e50; color: #1abc9c; border: none; border-right: 2px solid #1abc9c; border-radius: 0; display: flex; align-items: center; justify-content: center; box-shadow: 2px 0 5px rgba(0,0,0,0.3); font-size: 12px;}
+.sidebar.collapsed .toggle-nav-btn:hover {width: 20px; background: #34495e;}
+/* Content Area Adjustment */
+.content-area {margin-left: 300px; transition: 0.3s;}
+.content-area.expanded {margin-left: 0;}
+
+/* Table ki row par pointer cursor taaki pata chale click karna hai */
+#tableBody tr {
+    cursor: pointer;
+}
+
+/* Default state: Controls ko chhupa kar rakho */
+#tableBody tr .vertical-controls {
+    display: none !important;
+}
+
+/* Active state: Jab row par click ho (hum JS se 'active-row' class lagayenge) */
+#tableBody tr.active-row .vertical-controls {
+    display: flex !important;
+    flex-direction: row !important; /* Buttons ko horizontally karne ke liye */
+    align-items: center;
+    gap: 10px;
+    animation: fadeIn 0.3s; /* Chhota sa smooth effect bina color badle */
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* \\start stop button ko just down show karne ke liye // */
+
+/* --- NEW: ROW CLICK DOWN CONTROLS --- */
+
+/* 1. Row ko relative banayein taaki controls niche set ho sakein */
+#tableBody tr {
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#tableBody tr:hover {
+    background-color: rgba(26, 188, 156, 0.05); /* Halka sa highlight hover par */
+}
+
+/* 2. Controls ko by default Hide karein aur Position 'Just Down' rakhein */
+#tableBody tr .vertical-controls {
+    display: none !important; /* Shuruat mein hide */
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 90%; /* Row ke nichle hisse se start hoga */
+    z-index: 1000;
+    background: #ffffff;
+    padding: 8px 20px;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    border: 1px solid #1abc9c;
+    border-top: none;
+    min-width: 400px; /* Saare buttons ek line mein lane ke liye */
+}
+
+/* 3. Jab row par click ho (Active State) */
+#tableBody tr.active-row {
+    background-color: #f0fdfa !important; /* Selected row ka color */
+    border-bottom: 2px solid #1abc9c;
+}
+
+#tableBody tr.active-row .vertical-controls {
+    display: flex !important; /* Flexbox se horizontal layout */
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    animation: slideInDown 0.3s ease-out forwards;
+}
+
+/* 4. Individual Div Containers (Jo aapne maange the) */
+.timer-controls, .action-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.timer-display-wrapper {
+    background: #2c3e50;
+    color: #1abc9c;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 16px;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+}
+
+/* Animation: Niche se nikalne wala effect */
+@keyframes slideInDown {
+    from { 
+        opacity: 0; 
+        top: 70%; 
+    }
+    to { 
+        opacity: 1; 
+        top: 100%; 
+    }
+}
+
+/* Buttons ki width aur style fix (Horizontal ke liye) */
+.start-btn, .stop-btn, .edit-btn, .del-btn {
+    min-width: 70px !important;
+    max-width: none !important;
+    font-size: 11px !important;
+    padding: 6px 12px !important;
+}
+
+/* --- FINAL FIX: ROW CLICK CONTROLS --- */
+
+/* 1. Table Wrapper ka overflow visible hona chahiye taaki buttons dikhen */
+.table-wrapper {
+    overflow: visible !important; 
+    position: relative;
+}
+
+/* 2. Row ko relative banayein taaki buttons uske niche align hon */
+#tableBody tr {
+    position: relative;
+    cursor: pointer;
+}
+
+/* 3. Controls ka Main Container (By default hide) */
+#tableBody tr .vertical-controls {
+    display: none !important;
+    position: absolute;
+    left: 50%;
+    top: 100%; /* Row ke theek niche */
+    transform: translateX(-50%);
+    z-index: 9999; /* Sabse upar */
+    background: #ffffff;
+    padding: 10px 25px;
+    border: 2px solid var(--accent-color);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    
+    /* Layout fix */
+    flex-direction: row !important;
+    align-items: center;
+    gap: 20px;
+    min-width: 450px;
+}
+
+/* 4. Jab row active ho (JS class ke zariye) */
+#tableBody tr.active-row {
+    background-color: #f0fdfa !important;
+    outline: 2px solid var(--accent-color);
+    z-index: 10; /* Selected row ko upar rakho */
+}
+
+#tableBody tr.active-row .vertical-controls {
+    display: flex !important;
+    animation: slideDownFast 0.2s ease-out;
+}
+
+/* 5. Alag-alag DIVs ki styling */
+.timer-controls, .action-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.timer-display-wrapper {
+    background: #2c3e50;
+    color: #1abc9c;
+    padding: 5px 15px;
+    border-radius: 6px;
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: bold;
+    font-size: 16px;
+    border: 1px solid #34495e;
+}
+
+/* Animation: Niche sarakne ka effect */
+@keyframes slideDownFast {
+    from { opacity: 0; transform: translate(-50%, -10px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Buttons ka size fix taaki horizontal fit hon */
+.start-btn, .stop-btn, .edit-btn, .del-btn {
+    min-width: 80px !important;
+    padding: 6px 0 !important;
+    font-size: 11px !important;
+    text-transform: uppercase;
+}
+
+/* --- LINKS ONLY PAGE MODE --- */
+/* Content area ko hide karne ke liye jab links-only mode active ho */
+body.links-only-page .content-area {
+    display: none !important;
+}
+
+/* --- FOOTBALL GROUND BACKGROUND --- */
+body.links-only-page {
+    background-color: #2e7d32; /* Grass Green */
+    border: 10px solid #1b5e20;
+    box-sizing: border-box;
+    background-image: 
+        linear-gradient(rgba(255,255,255,0.1) 50%, transparent 50%),
+        radial-gradient(circle at 50% 50%, transparent 80px, white 80px, white 82px, transparent 82px), /* Center Circle */
+        linear-gradient(90deg, white 2px, transparent 2px); /* Half line */
+    background-size: 100% 80px, 100% 100%, 50% 100%;
+    background-repeat: repeat-y, no-repeat, no-repeat;
+    box-shadow: inset 0 0 100px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+
+/* Goals */
+.goal-post { position: fixed; width: 10px; height: 200px; background: white; top: 50%; transform: translateY(-50%); box-shadow: 0 0 15px rgba(255,255,255,0.5); z-index: 5; }
+.goal-left { left: 310px; }
+.goal-right { right: 10px; }
+
+/* MAS Logo effect ko hamesha chalu rakhne ke liye specific styling */
+body.links-only-page .mas-logo {
+    animation: rainbow-bg 2s linear infinite, spinY 5s linear infinite !important;
+
+/* Game Entities */
+.football { width: 40px; height: 40px; background: white; border-radius: 50%; position: fixed; z-index: 100; border: 2px solid #333; background-image: radial-gradient(circle, #333 20%, transparent 25%); background-size: 15px 15px; box-shadow: 0 5px 10px rgba(0,0,0,0.3); pointer-events: none; }
+.player-striker { width: 50px; height: 50px; background: #2196f3; border-radius: 50%; position: fixed; z-index: 101; border: 3px solid white; box-shadow: 0 0 15px #2196f3; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; cursor: none; }
+.cpu-striker { width: 50px; height: 50px; background: #f44336; border-radius: 50%; position: fixed; z-index: 101; border: 3px solid white; box-shadow: 0 0 15px #f44336; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+
+#score-board { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 30px; border-radius: 30px; font-size: 24px; font-family: monospace; z-index: 1000; border: 2px solid #fff; }

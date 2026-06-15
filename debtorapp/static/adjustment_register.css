@@ -1,0 +1,137 @@
+.adjustment-register-page {
+    background: #174a73;
+}
+
+.adjustment-container {
+    width: 100%;
+    padding: var(--nav-content-offset, 18px) 10px 10px;
+    box-sizing: border-box;
+    transition: padding-top 0.22s ease;
+}
+
+.adjustment-card {
+    background: #ffffff;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.adjustment-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.adjustment-heading h1 {
+    margin: 0;
+    color: #34495e;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 22px;
+    text-align: left;
+}
+
+.adjustment-table-scroll {
+    max-height: calc(100vh - 120px);
+    overflow: auto;
+    border: 1px solid #b7c4cc;
+}
+
+.adjustment-register-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.adjustment-register-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 7px;
+    background: #34495e;
+    color: #ffffff;
+    border: 1px solid #b7c4cc;
+    font-family: "Times New Roman", Times, serif;
+    text-align: left;
+}
+
+.adjustment-register-table td {
+    max-width: 220px;
+    padding: 5px 7px;
+    border: 1px solid #cfd8dc;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12px;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.adjustment-register-table tr:hover {
+    background: #f9f9f9;
+}
+
+.adjustment-type {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+}
+
+.adjustment-type.bad-debt {
+    background: #fdecea;
+    color: #922b21;
+    border: 1px solid #f1b0aa;
+}
+
+.adjustment-type.discount {
+    background: #eaf4ee;
+    color: #145c34;
+    border: 1px solid #a9d5b9;
+}
+
+.empty-adjustment-register {
+    text-align: center;
+    padding: 18px;
+    color: #5d6d76;
+}
+
+@media (max-width: 768px) {
+    .adjustment-container {
+        padding: var(--nav-content-offset, 18px) 8px 10px;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .adjustment-card {
+        width: 100%;
+        max-width: 100%;
+        padding: 10px;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+
+    .adjustment-heading {
+        align-items: stretch;
+    }
+
+    .adjustment-heading h1 {
+        font-size: 1.25rem;
+        line-height: 1.25;
+    }
+
+    .adjustment-table-scroll {
+        width: 100%;
+        max-width: 100%;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .adjustment-register-table {
+        width: max-content;
+    }
+}

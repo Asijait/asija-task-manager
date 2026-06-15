@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bad Debt / Discount Register</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='adjustment_register.css') }}">
+</head>
+<body class="adjustment-register-page" data-active-page="adjustment_register">
+    {% include 'navbar.html' %}
+
+    <div class="adjustment-container">
+        <div class="adjustment-card">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <div class="adjustment-heading">
+                <h1>Bad Debt / Discount Register</h1>
+                <a href="{{ debtor_url('/receipts') }}" class="secondary-btn primary-btn">Post New Entry</a>
+            </div>
+
+            <main class="adjustment-table-scroll">
+                <table class="adjustment-register-table">
+                    <thead>
+                        <tr>
+                            <th>Entry Date</th>
+                            <th>Type</th>
+                            <th>Firm</th>
+                            <th>Bill Date</th>
+                            <th>Bill No</th>
+                            <th>Entity</th>
+                            <th>Bill Amount</th>
+                            <th>Adjustment Amount</th>
+                            <th>Balance</th>
+                            <th>Due Date</th>
+                            <th>Over Due</th>
+                            <th>Group</th>
+                            <th>Followup Partner</th>
+                            <th>EP</th>
+                            <th>CRP</th>
+                            <th>Category</th>
+                            <th>F.Y.</th>
+                            <th>Posted At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr>
+                            <td>{{ row.adjustment_date_display }}</td>
+                            <td>
+                                <span class="adjustment-type {{ 'bad-debt' if row.adjustment_type == 'Bad Debt' else 'discount' }}">{{ row.adjustment_type }}</span>
+                            </td>
+                            <td>{{ row.short_name }}</td>
+                            <td>{{ row.bill_date_display }}</td>
+                            <td>{{ row.ref_no }}</td>
+                            <td>{{ row.party_name }}</td>
+                            <td class="amount">Rs {{ "{:,.2f}".format(row.bill_amount or 0) }}</td>
+                            <td class="amount">Rs {{ "{:,.2f}".format(row.adjustment_amount or 0) }}</td>
+                            <td class="amount">Rs {{ "{:,.2f}".format(row.balance_amount or 0) }}</td>
+                            <td>{{ row.due_date_display }}</td>
+                            <td>{{ row.overdue_days }}</td>
+                            <td>{{ row.client_group }}</td>
+                            <td>{{ row.followup_partner }}</td>
+                            <td>{{ row.final_ep }}</td>
+                            <td>{{ row.crp_of_group }}</td>
+                            <td>{{ row.client_category }}</td>
+                            <td>{{ row.financial_year }}</td>
+                            <td>{{ row.posted_at }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="18" class="empty-adjustment-register">No bad debt or discount entries posted yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </main>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+</body>
+</html>

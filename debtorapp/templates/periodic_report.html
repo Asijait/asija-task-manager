@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Periodic Report - Billing System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .report-body { padding: var(--nav-content-offset, 18px) 20px 20px; color: #333; max-width: 1600px; margin: 0 auto; transition: padding-top 0.22s ease; }
+        .report-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; align-items: start; transition: grid-template-columns 0.3s ease; }
+        .previous-view {
+            display: none;
+            grid-column: 1 / -1;
+            width: 100%;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            gap: 20px;
+            align-items: start;
+        }
+        .previous-summary-container { grid-column: 1; }
+        .previous-right-stack { grid-column: 2; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+        .section-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; position: relative; }
+        h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px; margin-bottom: 15px; font-size: 1.25rem; font-family: "Times New Roman", serif; }
+        .summary-table { width: 100%; border-collapse: collapse; }
+        .summary-table th, .summary-table td { padding: 8px 12px; border: 1px solid #ddd; text-align: left; font-size: 13px; }
+        .summary-table th { background: #34495e; font-weight: 600; color: white; position: sticky; top: 0; z-index: 1; }
+        .summary-table td.amount-cell { text-align: right; font-weight: bold; color: #2c3e50; white-space: nowrap; }
+        .summary-table th.amount-heading { text-align: center; }
+        .back-link { display: inline-block; margin-top: 10px; color: #3498db; text-decoration: none; font-weight: 600; padding: 10px 20px; background: white; border-radius: 4px; }
+        
+        .toggle-container { text-align: center; margin-bottom: 25px; }
+        .toggle-btn { 
+            background: #fff; color: #174a73; border: 1px solid #174a73; 
+            padding: 8px 16px; cursor: pointer; font-weight: 600; border-radius: 4px;
+            transition: all 0.2s; margin: 0 5px;
+        }
+        .toggle-btn:hover { background: #eef2f7; }
+        .toggle-btn.active { background: #3498db; color: white; border-color: #3498db; }
+
+        .search-container { max-width: 400px; margin: 0 auto 20px; position: relative; }
+        .report-search { 
+            width: 100%; padding: 10px 15px; border-radius: 20px; border: 1px solid #ddd;
+            font-size: 14px; outline: none; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .report-search:focus { border-color: #3498db; box-shadow: 0 2px 8px rgba(52,152,219,0.2); }
+
+        .amt-red { color: #e74c3c !important; font-weight: bold; }
+        .amt-orange { color: #f39c12 !important; font-weight: bold; }
+        .stacked-report-title { margin-top: 24px; }
+        .previous-right-stack { gap: 12px; }
+        .previous-right-stack .section-card { padding: 14px 16px; margin-bottom: 0; }
+        .previous-right-stack h2 { font-size: 1.05rem; margin-bottom: 10px; padding-right: 32px; }
+        .previous-right-stack .summary-table th,
+        .previous-right-stack .summary-table td { padding: 5px 8px; font-size: 11px; }
+        .previous-right-stack .scroll-box { max-height: calc((100vh - 250px) / 2) !important; overflow: auto; }
+        .report-zoom-btn {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 24px;
+            height: 24px;
+            border: 1px solid #8ca0b3;
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+        }
+        .report-zoom-btn::before {
+            content: "";
+            position: absolute;
+            inset: 5px;
+            border: 2px solid #34495e;
+        }
+        .zoom-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.55);
+            z-index: 1000;
+            padding: 24px;
+        }
+        .zoom-modal.is-open { display: flex; }
+        .zoom-modal-content {
+            width: min(96vw, 1400px);
+            max-height: 92vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 8px;
+            padding: 22px;
+            position: relative;
+        }
+        .zoom-modal-content .section-card { box-shadow: none; margin: 0; padding: 0; }
+        .zoom-modal-content .scroll-box { max-height: none !important; overflow: visible; }
+        .zoom-modal-close {
+            position: sticky;
+            top: 0;
+            float: right;
+            width: 28px;
+            height: 28px;
+            border: 1px solid #8ca0b3;
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .periodic-detail-row { cursor: pointer; }
+        .periodic-detail-row:hover { background: #eef7ff; }
+        .periodic-detail-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(0, 0, 0, 0.55);
+            z-index: 1100;
+        }
+        .periodic-detail-modal.is-open { display: flex; }
+        .periodic-detail-panel {
+            width: min(96vw, 1280px);
+            max-height: 92vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 18px 50px rgba(0,0,0,0.28);
+        }
+        .periodic-detail-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 12px;
+        }
+        .periodic-detail-header h2 { margin: 0 0 4px; }
+        .periodic-detail-meta { color: #607382; font-size: 12px; }
+        .periodic-detail-close {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #8ca0b3;
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+        }
+        .periodic-detail-tools {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .periodic-detail-export {
+            padding: 7px 10px;
+            border: 1px solid #8ca0b3;
+            border-radius: 4px;
+            background: #eef4f8;
+            color: #24384a;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .periodic-detail-export:hover { background: #dcebf3; }
+        .periodic-detail-table-wrap { overflow: auto; max-height: 70vh; }
+        .periodic-detail-table th { position: sticky; top: 0; z-index: 1; }
+
+        @media (max-width: 1024px) {
+            .report-grid { grid-template-columns: 1fr; }
+            .previous-view {
+                grid-template-columns: 1fr;
+            }
+            .previous-summary-container,
+            .previous-right-stack { grid-column: 1; }
+        }
+    </style>
+</head>
+<body style="background: #174a73;">
+    {% include 'navbar.html' %}
+
+    <div class="report-body">
+        <div class="search-container">
+            <input type="text" class="report-search" id="periodicSearch" placeholder="🔍 Search by Group or EP name..." oninput="filterPeriodicTables()">
+        </div>
+
+        <div class="toggle-container">
+            <button class="toggle-btn active" onclick="switchView('both', this)">Show All</button>
+            <button class="toggle-btn" onclick="switchView('current', this)">Current Period Only</button>
+            <button class="toggle-btn" onclick="switchView('previous', this)">Previous Years Only</button>
+            <button class="toggle-btn" onclick="switchView('ep', this)">EP Summary Only</button>
+        </div>
+        
+        {% set total_curr = current_only_summary.values() | map(attribute='total') | sum %}
+        {% set total_prev = prev_accum_summary.values() | map(attribute='total') | sum %}
+        {% set total_ep = ep_summary.values() | sum %}
+
+        <div class="report-grid">
+            <!-- Current Period Report -->
+            <div class="section-card" id="currentSection">
+                <h2>Current Period Report (2026-27 Only)</h2>
+                <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Groups that exist <b>only</b> in the current financial year.</p>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Group / Party Name</th>
+                            <th style="width: 130px;">Total</th>
+                            <th style="width: 50px;">%</th>
+                            <th style="width: 110px;">Followup Partner</th>
+                            <th style="width: 110px;">First Bill Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for name, data in current_only_summary.items() %}
+                        <tr class="periodic-detail-row" data-group="{{ name }}" data-period="current">
+                            <td>{{ name }}</td>
+                            <td class="amount-cell {{ 'amt-red' if data.total >= 2000000 else 'amt-orange' if data.total >= 1000000 else '' }}">
+                                ₹ {{ data.total | indian_currency(decimals=False) }}
+                            </td>
+                            <td class="amount-cell" style="font-size: 11px; color: #7f8c8d;">{{ "%.0f"|format(data.total / total_curr * 100) if total_curr > 0 else '0' }}%</td>
+                            <td>{{ data.followup_partner }}</td>
+                            <td>{{ data.first_date }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not current_only_summary %}
+                        <tr><td colspan="5" style="text-align: center;">No records found.</td></tr>
+                        {% endif %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: #f1f4f6; font-weight: bold; border-top: 2px solid #ddd;">
+                            <td>Grand Total</td>
+                            <td class="amount-cell">₹ {{ total_curr | indian_currency(decimals=False) }}</td>
+                            <td class="amount-cell" style="font-size: 11px;">100%</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Current Followup Pivot -->
+            <div class="section-card" id="currentFollowupSection" style="display: none;">
+                <h2>Current Period: Followup vs Category</h2>
+                <div class="scroll-box" style="max-height: 500px;">
+                    <table class="summary-table">
+                        <thead>
+                            <tr>
+                                <th>Followup Partner</th>
+                                {% for cat in all_categories %}
+                                <th style="text-align:center;">{{ cat }}</th>
+                                {% endfor %}
+                                <th colspan="2" style="text-align:center; background:#2c3e50;">Grand Total</th>
+                            </tr>
+                            <tr style="font-size: 10px;">
+                                <th></th>
+                                {% for cat in all_categories %}
+                                <th class="amount-heading" style="text-align: center;">Amount</th>
+                                {% endfor %}
+                                <th class="amount-heading" style="text-align: center;">Amount</th><th class="amount-heading" style="text-align: center;">%</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fp, cats in current_fp_cat.items() %}
+                            {% set fp_total = cats.values() | sum %}
+                            <tr>
+                                <td>{{ fp }}</td>
+                                {% for cat in all_categories %}
+                                {% set val = cats.get(cat, 0) %}
+                                <td class="amount-cell">₹ {{ val | indian_currency(decimals=False) }}</td>
+                                {% endfor %}
+                                <td class="amount-cell" style="background:#f9f9f9;">₹ {{ fp_total | indian_currency(decimals=False) }}</td>
+                                <td class="amount-cell" style="background:#f9f9f9;">{{ "%.0f"|format(fp_total / total_curr * 100) if total_curr > 0 else '0' }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #f1f4f6; font-weight: bold; border-top: 2px solid #ddd;">
+                                <td>Grand Total</td>
+                                {% for cat in all_categories %}
+                                <td class="amount-cell">₹ {{ current_fp_cat_totals.get(cat, 0) | indian_currency(decimals=False) }}</td>
+                                {% endfor %}
+                                <td class="amount-cell" style="background:#f9f9f9;">₹ {{ total_curr | indian_currency(decimals=False) }}</td>
+                                <td class="amount-cell" style="background:#f9f9f9;">100%</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <div class="previous-view" id="previousView">
+            <div class="previous-summary-container">
+            <!-- Previous Years Accumulated Report -->
+            <div class="section-card" id="previousSection">
+                <h2>Previous Years Accumulated Report</h2>
+                <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Groups that have billing records in <b>any</b> year prior to 2026-27.</p>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Group / Party Name</th>
+                            <th style="width: 130px;">Total</th>
+                            <th style="width: 50px;">%</th>
+                            <th style="width: 110px;">Followup Partner</th>
+                            <th style="width: 110px;">First Bill Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for name, data in prev_accum_summary.items() %}
+                        <tr class="periodic-detail-row" data-group="{{ name }}" data-period="previous">
+                            <td>{{ name }}</td>
+                            <td class="amount-cell {{ 'amt-red' if data.total >= 2000000 else 'amt-orange' if data.total >= 1000000 else '' }}">
+                                ₹ {{ data.total | indian_currency(decimals=False) }}
+                            </td>
+                            <td class="amount-cell" style="font-size: 11px; color: #7f8c8d;">{{ "%.0f"|format(data.total / total_prev * 100) if total_prev > 0 else '0' }}%</td>
+                            <td>{{ data.followup_partner }}</td>
+                            <td>{{ data.first_date }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not prev_accum_summary %}
+                        <tr><td colspan="5" style="text-align: center;">No records found.</td></tr>
+                        {% endif %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: #f1f4f6; font-weight: bold; border-top: 2px solid #ddd;">
+                            <td>Grand Total</td>
+                            <td class="amount-cell">₹ {{ total_prev | indian_currency(decimals=False) }}</td>
+                            <td class="amount-cell" style="font-size: 11px;">100%</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            </div>
+
+            <div class="previous-right-stack">
+            <div class="previous-category-container">
+            <!-- Previous Followup Pivot -->
+            <div class="section-card" id="previousFollowupSection">
+                <button type="button" class="report-zoom-btn" data-zoom-target="previousFollowupSection" title="Zoom report" aria-label="Zoom report"></button>
+                <h2>Previous Period: Followup vs Category</h2>
+                <div class="scroll-box" style="max-height: 500px;">
+                    <table class="summary-table">
+                        <thead>
+                            <tr>
+                                <th>Followup Partner</th>
+                                {% for cat in all_categories %}
+                                <th style="text-align:center;">{{ cat }}</th>
+                                {% endfor %}
+                                <th colspan="2" style="text-align:center; background:#2c3e50;">Grand Total</th>
+                            </tr>
+                            <tr style="font-size: 10px;">
+                                <th></th>
+                                {% for cat in all_categories %}
+                                <th class="amount-heading" style="text-align: center;">Amount</th>
+                                {% endfor %}
+                                <th class="amount-heading" style="text-align: center;">Amount</th><th class="amount-heading" style="text-align: center;">%</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fp, cats in prev_fp_cat.items() %}
+                            {% set fp_total = cats.values() | sum %}
+                            <tr>
+                                <td>{{ fp }}</td>
+                                {% for cat in all_categories %}
+                                {% set val = cats.get(cat, 0) %}
+                                <td class="amount-cell">₹ {{ val | indian_currency(decimals=False) }}</td>
+                                {% endfor %}
+                                <td class="amount-cell" style="background:#f9f9f9;">₹ {{ fp_total | indian_currency(decimals=False) }}</td>
+                                <td class="amount-cell" style="background:#f9f9f9;">{{ "%.0f"|format(fp_total / total_prev * 100) if total_prev > 0 else '0' }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #f1f4f6; font-weight: bold; border-top: 2px solid #ddd;">
+                                <td>Grand Total</td>
+                                {% for cat in all_categories %}
+                                <td class="amount-cell">₹ {{ prev_fp_cat_totals.get(cat, 0) | indian_currency(decimals=False) }}</td>
+                                {% endfor %}
+                                <td class="amount-cell" style="background:#f9f9f9;">₹ {{ total_prev | indian_currency(decimals=False) }}</td>
+                                <td class="amount-cell" style="background:#f9f9f9;">100%</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+            </div>
+            </div>
+
+            <div class="previous-period-container">
+            <!-- Previous Followup Period Summary -->
+            <div class="section-card" id="previousPeriodSummarySection" style="display: none;">
+                <button type="button" class="report-zoom-btn" data-zoom-target="previousPeriodSummarySection" title="Zoom report" aria-label="Zoom report"></button>
+                <h2 class="stacked-report-title">Previous Period: Followup vs Period</h2>
+                <div class="scroll-box" style="max-height: 500px; overflow-x: auto;">
+                    <table class="summary-table">
+                        <thead>
+                            <tr>
+                                <th>Followup Partner</th>
+                                {% for period in all_periods %}
+                                <th class="amount-heading" style="text-align: center;">{{ period }}</th>
+                                {% endfor %}
+                                <th class="amount-heading" style="text-align: center; background:#2c3e50;">Grand Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fp, periods in prev_fp_period.items() %}
+                            {% set fp_total = periods.values() | sum %}
+                            <tr>
+                                <td>{{ fp }}</td>
+                                {% for period in all_periods %}
+                                {% set val = periods.get(period, 0) %}
+                                <td class="amount-cell">₹ {{ val | indian_currency(decimals=False) }}</td>
+                                {% endfor %}
+                                <td class="amount-cell" style="background:#f9f9f9;">₹ {{ fp_total | indian_currency(decimals=False) }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% if not prev_fp_period %}
+                            <tr><td colspan="{{ all_periods|length + 2 }}" style="text-align: center;">No records found.</td></tr>
+                            {% endif %}
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #f1f4f6; font-weight: bold; border-top: 2px solid #ddd;">
+                                <td>Grand Total</td>
+                                {% for period in all_periods %}
+                                <td class="amount-cell">₹ {{ prev_fp_period_totals.get(period, 0) | indian_currency(decimals=False) }}</td>
+                                {% endfor %}
+                                <td class="amount-cell" style="background:#f9f9f9;">₹ {{ total_prev | indian_currency(decimals=False) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            </div>
+            </div>
+            </div>
+
+            <!-- Executive Partner Summary -->
+            <div class="section-card" id="epSection" style="display: none;">
+                <h2>Executive Partner Summary</h2>
+                <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Total billing breakdown by Executive Partner (EP).</p>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>EP Name</th>
+                            <th style="width: 130px;">Total</th>
+                            <th style="width: 50px;">%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for name, total in ep_summary.items() %}
+                        <tr>
+                            <td>{{ name }}</td>
+                            <td class="amount-cell {{ 'amt-red' if total >= 2000000 else 'amt-orange' if total >= 1000000 else '' }}">
+                                ₹ {{ total | indian_currency(decimals=False) }}
+                            </td>
+                            <td class="amount-cell" style="font-size: 11px; color: #7f8c8d;">{{ "%.0f"|format(total / total_ep * 100) if total_ep > 0 else '0' }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: #f1f4f6; font-weight: bold; border-top: 2px solid #ddd;">
+                            <td>Grand Total</td>
+                            <td class="amount-cell">₹ {{ total_ep | indian_currency(decimals=False) }}</td>
+                            <td class="amount-cell" style="font-size: 11px;">100%</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="{{ debtor_url('/') }}" class="back-link">← Return to Main Dashboard</a>
+        </div>
+    </div>
+
+    <div class="zoom-modal" id="reportZoomModal" aria-hidden="true">
+        <div class="zoom-modal-content" role="dialog" aria-modal="true" aria-label="Report preview">
+            <button type="button" class="zoom-modal-close" id="reportZoomClose" aria-label="Close">x</button>
+            <div id="reportZoomBody"></div>
+        </div>
+    </div>
+
+    <div class="periodic-detail-modal" id="periodicDetailModal" aria-hidden="true">
+        <div class="periodic-detail-panel" role="dialog" aria-modal="true" aria-labelledby="periodicDetailTitle">
+            <div class="periodic-detail-header">
+                <div>
+                    <h2 id="periodicDetailTitle">Group Detail</h2>
+                    <div class="periodic-detail-meta" id="periodicDetailMeta"></div>
+                </div>
+                <button type="button" class="periodic-detail-close" id="periodicDetailClose" aria-label="Close">x</button>
+            </div>
+            <div class="periodic-detail-tools">
+                <a href="#" class="periodic-detail-export" id="periodicDetailExcel">Excel Export</a>
+                <a href="#" class="periodic-detail-export" id="periodicDetailPdf">PDF Export</a>
+                <a href="#" class="periodic-detail-export" id="periodicDetailImage">Image Export</a>
+            </div>
+            <div class="periodic-detail-table-wrap">
+                <table class="summary-table periodic-detail-table">
+                    <thead>
+                        <tr>
+                            <th>Bill Date</th>
+                            <th>Firm</th>
+                            <th>Ref No.</th>
+                            <th>Party</th>
+                            <th style="width: 130px;">Amount</th>
+                            <th>Due Date</th>
+                            <th>Overdue</th>
+                            <th>Followup</th>
+                            <th>EP</th>
+                            <th>Category</th>
+                            <th>FY</th>
+                        </tr>
+                    </thead>
+                    <tbody id="periodicDetailRows"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const periodicDetailUrl = "{{ debtor_url('/api/periodic-report/group-detail') }}";
+        const periodicDetailExcelUrl = "{{ debtor_url('/periodic-report/group-detail/export/excel') }}";
+        const periodicDetailPdfUrl = "{{ debtor_url('/periodic-report/group-detail/export/pdf') }}";
+
+        function escapeHtml(value) {
+            return String(value || '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function buildPeriodicGroupDetail() {
+            const modal = document.getElementById('periodicDetailModal');
+            const title = document.getElementById('periodicDetailTitle');
+            const meta = document.getElementById('periodicDetailMeta');
+            const rowsBody = document.getElementById('periodicDetailRows');
+            const closeButton = document.getElementById('periodicDetailClose');
+            const excelButton = document.getElementById('periodicDetailExcel');
+            const pdfButton = document.getElementById('periodicDetailPdf');
+            const imageButton = document.getElementById('periodicDetailImage');
+            if (!modal || !title || !meta || !rowsBody || !closeButton) return;
+            let activeGroupName = '';
+            let activePeriodScope = '';
+            let activeDetailRows = [];
+            let activeDetailCount = 0;
+            let activeDetailTotal = '';
+
+            function setExportLinks(groupName, periodScope) {
+                const query = new URLSearchParams({ group: groupName, period: periodScope || '' }).toString();
+                if (excelButton) excelButton.href = `${periodicDetailExcelUrl}?${query}`;
+                if (pdfButton) pdfButton.href = `${periodicDetailPdfUrl}?${query}`;
+                if (imageButton) imageButton.href = '#';
+            }
+
+            function exportCurrentDetailJpeg(event) {
+                event.preventDefault();
+                if (!activeGroupName) return;
+
+                const columns = [
+                    { label: 'Bill Date', key: 'bill_date_display', width: 92 },
+                    { label: 'Firm', key: 'short_name', width: 82 },
+                    { label: 'Ref No.', key: 'ref_no', width: 140 },
+                    { label: 'Party', key: 'party_name', width: 280 },
+                    { label: 'Amount', key: 'amount_display', width: 118, prefix: 'Rs ' },
+                    { label: 'Due Date', key: 'due_date_display', width: 92 },
+                    { label: 'Overdue', key: 'overdue_days', width: 76 }
+                ];
+                const padding = 16;
+                const titleHeight = 62;
+                const headerHeight = 30;
+                const rowHeight = 27;
+                const totalHeight = 30;
+                const tableWidth = columns.reduce((sum, column) => sum + column.width, 0);
+                const rows = activeDetailRows.length ? activeDetailRows : [];
+                const canvas = document.createElement('canvas');
+                canvas.width = tableWidth + padding * 2;
+                canvas.height = titleHeight + headerHeight + Math.max(rows.length, 1) * rowHeight + totalHeight + padding;
+                const ctx = canvas.getContext('2d');
+
+                function fitText(text, width) {
+                    let value = String(text || '');
+                    while (value.length > 0 && ctx.measureText(value).width > width - 10) {
+                        value = value.slice(0, -2) + '~';
+                    }
+                    return value;
+                }
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#1f2d3a';
+                ctx.font = '700 15px Arial, sans-serif';
+                ctx.fillText(`Periodic Detail - ${activeGroupName}`, padding, 25);
+                ctx.fillStyle = '#607382';
+                ctx.font = '12px Arial, sans-serif';
+                ctx.fillText(`${activeDetailCount} record(s) | Total Rs ${activeDetailTotal}`, padding, 44);
+
+                let x = padding;
+                let y = titleHeight;
+                ctx.font = '700 11px Arial, sans-serif';
+                columns.forEach(column => {
+                    ctx.fillStyle = '#34495e';
+                    ctx.fillRect(x, y, column.width, headerHeight);
+                    ctx.strokeStyle = '#b7c4cc';
+                    ctx.strokeRect(x, y, column.width, headerHeight);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(column.label, x + 5, y + 19);
+                    x += column.width;
+                });
+
+                ctx.font = '10px Arial, sans-serif';
+                if (!rows.length) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(padding, y + headerHeight, tableWidth, rowHeight);
+                    ctx.strokeStyle = '#cfd8dc';
+                    ctx.strokeRect(padding, y + headerHeight, tableWidth, rowHeight);
+                    ctx.fillStyle = '#34495e';
+                    ctx.fillText('No records found.', padding + 8, y + headerHeight + 18);
+                }
+                rows.forEach((row, rowIndex) => {
+                    x = padding;
+                    const rowY = y + headerHeight + rowIndex * rowHeight;
+                    columns.forEach(column => {
+                        ctx.fillStyle = rowIndex % 2 === 0 ? '#ffffff' : '#f8fafb';
+                        ctx.fillRect(x, rowY, column.width, rowHeight);
+                        ctx.strokeStyle = '#cfd8dc';
+                        ctx.strokeRect(x, rowY, column.width, rowHeight);
+                        ctx.fillStyle = '#24384a';
+                        const text = fitText(`${column.prefix || ''}${row[column.key] ?? ''}`, column.width);
+                        ctx.fillText(text, x + 5, rowY + 17);
+                        x += column.width;
+                    });
+                });
+
+                const totalY = y + headerHeight + Math.max(rows.length, 1) * rowHeight;
+                ctx.fillStyle = '#eef4f8';
+                ctx.fillRect(padding, totalY, tableWidth, totalHeight);
+                ctx.strokeStyle = '#b7c4cc';
+                ctx.strokeRect(padding, totalY, tableWidth, totalHeight);
+                ctx.fillStyle = '#1f2d3a';
+                ctx.font = '700 12px Arial, sans-serif';
+                ctx.fillText(`Grand Total: Rs ${activeDetailTotal}`, padding + 8, totalY + 20);
+
+                canvas.toBlob(blob => {
+                    if (!blob) return;
+                    const link = document.createElement('a');
+                    const safeName = activeGroupName.replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '') || 'periodic_detail';
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `periodic_detail_${safeName}.jpg`;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+                }, 'image/jpeg', 0.95);
+            }
+
+            function closeModal() {
+                modal.classList.remove('is-open');
+                modal.setAttribute('aria-hidden', 'true');
+            }
+
+            async function openGroupDetail(groupName, periodScope) {
+                activeGroupName = groupName;
+                activePeriodScope = periodScope || '';
+                title.textContent = groupName;
+                meta.textContent = 'Loading date-wise records...';
+                rowsBody.innerHTML = '';
+                setExportLinks(groupName, periodScope);
+                modal.classList.add('is-open');
+                modal.setAttribute('aria-hidden', 'false');
+
+                try {
+                    const params = new URLSearchParams({ group: groupName, period: periodScope || '' });
+                    const response = await fetch(`${periodicDetailUrl}?${params.toString()}`);
+                    const result = await response.json();
+                    if (!response.ok || !result.success) {
+                        meta.textContent = result.message || 'Unable to load records.';
+                        return;
+                    }
+
+                    activeDetailRows = result.rows || [];
+                    activeDetailCount = result.count || activeDetailRows.length;
+                    activeDetailTotal = result.total_amount_display || '0';
+                    meta.textContent = `${result.count} record(s) | Total Rs ${result.total_amount_display}`;
+                    rowsBody.innerHTML = activeDetailRows.map(row => `
+                        <tr>
+                            <td>${escapeHtml(row.bill_date_display)}</td>
+                            <td>${escapeHtml(row.short_name || row.firm_name)}</td>
+                            <td>${escapeHtml(row.ref_no)}</td>
+                            <td>${escapeHtml(row.party_name)}</td>
+                            <td class="amount-cell">Rs ${escapeHtml(row.amount_display)}</td>
+                            <td>${escapeHtml(row.due_date_display)}</td>
+                            <td>${escapeHtml(row.overdue_days)}</td>
+                            <td>${escapeHtml(row.followup_partner)}</td>
+                            <td>${escapeHtml(row.final_ep)}</td>
+                            <td>${escapeHtml(row.client_category)}</td>
+                            <td>${escapeHtml(row.financial_year)}</td>
+                        </tr>
+                    `).join('') || '<tr><td colspan="11" style="text-align:center;">No records found.</td></tr>';
+                } catch (error) {
+                    meta.textContent = 'Unable to load records.';
+                }
+            }
+
+            document.querySelectorAll('.periodic-detail-row').forEach(row => {
+                row.addEventListener('click', () => openGroupDetail(row.dataset.group || '', row.dataset.period || ''));
+            });
+            if (imageButton) imageButton.addEventListener('click', exportCurrentDetailJpeg);
+            closeButton.addEventListener('click', closeModal);
+            modal.addEventListener('click', event => {
+                if (event.target === modal) closeModal();
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') closeModal();
+            });
+        }
+
+        function switchView(mode, btn) {
+            const grid = document.querySelector('.report-grid');
+            const previousView = document.getElementById('previousView');
+            const previousSummaryContainer = document.querySelector('.previous-summary-container');
+            const current = document.getElementById('currentSection');
+            const currentFP = document.getElementById('currentFollowupSection');
+            const previous = document.getElementById('previousSection');
+            const previousFP = document.getElementById('previousFollowupSection');
+            const previousPeriod = document.getElementById('previousPeriodSummarySection');
+            const ep = document.getElementById('epSection');
+            
+            function placePreviousSummaryInMainGrid() {
+                if (previous.parentElement !== grid) grid.insertBefore(previous, ep);
+            }
+
+            function placePreviousSummaryInPreviousView() {
+                if (previous.parentElement !== previousSummaryContainer) previousSummaryContainer.appendChild(previous);
+            }
+
+            // Update buttons
+            document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+            const activeButton = btn || document.querySelector(`.toggle-btn[onclick*="'${mode}'"]`);
+            if (activeButton) activeButton.classList.add('active');
+
+            if (mode === 'current') {
+                grid.style.display = 'grid';
+                previousView.style.display = 'none';
+                current.style.display = 'block';
+                currentFP.style.display = 'block';
+                previous.style.display = 'none';
+                previousFP.style.display = 'none';
+                previousPeriod.style.display = 'none';
+                ep.style.display = 'none';
+                grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+            } else if (mode === 'previous') {
+                placePreviousSummaryInPreviousView();
+                grid.style.display = 'grid';
+                previousView.style.display = 'grid';
+                current.style.display = 'none';
+                currentFP.style.display = 'none';
+                previous.style.display = 'block';
+                previousFP.style.display = 'block';
+                previousPeriod.style.display = 'block';
+                ep.style.display = 'none';
+                grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+            } else if (mode === 'ep') {
+                grid.style.display = 'grid';
+                previousView.style.display = 'none';
+                current.style.display = 'none';
+                currentFP.style.display = 'none';
+                previous.style.display = 'none';
+                previousFP.style.display = 'none';
+                previousPeriod.style.display = 'none';
+                ep.style.display = 'block';
+                grid.style.gridTemplateColumns = '1fr';
+            } else {
+                placePreviousSummaryInMainGrid();
+                grid.style.display = 'grid';
+                previousView.style.display = 'none';
+                current.style.display = 'block';
+                currentFP.style.display = 'none';
+                previous.style.display = 'block';
+                previousFP.style.display = 'none';
+                previousPeriod.style.display = 'none';
+                ep.style.display = 'none';
+                grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+            }
+        }
+
+        window.addEventListener('beforeprint', () => {
+            const activeButton = document.querySelector('.toggle-btn.active');
+            if (activeButton && activeButton.textContent.includes('Previous')) {
+                document.querySelector('.report-grid').style.display = 'grid';
+                document.getElementById('previousView').style.display = 'grid';
+                document.getElementById('previousPeriodSummarySection').style.display = 'block';
+            }
+        });
+
+        function buildReportZoom() {
+            const modal = document.getElementById('reportZoomModal');
+            const body = document.getElementById('reportZoomBody');
+            const closeButton = document.getElementById('reportZoomClose');
+            if (!modal || !body || !closeButton) return;
+
+            function closeZoom() {
+                modal.classList.remove('is-open');
+                modal.setAttribute('aria-hidden', 'true');
+                body.innerHTML = '';
+            }
+
+            document.querySelectorAll('.report-zoom-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const source = document.getElementById(button.dataset.zoomTarget);
+                    if (!source) return;
+
+                    const clone = source.cloneNode(true);
+                    clone.querySelectorAll('.report-zoom-btn').forEach(item => item.remove());
+                    clone.removeAttribute('id');
+                    clone.style.display = 'block';
+                    body.innerHTML = '';
+                    body.appendChild(clone);
+                    modal.classList.add('is-open');
+                    modal.setAttribute('aria-hidden', 'false');
+                });
+            });
+
+            closeButton.addEventListener('click', closeZoom);
+            modal.addEventListener('click', event => {
+                if (event.target === modal) closeZoom();
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') closeZoom();
+            });
+        }
+
+        buildReportZoom();
+        buildPeriodicGroupDetail();
+        switchView('both', document.querySelector(".toggle-btn[onclick*=\"'both'\"]"));
+
+        function filterPeriodicTables() {
+            const term = document.getElementById('periodicSearch').value.toLowerCase();
+            const tables = document.querySelectorAll('.summary-table');
+            
+            tables.forEach(table => {
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(row => {
+                    // Skip "No groups found" rows
+                    if (row.cells.length < 2) return;
+                    
+                    const text = row.cells[0].textContent.toLowerCase();
+                    if (text.includes(term)) {
+                        row.style.display = "";
+                    } else {
+                        row.style.display = "none";
+                    }
+                });
+            });
+        }
+    </script>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+</body>
+</html>

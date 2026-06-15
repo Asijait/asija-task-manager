@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Group Master</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='client_master.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='client_group_master.css') }}">
+</head>
+<body>
+    {% set active_page = 'client_group_master' %}
+    {% set can_edit_client_group_master = 'client_group_master_edit' in debtor_nav_access %}
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <div class="report-card group-master-card">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <header class="group-master-header">
+                <h1>Client Group Master</h1>
+                <div class="group-count">{{ groups|length }} Groups</div>
+            </header>
+
+            <div class="client-table-toolbar">
+                <input type="search" id="clientQuickSearch" placeholder="Search groups">
+                <div class="group-toolbar-actions">
+                    {% if can_edit_client_group_master %}
+                    <button type="button" class="secondary-btn group-add-toggle" id="showGroupAddRow">Add Group</button>
+                    {% endif %}
+                    <a class="excel-icon-btn" href="{{ debtor_url('/download/client-group-master-excel') }}" title="Export Client Group Master" aria-label="Export Client Group Master">XLS</a>
+                </div>
+            </div>
+
+            <main class="group-master-table-scroll">
+                {% if can_edit_client_group_master %}
+                <form action="{{ debtor_url('/client-group-master/add') }}" method="POST" id="groupAddForm"></form>
+                {% endif %}
+                <table id="clientTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Group Name</th>
+                            <th>CRP Name</th>
+                            <th>Referred By</th>
+                            <th>Clients</th>
+                            {% if can_edit_client_group_master %}<th>Edit</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if can_edit_client_group_master %}
+                        <tr class="group-add-row" id="groupAddRow" hidden>
+                            <td>New</td>
+                            <td><input type="text" name="group_name" form="groupAddForm" placeholder="Group Name" required></td>
+                            <td>
+                                <select name="crp_name" form="groupAddForm">
+                                    <option value="">Select CRP</option>
+                                    {% for crp in crp_options %}
+                                    <option value="{{ crp }}">{{ crp }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="text" name="reffered_by" form="groupAddForm" placeholder="Referred By"></td>
+                            <td>0</td>
+                            <td class="group-add-actions">
+                                <button type="submit" class="group-row-action" form="groupAddForm" title="Save group" aria-label="Save group">Save</button>
+                                <button type="button" class="group-row-action" id="hideGroupAddRow" title="Cancel" aria-label="Cancel">Cancel</button>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% for group in groups %}
+                        <tr
+                            class="group-click-row"
+                            data-group-url="{{ debtor_url('/client-group-master/' ~ group.id ~ '/clients-data') }}"
+                            data-export-url="{{ debtor_url('/client-group-master/' ~ group.id ~ '/clients-excel') }}"
+                            data-client-id="{{ group.id }}"
+                            data-client-name="{{ group.group_name or '' }}"
+                            data-client-group="{{ group.group_name or '' }}"
+                            data-crp-of-group="{{ group.crp_name or '' }}"
+                            data-reffered-by="{{ group.reffered_by or '' }}"
+                        >
+                            <td>{{ group.id }}</td>
+                            <td><a class="group-name-link" href="#" data-group-url="{{ debtor_url('/client-group-master/' ~ group.id ~ '/clients-data') }}">{{ group.group_name }}</a></td>
+                            <td>{{ group.crp_name or '' }}</td>
+                            <td>{{ group.reffered_by or '' }}</td>
+                            <td>{{ group.client_count or 0 }}</td>
+                            {% if can_edit_client_group_master %}<td><button type="button" class="client-edit-btn" title="Edit group" aria-label="Edit group">✎</button></td>{% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </main>
+        </div>
+    </div>
+
+    {% if can_edit_client_group_master %}
+    <div class="client-modal" id="clientEditModal" aria-hidden="true">
+        <div class="client-modal-panel" role="dialog" aria-modal="true" aria-labelledby="clientEditTitle">
+            <form action="{{ debtor_url('/client-group-master/update') }}" method="POST" id="clientEditForm">
+                <div class="client-modal-header">
+                    <h2 id="clientEditTitle">Edit Client Group</h2>
+                    <button type="button" class="client-modal-close" id="clientEditClose" aria-label="Close">x</button>
+                </div>
+                <input type="hidden" name="group_id" id="editClientId">
+                <div class="client-modal-grid">
+                    <label>
+                        Group Name
+                        <input type="text" name="group_name" id="editClientName" required>
+                    </label>
+                    <label>
+                        CRP Name
+                        <select name="crp_name" id="editCrpOfGroup">
+                            <option value="">Select CRP</option>
+                            {% for crp in crp_options %}
+                            <option value="{{ crp }}">{{ crp }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        Referred By
+                        <input type="text" name="reffered_by" id="editRefferedBy">
+                    </label>
+                </div>
+                <div class="client-modal-actions">
+                    <button type="button" class="secondary-btn" id="clientEditCancel">Cancel</button>
+                    <button type="submit" class="secondary-btn primary-btn">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="group-clients-modal" id="groupClientsModal" aria-hidden="true">
+        <div class="group-clients-panel" role="dialog" aria-modal="true" aria-labelledby="groupClientsTitle">
+            <div class="client-modal-header">
+                <h2 id="groupClientsTitle">Group Clients</h2>
+                <div class="group-clients-header-actions">
+                    <a class="excel-icon-btn group-clients-export" id="groupClientsExport" href="#" title="Export group clients" aria-label="Export group clients">XLS</a>
+                    <button type="button" class="client-modal-close" id="groupClientsClose" aria-label="Close">x</button>
+                </div>
+            </div>
+            <div class="group-clients-summary" id="groupClientsSummary"></div>
+            <div class="group-clients-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Client Name</th>
+                            <th>Category</th>
+                            <th>CRP</th>
+                            <th>Referred By</th>
+                            <th>WhatsApp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="groupClientsBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/client_master.js') }}"></script>
+    <script>
+        const groupClientsModal = document.getElementById('groupClientsModal');
+        const groupClientsTitle = document.getElementById('groupClientsTitle');
+        const groupClientsSummary = document.getElementById('groupClientsSummary');
+        const groupClientsBody = document.getElementById('groupClientsBody');
+        const groupClientsClose = document.getElementById('groupClientsClose');
+        const groupClientsExport = document.getElementById('groupClientsExport');
+        const showGroupAddRow = document.getElementById('showGroupAddRow');
+        const hideGroupAddRow = document.getElementById('hideGroupAddRow');
+        const groupAddRow = document.getElementById('groupAddRow');
+
+        if (showGroupAddRow && groupAddRow) {
+            showGroupAddRow.addEventListener('click', function() {
+                groupAddRow.hidden = false;
+                const firstInput = groupAddRow.querySelector('input');
+                if (firstInput) firstInput.focus();
+            });
+        }
+
+        if (hideGroupAddRow && groupAddRow) {
+            hideGroupAddRow.addEventListener('click', function() {
+                groupAddRow.hidden = true;
+            });
+        }
+
+        function closeGroupClientsModal() {
+            if (!groupClientsModal) return;
+            groupClientsModal.classList.remove('is-open');
+            groupClientsModal.setAttribute('aria-hidden', 'true');
+        }
+
+        function textCell(value) {
+            const td = document.createElement('td');
+            td.textContent = value || '';
+            return td;
+        }
+
+        function openGroupClientsModal(url) {
+            if (!url || !groupClientsModal || !groupClientsBody) return;
+            groupClientsTitle.textContent = 'Group Clients';
+            groupClientsSummary.textContent = 'Loading...';
+            groupClientsBody.innerHTML = '';
+            if (groupClientsExport) {
+                groupClientsExport.removeAttribute('href');
+                groupClientsExport.classList.add('is-disabled');
+            }
+            groupClientsModal.classList.add('is-open');
+            groupClientsModal.setAttribute('aria-hidden', 'false');
+
+            fetch(url, { headers: { 'Accept': 'application/json' } })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Unable to load clients');
+                    return response.json();
+                })
+                .then(function(data) {
+                    const clients = data.clients || [];
+                    groupClientsTitle.textContent = (data.group_name || 'Group') + ' Clients';
+                    groupClientsSummary.textContent = clients.length + ' client(s)';
+                    if (groupClientsExport && data.export_url) {
+                        groupClientsExport.href = data.export_url;
+                        groupClientsExport.classList.remove('is-disabled');
+                    }
+                    if (!clients.length) {
+                        const tr = document.createElement('tr');
+                        const td = document.createElement('td');
+                        td.colSpan = 6;
+                        td.textContent = 'No clients allocated in this group.';
+                        tr.appendChild(td);
+                        groupClientsBody.appendChild(tr);
+                        return;
+                    }
+                    clients.forEach(function(client) {
+                        const tr = document.createElement('tr');
+                        tr.appendChild(textCell(client.id));
+                        tr.appendChild(textCell(client.client_name));
+                        tr.appendChild(textCell(client.client_category));
+                        tr.appendChild(textCell(client.crp_of_group));
+                        tr.appendChild(textCell(client.reffered_by));
+                        tr.appendChild(textCell(client.whatapp_group));
+                        groupClientsBody.appendChild(tr);
+                    });
+                })
+                .catch(function() {
+                    groupClientsSummary.textContent = 'Unable to load clients.';
+                });
+        }
+
+        document.querySelectorAll('.group-click-row').forEach(function(row) {
+            row.addEventListener('click', function(event) {
+                if (event.target.closest('button, form, input')) return;
+                event.preventDefault();
+                const link = event.target.closest('a');
+                openGroupClientsModal((link && link.dataset.groupUrl) || row.dataset.groupUrl);
+            });
+        });
+
+        if (groupClientsClose) groupClientsClose.addEventListener('click', closeGroupClientsModal);
+        if (groupClientsModal) {
+            groupClientsModal.addEventListener('click', function(event) {
+                if (event.target === groupClientsModal) closeGroupClientsModal();
+            });
+        }
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') closeGroupClientsModal();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deleted Records</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    {% set active_page = 'deleted_records' %}
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <div class="report-card">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <header>
+                <h1>Deleted Records</h1>
+            </header>
+
+            <main class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Deleted At</th>
+                            <th>Deleted By</th>
+                            <th>Type</th>
+                            <th>Record</th>
+                            <th>Details</th>
+                            <th>Recall</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in deleted_rows %}
+                        <tr>
+                            <td>{{ row.deleted_at }}</td>
+                            <td>{{ row.deleted_by or '' }}</td>
+                            <td>{{ row.record_type }}</td>
+                            <td>{{ row.record_name }}</td>
+                            <td>{{ row.details }}</td>
+                            <td>
+                                <form action="{{ debtor_url('/deleted-records/restore') }}" method="POST" onsubmit="return confirm('Recall this record?');">
+                                    {% if row.delete_log_id %}
+                                    <input type="hidden" name="delete_log_id" value="{{ row.delete_log_id }}">
+                                    {% else %}
+                                    <input type="hidden" name="legacy_billing_id" value="{{ row.legacy_billing_id }}">
+                                    {% endif %}
+                                    <button type="submit" class="secondary-btn primary-btn">Recall</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" style="text-align:center;">No deleted records found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </main>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+</body>
+</html>

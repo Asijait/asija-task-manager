@@ -1,0 +1,215 @@
+<div class="top-nav" data-debtor-root="{{ debtor_url('/') }}">
+    <a href="/" class="nav-home-btn" title="Home Page" aria-label="Home Page">&#8962;</a>
+    <button type="button" class="nav-menu-btn" id="navMenuBtn" aria-controls="appSidebar" aria-expanded="false">
+        Menu
+    </button>
+    <nav class="top-nav-links" aria-label="Main navigation">
+        <a href="{{ debtor_url('/') }}" class="nav-dashboard-btn {{ 'active' if active_page == 'dashboard' else '' }}" aria-label="Debtor Dashboard" data-tooltip="Debtor Dashboard">&#8962;</a>
+        <div class="nav-dropdown">
+            <button type="button" class="nav-dropdown-btn {{ 'active' if active_page in ['dashboard', 'report', 'sub_report', 'periodic_report', 'overdue_report'] else '' }}" aria-expanded="false">OutstandingS</button>
+            <div class="nav-dropdown-menu">
+                <a href="{{ debtor_url('/') }}" class="{{ 'active' if active_page == 'dashboard' else '' }}">Debtor Dashboard</a>
+                <a href="{{ debtor_url('/report') }}" class="{{ 'active' if active_page == 'report' else '' }}">Main Report</a>
+                <a href="{{ debtor_url('/sub-report') }}" class="{{ 'active' if active_page == 'sub_report' else '' }}">Sub Report</a>
+                <a href="{{ debtor_url('/periodic-report') }}" class="{{ 'active' if active_page == 'periodic_report' else '' }}">Periodic Report</a>
+                <a href="{{ debtor_url('/overdue-report') }}" class="{{ 'active' if active_page == 'overdue_report' else '' }}">Overdue Report</a>
+            </div>
+        </div>
+        <div class="nav-dropdown">
+            <button type="button" class="nav-dropdown-btn {{ 'active' if active_page in ['receipts', 'receipt_register', 'cheque_bounce', 'adjustment_register', 'weekly_recovery_report'] else '' }}" aria-expanded="false">Receipts</button>
+            <div class="nav-dropdown-menu">
+                <a href="{{ debtor_url('/receipts') }}" class="{{ 'active' if active_page == 'receipts' else '' }}">Receipt</a>
+                <a href="{{ debtor_url('/receipt-register') }}" class="{{ 'active' if active_page == 'receipt_register' else '' }}">Receipt Register</a>
+                <button type="button" class="nav-import-btn weekly-report-btn">Weekly Recovery Report</button>
+                <a href="{{ debtor_url('/cheque-bounce') }}" class="{{ 'active' if active_page == 'cheque_bounce' else '' }}">Cheque Bounce</a>
+                <a href="{{ debtor_url('/adjustment-register') }}" class="{{ 'active' if active_page == 'adjustment_register' else '' }}">Bad Debt / Discount</a>
+            </div>
+        </div>
+        {% if 'import_tally_debtors' in debtor_nav_access or 'import_tally_receipts_view' in debtor_nav_access or 'import_tally_receipts' in debtor_nav_access or 'download_report_excel' in debtor_nav_access %}
+        <div class="nav-dropdown">
+            <button type="button" class="nav-dropdown-btn {{ 'active' if active_page in ['import_tally_receipts', 'import_errors'] else '' }}" aria-expanded="false">Import / Export</button>
+            <div class="nav-dropdown-menu">
+                {% if active_page in ['dashboard', 'report', 'receipts', 'import_errors'] and 'import_tally_debtors' in debtor_nav_access %}
+                <form action="{{ debtor_url('/upload') }}" method="post" enctype="multipart/form-data" class="nav-import-form import-data-form">
+                    <input type="hidden" name="firm_name" class="import-firm-name">
+                    <input type="hidden" name="return_to" value="{{ debtor_url(request.full_path) }}">
+                    <button type="button" class="nav-import-btn import-data-btn">Import Tally Debtors</button>
+                    <input type="file" name="file" class="import-file-input" accept=".csv, .xlsx, .xls" hidden>
+                </form>
+                {% endif %}
+                {% if 'import_tally_debtors' in debtor_nav_access %}
+                <a href="{{ debtor_url('/import-errors') }}" class="{{ 'active' if active_page == 'import_errors' else '' }}">Missing Clients Report</a>
+                {% endif %}
+                {% if 'import_tally_receipts_view' in debtor_nav_access or 'import_tally_receipts' in debtor_nav_access %}
+                <a href="{{ debtor_url('/import-tally-receipts') }}" class="{{ 'active' if active_page == 'import_tally_receipts' else '' }}">Import Tally Receipts</a>
+                {% endif %}
+                {% if 'download_report_excel' in debtor_nav_access %}
+                <a href="{{ debtor_url('/download/report-excel') }}">Reports in Excel Format</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% if 'client_master_view' in debtor_nav_access or 'client_group_master_view' in debtor_nav_access or 'crp_master_view' in debtor_nav_access or 'firm_master_view' in debtor_nav_access or 'executive_partner_master_view' in debtor_nav_access %}
+        <div class="nav-dropdown">
+            <button type="button" class="nav-dropdown-btn {{ 'active' if active_page in ['client_master', 'client_group_master', 'crp_master', 'firm_master', 'executive_partner'] else '' }}" aria-expanded="false">Masters</button>
+            <div class="nav-dropdown-menu">
+                {% if 'client_master_view' in debtor_nav_access %}
+                <a href="{{ debtor_url('/client-master') }}" class="{{ 'active' if active_page == 'client_master' else '' }}">Client Master</a>
+                {% endif %}
+                {% if 'client_group_master_view' in debtor_nav_access %}
+                <a href="{{ debtor_url('/client-group-master') }}" class="{{ 'active' if active_page == 'client_group_master' else '' }}">Client Group Master</a>
+                {% endif %}
+                {% if 'crp_master_view' in debtor_nav_access %}
+                <a href="{{ debtor_url('/crp-master') }}" class="{{ 'active' if active_page == 'crp_master' else '' }}">CRP Master</a>
+                {% endif %}
+                {% if 'firm_master_view' in debtor_nav_access %}
+                <a href="{{ debtor_url('/firm-master') }}" class="{{ 'active' if active_page == 'firm_master' else '' }}">Firm Master</a>
+                {% endif %}
+                {% if 'executive_partner_master_view' in debtor_nav_access %}
+                <a href="{{ debtor_url('/executive-partner-master') }}" class="{{ 'active' if active_page == 'executive_partner' else '' }}">Executive Partner</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </nav>
+    {% if report_as_on_lines %}
+    <div class="report-as-on-title">
+        {% for line in report_as_on_lines %}
+        <span>{{ line }}</span>
+        {% endfor %}
+    </div>
+    {% elif report_as_on_label %}
+    <div class="report-as-on-title"><span>{{ report_as_on_label }}</span></div>
+    {% endif %}
+</div>
+
+<div class="sidebar-hover-zone" aria-hidden="true"></div>
+
+<aside class="sidebar" id="appSidebar" aria-label="Quick actions">
+    <div class="sidebar-header">Quick Actions</div>
+    <a href="/" class="sidebar-btn">Main Window</a>
+
+    <div class="sidebar-section-title">Outstanding Reports</div>
+    <a href="{{ debtor_url('/') }}" class="sidebar-btn {{ 'active' if active_page == 'dashboard' else '' }}">Dashboard</a>
+    <a href="{{ debtor_url('/report') }}" class="sidebar-btn {{ 'active' if active_page == 'report' else '' }}">Report</a>
+    <a href="{{ debtor_url('/sub-report') }}" class="sidebar-btn {{ 'active' if active_page == 'sub_report' else '' }}">Sub Report</a>
+    <a href="{{ debtor_url('/periodic-report') }}" class="sidebar-btn {{ 'active' if active_page == 'periodic_report' else '' }}">Periodic Report</a>
+    <a href="{{ debtor_url('/overdue-report') }}" class="sidebar-btn {{ 'active' if active_page == 'overdue_report' else '' }}">Overdue Report</a>
+
+    <div class="sidebar-section-title">Receipts</div>
+    <a href="{{ debtor_url('/receipts') }}" class="sidebar-btn {{ 'active' if active_page == 'receipts' else '' }}">Receipt</a>
+    <a href="{{ debtor_url('/receipt-register') }}" class="sidebar-btn {{ 'active' if active_page == 'receipt_register' else '' }}">Receipt Register</a>
+    <button type="button" class="sidebar-btn sidebar-action weekly-report-btn">Weekly Recovery Report</button>
+    <a href="{{ debtor_url('/cheque-bounce') }}" class="sidebar-btn {{ 'active' if active_page == 'cheque_bounce' else '' }}">Cheque Bounce</a>
+    <a href="{{ debtor_url('/adjustment-register') }}" class="sidebar-btn {{ 'active' if active_page == 'adjustment_register' else '' }}">Bad Debt / Discount</a>
+
+    {% if 'import_tally_debtors' in debtor_nav_access or 'import_tally_receipts_view' in debtor_nav_access or 'import_tally_receipts' in debtor_nav_access or 'download_report_excel' in debtor_nav_access %}
+    <div class="sidebar-section-title">Import / Export</div>
+    {% if active_page in ['dashboard', 'report', 'receipts', 'import_errors'] and 'import_tally_debtors' in debtor_nav_access %}
+    <form action="{{ debtor_url('/upload') }}" method="post" enctype="multipart/form-data" id="uploadForm" class="import-data-form">
+        <input type="hidden" name="firm_name" class="import-firm-name">
+        <input type="hidden" name="return_to" value="{{ debtor_url(request.full_path) }}">
+        <button type="button" class="sidebar-btn sidebar-action import-data-btn">Import Tally Debtors</button>
+        <input type="file" name="file" class="import-file-input" accept=".csv, .xlsx, .xls" hidden>
+        <a href="{{ debtor_url('/download/billing-template') }}" class="sidebar-btn small">Download Template</a>
+    </form>
+    {% endif %}
+    {% if 'import_tally_debtors' in debtor_nav_access %}
+    <a href="{{ debtor_url('/import-errors') }}" class="sidebar-btn {{ 'active' if active_page == 'import_errors' else '' }}">Missing Clients Report</a>
+    {% endif %}
+    {% if 'import_tally_receipts_view' in debtor_nav_access or 'import_tally_receipts' in debtor_nav_access %}
+    <a href="{{ debtor_url('/import-tally-receipts') }}" class="sidebar-btn {{ 'active' if active_page == 'import_tally_receipts' else '' }}">Import Tally Receipts</a>
+    {% endif %}
+    {% if 'download_report_excel' in debtor_nav_access %}
+    <a href="{{ debtor_url('/download/report-excel') }}" class="sidebar-btn">Reports in Excel Format</a>
+    {% endif %}
+    {% endif %}
+
+    {% if 'client_master_view' in debtor_nav_access or 'client_group_master_view' in debtor_nav_access or 'crp_master_view' in debtor_nav_access or 'firm_master_view' in debtor_nav_access or 'executive_partner_master_view' in debtor_nav_access or 'run_followup_logic' in debtor_nav_access or 'clear_report' in debtor_nav_access %}
+    <div class="sidebar-section-title">Masters</div>
+    {% if 'client_master_view' in debtor_nav_access %}
+    <a href="{{ debtor_url('/client-master') }}" class="sidebar-btn {{ 'active' if active_page == 'client_master' else '' }}">Client Master</a>
+    {% endif %}
+    {% if 'client_group_master_view' in debtor_nav_access %}
+    <a href="{{ debtor_url('/client-group-master') }}" class="sidebar-btn {{ 'active' if active_page == 'client_group_master' else '' }}">Client Group Master</a>
+    {% endif %}
+    {% if 'crp_master_view' in debtor_nav_access %}
+    <a href="{{ debtor_url('/crp-master') }}" class="sidebar-btn {{ 'active' if active_page == 'crp_master' else '' }}">CRP Master</a>
+    {% endif %}
+    {% if 'firm_master_view' in debtor_nav_access %}
+    <a href="{{ debtor_url('/firm-master') }}" class="sidebar-btn {{ 'active' if active_page == 'firm_master' else '' }}">Firm Master</a>
+    {% endif %}
+    {% if 'executive_partner_master_view' in debtor_nav_access %}
+    <a href="{{ debtor_url('/executive-partner-master') }}" class="sidebar-btn {{ 'active' if active_page == 'executive_partner' else '' }}">Executive Partner</a>
+    {% endif %}
+    {% if 'run_followup_logic' in debtor_nav_access %}
+    <form action="{{ debtor_url('/report/run-followup-logic') }}" method="post" class="sidebar-action-form" onsubmit="return confirm('Run followup partner logic now? Existing saved followup partners will be updated.');">
+        <button type="submit" class="sidebar-btn sidebar-action">Run Followup Logic</button>
+    </form>
+    {% endif %}
+    {% if is_arif_user %}
+    <a href="{{ debtor_url('/control-panel') }}" class="sidebar-btn {{ 'active' if active_page == 'control_panel' else '' }}">Control Panel</a>
+    <a href="{{ debtor_url('/deleted-records') }}" class="sidebar-btn {{ 'active' if active_page == 'deleted_records' else '' }}">Deleted Records</a>
+    {% endif %}
+
+    {% if 'clear_report' in debtor_nav_access %}
+    <form action="{{ debtor_url('/clear') }}" method="post" id="clearForm" onsubmit="return confirm('Are you sure you want to clear the entire report?');">
+        <button type="submit" class="sidebar-btn sidebar-action">Clear Report</button>
+    </form>
+    {% endif %}
+    {% endif %}
+</aside>
+
+{% if active_page in ['dashboard', 'report', 'receipts'] and 'import_tally_debtors' in debtor_nav_access %}
+<div class="import-dialog" id="importDialog" aria-hidden="true">
+    <div class="import-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="importDialogTitle">
+        <div class="import-dialog-header">
+            <h2 id="importDialogTitle">Import Tally Debtors</h2>
+            <button type="button" class="import-dialog-close" id="importDialogClose" aria-label="Close">x</button>
+        </div>
+        <div class="import-dialog-body">
+            <label>
+                Firm Name
+                <select id="importFirmDialogInput">
+                    <option value="">Select firm or leave blank</option>
+                    {% for firm in firm_options %}
+                    <option value="{{ firm.firm_name }}">{{ firm.short_name }} - {{ firm.firm_name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <div class="import-dialog-actions">
+            <button type="button" class="nav-dialog-btn primary" id="importChooseFile">Choose File</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="import-dialog" id="weeklyReportDialog" aria-hidden="true">
+    <div class="import-dialog-panel weekly-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="weeklyReportDialogTitle">
+        <div class="import-dialog-header">
+            <h2 id="weeklyReportDialogTitle">Weekly Recovery Report</h2>
+            <button type="button" class="import-dialog-close" id="weeklyReportDialogClose" aria-label="Close">x</button>
+        </div>
+        <form class="weekly-dialog-form" action="{{ debtor_url('/weekly-recovery-report') }}" method="get">
+            <div class="import-dialog-body">
+                <label>
+                    From Date
+                    <input type="date" name="start_date" required>
+                </label>
+                <label>
+                    To Date
+                    <input type="date" name="end_date" required>
+                </label>
+                <label>
+                    Total From Date
+                    <input type="date" name="cumulative_start_date" required>
+                </label>
+            </div>
+            <div class="import-dialog-actions">
+                <button type="button" class="nav-dialog-btn" id="weeklyReportCancel">Cancel</button>
+                <button type="submit" class="nav-dialog-btn primary">Make Report</button>
+            </div>
+        </form>
+    </div>
+</div>

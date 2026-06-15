@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Detailed Report</title>
+    <style>
+        body { margin: 0; padding: 16px; background: #f4f7f9; color: #2c3e50; font-family: Arial, sans-serif; }
+        h1 { margin: 0 0 4px; font-size: 20px; }
+        .header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+        .header-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+        .export-btn { display: inline-block; padding: 8px 12px; background: #1f618d; color: #fff; border-radius: 4px; text-decoration: none; font-size: 13px; font-weight: 600; }
+        .toggle-btn { display: inline-block; padding: 8px 12px; background: #f8f9fa; color: #1f3446; border: 1px solid #cfd9df; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .export-btn:hover { background: #154360; }
+        .toggle-btn:hover { background: #e9eef2; }
+        .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0 0 14px; color: #607d8b; font-size: 13px; }
+        .meta strong { color: #2c3e50; }
+        .table-wrap { max-height: calc(100vh - 104px); overflow: auto; border: 1px solid #ddd; background: #fff; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px 10px; border: 1px solid #ddd; text-align: left; font-size: 13px; white-space: nowrap; }
+        th { position: sticky; top: 0; z-index: 1; background: #34495e; color: #fff; }
+        .amount-cell { text-align: right; font-weight: bold; color: #2c3e50; }
+        .amt-red { color: #e74c3c !important; font-weight: bold; }
+        .amt-orange { color: #f39c12 !important; font-weight: bold; }
+        .empty { padding: 18px; color: #607d8b; }
+        .th-filter { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+        .filter-toggle { background: transparent; border: 0; color: #fff; cursor: pointer; font-size: 11px; padding: 2px 4px; }
+        .filter-toggle.is-filtered { color: #85c1e9; font-weight: bold; }
+        .filter-menu {
+            position: fixed; display: none; z-index: 10; width: 230px; padding: 10px; box-sizing: border-box;
+            background: #fff; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        .filter-menu.is-open { display: block; }
+        .filter-search { width: 100%; box-sizing: border-box; padding: 6px; margin-bottom: 8px; border: 1px solid #ddd; border-radius: 3px; }
+        .filter-actions { display: flex; gap: 5px; margin-bottom: 8px; }
+        .filter-actions button { flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 3px; background: #f8f9fa; cursor: pointer; }
+        .filter-options { max-height: 210px; overflow: auto; border-top: 1px solid #eee; padding-top: 5px; }
+        .filter-option { display: flex; align-items: center; gap: 7px; padding: 4px; color: #333; font-size: 12px; cursor: pointer; }
+        .filter-option:hover { background: #f1f4f6; }
+        .extra-col { display: none; }
+        body.show-all-columns .extra-col { display: table-cell; }
+    </style>
+</head>
+<body>
+    <div class="header-row">
+        <h1>{{ title }}</h1>
+        <div class="header-actions">
+            <button type="button" class="toggle-btn" id="toggleColumnsBtn">Show All Columns</button>
+            <a class="export-btn" href="{{ debtor_url('/sub-report/detail-excel') }}?partner={{ partner | urlencode }}&ep={{ ep | urlencode }}&category={{ category | urlencode }}&fy={{ fy | urlencode }}&ageing={{ ageing | urlencode }}">Export Excel</a>
+        </div>
+    </div>
+    <p class="meta">
+        <span>Records: <strong id="visibleCount">{{ rows|length }}</strong></span>
+        <span>Total: <strong id="visibleTotal">₹ {{ total_amount | indian_currency(decimals=False) }}</strong></span>
+    </p>
+    <div class="table-wrap">
+        <table id="followupDetailTable">
+            <thead>
+                <tr>
+                    <th class="extra-col">Firm</th>
+                    <th>Date</th>
+                    <th>Ref No</th>
+                    <th>Party Name</th>
+                    <th>Amount</th>
+                    <th class="extra-col">Due Date</th>
+                    <th class="extra-col">Over Due</th>
+                    <th>Group</th>
+                    <th>EP</th>
+                    <th>Followup</th>
+                    <th class="extra-col">CRP</th>
+                    <th>Category</th>
+                    <th>FY</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td class="extra-col">{{ row.short_name or row.firm_name or '' }}</td>
+                    <td>{{ row.bill_date_display }}</td>
+                    <td>{{ row.ref_no }}</td>
+                    <td>{{ row.party_name }}</td>
+                    <td data-amount="{{ row.amount or 0 }}" class="amount-cell {{ 'amt-red' if row.amount >= 2000000 else 'amt-orange' if row.amount >= 1000000 else '' }}">
+                        ₹ {{ row.amount | indian_currency(decimals=False) }}
+                    </td>
+                    <td class="extra-col">{{ row.due_date_display or '' }}</td>
+                    <td class="extra-col">{{ row.overdue_days or '' }}</td>
+                    <td>{{ row.client_group or '' }}</td>
+                    <td>{{ row.final_ep }}</td>
+                    <td>{{ row.followup_partner or 'Unassigned' }}</td>
+                    <td class="extra-col">{{ row.crp_of_group or '' }}</td>
+                    <td>{{ row.client_category or '' }}</td>
+                    <td>{{ row.financial_year }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="13" class="empty">No records found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const table = document.getElementById('followupDetailTable');
+            if (!table || !table.tHead || !table.tBodies.length) return;
+
+            const headers = Array.from(table.tHead.rows[0].cells);
+            const rows = Array.from(table.tBodies[0].querySelectorAll('tr')).filter(row => row.cells.length === headers.length);
+            const amountCellIndex = headers.findIndex(th => th.textContent.trim() === 'Amount');
+            const activeFilters = {};
+            const visibleCount = document.getElementById('visibleCount');
+            const visibleTotal = document.getElementById('visibleTotal');
+            const toggleColumnsBtn = document.getElementById('toggleColumnsBtn');
+
+            function formatIndianCurrency(amount) {
+                const value = Math.round(Number(amount) || 0);
+                const text = String(Math.abs(value));
+                const lastThree = text.slice(-3);
+                const rest = text.slice(0, -3);
+                const formatted = rest ? `${rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',')},${lastThree}` : lastThree;
+                return `${value < 0 ? '-' : ''}₹ ${formatted}`;
+            }
+
+            function updateRows() {
+                let count = 0;
+                let total = 0;
+
+                rows.forEach(row => {
+                    const visible = Object.entries(activeFilters).every(([cellIndex, values]) => {
+                        if (!values.size) return true;
+                        return values.has(row.cells[cellIndex].textContent.trim());
+                    });
+                    row.style.display = visible ? '' : 'none';
+                    if (visible) {
+                        count += 1;
+                        total += Number(row.cells[amountCellIndex].dataset.amount || 0);
+                    }
+                });
+
+                visibleCount.textContent = count;
+                visibleTotal.textContent = formatIndianCurrency(total);
+            }
+
+            function positionMenu(button, menu) {
+                const rect = button.getBoundingClientRect();
+                let left = rect.left;
+                let top = rect.bottom + 5;
+                if (left + 230 > window.innerWidth) left = window.innerWidth - 240;
+                if (top + 300 > window.innerHeight) top = rect.top - 310;
+                menu.style.left = `${Math.max(10, left)}px`;
+                menu.style.top = `${Math.max(10, top)}px`;
+            }
+
+            if (toggleColumnsBtn) {
+                toggleColumnsBtn.addEventListener('click', () => {
+                    document.body.classList.toggle('show-all-columns');
+                    toggleColumnsBtn.textContent = document.body.classList.contains('show-all-columns')
+                        ? 'Hide Extra Columns'
+                        : 'Show All Columns';
+                });
+            }
+
+            headers.forEach((th, cellIndex) => {
+                const title = th.textContent.trim();
+                th.textContent = '';
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'th-filter';
+                const label = document.createElement('span');
+                label.textContent = title;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'filter-toggle';
+                button.textContent = 'v';
+                button.title = 'Filter';
+
+                const menu = document.createElement('div');
+                menu.className = 'filter-menu';
+                ['pointerdown', 'mousedown', 'click', 'change'].forEach(eventName => {
+                    menu.addEventListener(eventName, event => event.stopPropagation());
+                });
+                const search = document.createElement('input');
+                search.className = 'filter-search';
+                search.placeholder = 'Search...';
+                const actions = document.createElement('div');
+                actions.className = 'filter-actions';
+                const all = document.createElement('button');
+                all.type = 'button';
+                all.textContent = 'All';
+                const clear = document.createElement('button');
+                clear.type = 'button';
+                clear.textContent = 'Clear';
+                const ok = document.createElement('button');
+                ok.type = 'button';
+                ok.textContent = 'OK';
+                ok.style.background = '#3498db';
+                ok.style.color = '#fff';
+                const options = document.createElement('div');
+                options.className = 'filter-options';
+
+                [...new Set(rows.map(row => row.cells[cellIndex].textContent.trim()))]
+                    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+                    .forEach(value => {
+                        const option = document.createElement('label');
+                        option.className = 'filter-option';
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.value = value;
+                        option.append(checkbox, document.createTextNode(value || '(blank)'));
+                        options.appendChild(option);
+                    });
+
+                all.onclick = () => options.querySelectorAll('.filter-option').forEach(option => {
+                    if (option.style.display !== 'none') option.querySelector('input').checked = true;
+                });
+                clear.onclick = () => options.querySelectorAll('input').forEach(input => input.checked = false);
+                ok.onclick = () => {
+                    activeFilters[cellIndex] = new Set(Array.from(options.querySelectorAll('input:checked')).map(input => input.value));
+                    button.classList.toggle('is-filtered', activeFilters[cellIndex].size > 0);
+                    menu.classList.remove('is-open');
+                    updateRows();
+                };
+                search.oninput = () => {
+                    const term = search.value.toLowerCase();
+                    options.querySelectorAll('.filter-option').forEach(option => {
+                        option.style.display = option.textContent.toLowerCase().includes(term) ? '' : 'none';
+                    });
+                };
+                button.onclick = event => {
+                    event.stopPropagation();
+                    const wasOpen = menu.classList.contains('is-open');
+                    document.querySelectorAll('.filter-menu.is-open').forEach(openMenu => openMenu.classList.remove('is-open'));
+                    if (!wasOpen) {
+                        menu.classList.add('is-open');
+                        positionMenu(button, menu);
+                        search.focus();
+                    }
+                };
+
+                actions.append(all, clear, ok);
+                menu.append(search, actions, options);
+                wrapper.append(label, button, menu);
+                th.appendChild(wrapper);
+            });
+
+            document.addEventListener('click', event => {
+                if (event.target.closest('.filter-menu') || event.target.closest('.filter-toggle')) return;
+                document.querySelectorAll('.filter-menu.is-open').forEach(menu => menu.classList.remove('is-open'));
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title | default('Firm Billing Report') }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="{{ active_page | default('report') }}-page" data-active-page="{{ active_page | default('report') }}">
+    {% set active_page = active_page | default('report') %}
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <div class="report-card">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <div class="report-toolbar">
+            {% if summary %}
+            <div class="summary-container">
+                {% set gt_amount = summary | sum(attribute='total_amount') %}
+                <div class="summary-item grand-total" data-summary-type="grand-total">
+                    <b>Grand Total | Total Bill: <span class="count">{{ summary | sum(attribute='bill_count') }}</span></b>
+                    Total: <b>₹<span class="total {{ 'amt-red' if gt_amount >= 2000000 else 'amt-orange' if gt_amount >= 1000000 else '' }}">{{ "{:,.2f}".format(gt_amount) }}</span></b>
+                </div>
+                {% for s in summary %}
+                <div class="summary-item" data-firm="{{ s.short_name }}">
+                    <b>{{ s.short_name }} | Total Bill: <span class="count">{{ s.bill_count }}</span></b>
+                    Total: <b>₹<span class="total {{ 'amt-red' if s.total_amount >= 2000000 else 'amt-orange' if s.total_amount >= 1000000 else '' }}">{{ "{:,.2f}".format(s.total_amount) }}</span></b>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="report-actions">
+                <div class="column-chooser">
+                    <button type="button" class="secondary-btn toolbar-icon-btn" id="columnChooserBtn" aria-expanded="false" title="Selected All" aria-label="Selected All" data-tooltip="Selected All">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 5h16M4 12h16M4 19h16"></path>
+                            <path d="M8 5v14M16 5v14"></path>
+                        </svg>
+                    </button>
+                    <div class="column-chooser-menu" id="columnChooserMenu">
+                        <div class="column-chooser-title">Show / Hide Columns</div>
+                        <div class="column-chooser-actions">
+                            <button type="button" id="selectAllColumns">Select All</button>
+                            <button type="button" id="clearColumns">Clear</button>
+                        </div>
+                        <div class="column-chooser-list" id="columnChooserList"></div>
+                    </div>
+                </div>
+                <button type="button" class="secondary-btn toolbar-icon-btn" id="clearTableFiltersBtn" title="Clear Filters" aria-label="Clear Filters" data-tooltip="Clear Filters">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 5h16l-7 8v5l-2 1v-6L4 5z"></path>
+                        <path d="M17 17l4 4M21 17l-4 4"></path>
+                    </svg>
+                </button>
+                {% if active_page == 'report' %}
+                <button type="button" class="secondary-btn primary-btn toolbar-icon-btn" id="addReportRecordBtn" title="Add New Record" aria-label="Add New Record" data-tooltip="Add New Record">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 5v14M5 12h14"></path>
+                    </svg>
+                </button>
+                {% endif %}
+                {% if active_page == 'receipts' %}
+                <button type="button" class="secondary-btn primary-btn" id="postReceiptBtn" hidden>Post Receipt</button>
+                {% endif %}
+                <a href="{{ debtor_url('/download/report-excel') }}" class="secondary-btn icon-btn toolbar-icon-btn excel-export-btn" title="Reports in Excel Format" aria-label="Reports in Excel Format" data-tooltip="Reports in Excel Format" {% if active_page == 'report' %}data-current-export-url="{{ debtor_url('/download/current-report-excel') }}"{% endif %}>
+                    <span class="excel-icon" aria-hidden="true">XLS</span>
+                </a>
+            </div>
+            </div>
+
+            <main class="table-scroll">
+                <table id="reportTable">
+                    <colgroup>
+                        <col class="col-firm">
+                        <col class="col-bill-date">
+                        <col class="col-ref">
+                        <col class="col-party">
+                        <col class="col-amount">
+                        <col class="col-due-date">
+                        <col class="col-overdue">
+                        <col class="col-group">
+                        <col class="col-followup">
+                        <col class="col-ep">
+                        <col class="col-crp">
+                        <col class="col-category">
+                        <col class="col-fy">
+                        <col class="col-select">
+                        <col class="col-edit">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>
+                                Firm
+                            </th>
+                            <th>
+                                Bill Date
+                            </th>
+                            <th>
+                                Ref. No.
+                            </th>
+                            <th>
+                                Party's Name
+                            </th>
+                            <th>Amount</th>
+                            <th>
+                                Due Date
+                            </th>
+                            <th>Over Due</th>
+                            <th>
+                                Group
+                            </th>
+                            <th>
+                                Followup Partner
+                            </th>
+                            <th>
+                                EP
+                            </th>
+                            <th>
+                                CRP
+                            </th>
+                            <th>
+                                Category
+                            </th>
+                            <th>
+                                F.Y.
+                            </th>
+                            <th>Select</th>
+                            <th>Edit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr
+                            class="{{ 'has-part-payment' if row.receipt_hover_note else '' }}"
+                            data-receipt-note="{{ row.receipt_hover_note or '' }}"
+                            data-row-id="{{ row.id }}"
+                            data-firm-name="{{ row.firm_name or '' }}"
+                            data-ref-no="{{ row.ref_no }}"
+                            data-bill-date="{{ row.bill_date }}"
+                            data-party-name="{{ row.party_name }}"
+                            data-client-group="{{ row.client_group or '' }}"
+                            data-client-category="{{ row.client_category or '' }}"
+                            data-amount="{{ row.amount }}"
+                            data-followup-partner="{{ row.followup_partner or '' }}"
+                            data-final-ep="{{ row.final_ep or '' }}"
+                            data-crp="{{ row.crp_of_group or '' }}"
+                        >
+                            <td>{{ row.short_name }}</td>
+                            <td>{{ row.bill_date_display }}</td>
+                            <td class="bill-no-cell">
+                                <span class="bill-no-text">{{ row.ref_no }}</span>
+                                {% if (row.import_batch_id or '').startswith('cheque_bounce_') %}
+                                <span class="cheque-bounce-note">Re-added Due to Cheque Bounced</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ row.party_name }}</td>
+                            <td class="amount {{ 'amt-red' if row.amount >= 2000000 else 
+                                                 'amt-orange' if row.amount >= 1000000 else '' }}">
+                                ₹{{ "{:,.2f}".format(row.amount) }}
+                                {% if row.part_payment_summary %}
+                                <span class="part-payment-badge">{{ row.part_payment_summary }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ row.due_date_display }}</td>
+                            <td class="days-cell {{ 'status-red' if row.overdue_days > 0 else 'status-green' }}">
+                                {{ row.overdue_days }}
+                            </td>
+                            <td>{{ row.client_group or '' }}</td>
+                            <td>{{ row.followup_partner or '' }}</td>
+                            <td>{{ row.final_ep or '' }}</td>
+                            <td>{{ row.crp_of_group or '' }}</td>
+                            <td>{{ row.client_category or '' }}</td>
+                            <td>{{ row.financial_year or '' }}</td>
+                            <td><input type="checkbox" class="row-select" aria-label="Select row"></td>
+                            <td><button type="button" class="row-edit-btn" title="Edit selected row" aria-label="Edit selected row">✎</button></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </main>
+        </div>
+    </div>
+
+    {% if active_page == 'receipts' %}
+    <div class="edit-modal" id="receiptModal" aria-hidden="true" data-post-url="{{ debtor_url('/receipts/post') }}">
+        <div class="edit-modal-panel receipt-modal-panel" role="dialog" aria-modal="true" aria-labelledby="receiptModalTitle">
+            <div class="edit-modal-header">
+                <h2 id="receiptModalTitle">Post Receipt</h2>
+                <button type="button" class="edit-modal-close" id="receiptModalClose" aria-label="Close">x</button>
+            </div>
+            <div class="receipt-form">
+                <div class="receipt-fields">
+                    <label>
+                        Mode of Receipt
+                        <select id="receiptMode">
+                            <option value="Cash">Cash</option>
+                            <option value="Bank">Bank</option>
+                            <option value="Online">Online</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Bad Debt">Bad Debt</option>
+                            <option value="Discount">Discount</option>
+                        </select>
+                    </label>
+                    <label>
+                        Date of Receipt
+                        <input type="date" id="receiptDate">
+                    </label>
+                </div>
+                <div class="receipt-table-wrap">
+                    <table class="receipt-table">
+                        <thead>
+                            <tr>
+                                <th>Bill No</th>
+                                <th>Entity</th>
+                                <th>Amount</th>
+                                <th id="receiptAmountHeader">Actual Received Amt</th>
+                            </tr>
+                        </thead>
+                        <tbody id="receiptRows"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="edit-modal-actions">
+                <button type="button" class="secondary-btn" id="receiptCancelBtn">Cancel</button>
+                <button type="button" class="secondary-btn primary-btn" id="receiptSubmitBtn">Post Receipt</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="edit-modal" id="editModal" aria-hidden="true">
+        <div class="edit-modal-panel" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+            <form action="{{ debtor_url('/report/update') }}" method="POST" id="editRowForm"
+                  data-update-url="{{ debtor_url('/report/update') }}"
+                  data-add-url="{{ debtor_url('/report/add') }}"
+                  data-delete-url="{{ debtor_url('/report/delete') }}">
+                <div class="edit-modal-header">
+                    <h2 id="editModalTitle">Edit Report Row</h2>
+                    <button type="button" class="edit-modal-close" id="editModalClose" aria-label="Close">x</button>
+                </div>
+
+                <input type="hidden" name="row_id" id="editRowId">
+                <input type="hidden" name="add_to_master" id="editAddToMaster" value="no">
+
+                <div class="edit-frames">
+                    <section class="edit-frame">
+                        <h3>Bill Detail</h3>
+                        <label>
+                            Firm
+                            <select name="firm_name" id="editFirmName">
+                                <option value="">Select Firm</option>
+                                {% for firm in firm_options %}
+                                <option value="{{ firm.firm_name }}">{{ firm.short_name }} - {{ firm.firm_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>
+                            Client Ref. No.
+                            <input type="text" name="ref_no" id="editRefNo">
+                        </label>
+                        <label>
+                            Date
+                            <input type="date" name="bill_date" id="editBillDate">
+                        </label>
+                        <label>
+                            Party's Name
+                            <input type="text" name="party_name" id="editPartyName" list="clientMasterList" autocomplete="off">
+                        </label>
+                        <datalist id="clientMasterList">
+                            {% for client in master_clients %}
+                            <option value="{{ client.client_name }}">{{ client.client_group }}</option>
+                            {% endfor %}
+                        </datalist>
+                        <label>
+                            Group
+                            <select name="client_group" id="editGroup">
+                                <option value="">Select Group</option>
+                                {% for group in group_options %}
+                                <option value="{{ group }}">{{ group }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>
+                            Amount
+                            <input type="number" name="amount" id="editAmount" step="0.01">
+                        </label>
+                    </section>
+
+                    <section class="edit-frame">
+                        <h3>Reporting</h3>
+                        <label>
+                            Followup Partner
+                            <input type="text" id="editFollowupPartner" readonly>
+                        </label>
+                        <label>
+                            EP
+                            <select name="final_ep" id="editFinalEp">
+                                <option value="">Select EP</option>
+                                {% for ep in ep_options %}
+                                <option value="{{ ep }}">{{ ep }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label>
+                            CRP
+                            <input type="text" id="editCrp" readonly>
+                        </label>
+                    </section>
+                </div>
+
+                <div class="edit-modal-actions">
+                    <button
+                        type="submit"
+                        class="secondary-btn danger-btn"
+                        id="deleteReportRecordBtn"
+                        formaction="{{ debtor_url('/report/delete') }}"
+                        formmethod="post"
+                        formnovalidate
+                        onclick="return confirm('Move this record to Deleted Records? You can recall it later.');"
+                    >Delete Record</button>
+                    <button type="button" class="secondary-btn" id="editCancelBtn">Cancel</button>
+                    <button type="submit" class="secondary-btn primary-btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script type="application/json" id="reportGroupCrpData">{{ group_crp_map|tojson }}</script>
+    <script type="application/json" id="reportMasterClientData">{{ master_client_names|tojson }}</script>
+    <script type="application/json" id="reportMasterClientGroupData">{{ master_clients|tojson }}</script>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

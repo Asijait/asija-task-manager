@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restore Points</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .restore-page { max-width: 1150px; margin: 0 auto; padding: 28px 20px; width: 100%; }
+        .restore-card { background: #fff; border: 1px solid var(--theme-button-border); border-radius: 8px; box-shadow: 0 8px 22px rgba(31,95,147,0.08); overflow: hidden; }
+        .restore-header { padding: 20px 22px; background: var(--theme-page-bg); border-bottom: 1px solid var(--theme-button-border); }
+        .restore-header h1 { margin: 0 0 6px; color: var(--theme-heading); font-size: 1.45rem; }
+        .restore-header p { margin: 0; color: var(--theme-muted); }
+        .restore-create { padding: 18px 22px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid #edf2f7; }
+        .restore-input { flex: 1; min-width: 260px; padding: 10px 12px; border: 1px solid var(--theme-button-border); border-radius: 6px; }
+        .btn-primary, .btn-plain, .btn-danger { border: none; border-radius: 6px; padding: 9px 13px; cursor: pointer; }
+        .btn-primary { background: var(--theme-primary-bg); color: var(--theme-primary-text); border: 1px solid var(--theme-primary-border); }
+        .btn-primary:hover { background: var(--theme-primary-hover-bg); }
+        .btn-plain { background: #f8fbff; color: var(--theme-heading); border: 1px solid var(--theme-button-border); }
+        .btn-danger { background: #dc2626; color: #fff; }
+        .btn-danger:hover { background: #b91c1c; }
+        .restore-table-wrap { overflow-x: auto; }
+        .restore-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+        .restore-table th, .restore-table td { padding: 12px; border-bottom: 1px solid #edf2f7; text-align: left; vertical-align: middle; }
+        .restore-table th { background: #f7fbff; color: var(--theme-heading); font-size: 0.82rem; }
+        .restore-label { font-weight: 600; color: #1f2937; }
+        .subtext { color: #64748b; font-size: 0.82rem; margin-top: 3px; }
+        .action-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .empty-state { padding: 28px; color: #64748b; text-align: center; }
+        .warning { padding: 12px 22px; color: #92400e; background: #fef3c7; border-bottom: 1px solid #fde68a; }
+    </style>
+</head>
+<body>
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="nav-brand">Task Manager</div>
+            <nav class="nav-links">
+                <span class="user-status-text">User: {{ session.get('user_email', 'Unknown') }}</span>
+                <a href="/" class="nav-btn">Home</a>
+                <a href="/control-panel" class="nav-btn active">Control Panel</a>
+                <button class="nav-btn nav-btn-logout" onclick="handleLogout()">Logout</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="restore-page">
+        <section class="restore-card">
+            <div class="restore-header">
+                <h1>Restore Points</h1>
+                <p>Create checkpoints before changes, then restore project files and databases when needed.</p>
+            </div>
+            <div class="warning">
+                Restore overwrites the project from the checkpoint and creates an automatic safety backup first. Restart Flask after restoring backend files.
+            </div>
+            <div class="restore-create">
+                <input id="restoreLabel" class="restore-input" placeholder="Instruction or checkpoint name...">
+                <button class="btn-primary" onclick="createPoint()">Create Restore Point</button>
+            </div>
+            <div id="restoreList"></div>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        async function loadPoints() {
+            const container = document.getElementById('restoreList');
+            container.innerHTML = '<div class="empty-state">Loading restore points...</div>';
+            try {
+                const response = await fetch('/api/restore-points');
+                const points = await response.json();
+                if (!points.length) {
+                    container.innerHTML = '<div class="empty-state">No restore points yet.</div>';
+                    return;
+                }
+                container.innerHTML = `
+                    <div class="restore-table-wrap">
+                        <table class="restore-table">
+                            <thead>
+                                <tr>
+                                    <th>Restore Point</th>
+                                    <th>Created</th>
+                                    <th>Files</th>
+                                    <th>Size</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${points.map(point => `
+                                    <tr>
+                                        <td>
+                                            <div class="restore-label">${escapeHtml(point.label || point.id)}</div>
+                                            <div class="subtext">${escapeHtml(point.id)}</div>
+                                        </td>
+                                        <td>
+                                            ${escapeHtml(point.created_at || '')}
+                                            <div class="subtext">${escapeHtml(point.created_by || '')}</div>
+                                        </td>
+                                        <td>${point.file_count || 0}</td>
+                                        <td>${formatSize(point.size || 0)}</td>
+                                        <td>
+                                            <div class="action-row">
+                                                <button class="btn-plain" onclick="downloadPoint('${escapeAttr(point.id)}')">Download</button>
+                                                <button class="btn-danger" onclick="restorePoint('${escapeAttr(point.id)}')">Restore</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<div class="empty-state" style="color:#dc2626;">Unable to load restore points.</div>';
+            }
+        }
+
+        async function createPoint() {
+            const label = document.getElementById('restoreLabel').value.trim() || 'Manual checkpoint';
+            const response = await fetch('/api/restore-points', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ label })
+            });
+            const result = await response.json();
+            if (response.ok && result.success) {
+                document.getElementById('restoreLabel').value = '';
+                loadPoints();
+                if (typeof showNotification === 'function') showNotification('Restore point created', 'success');
+            } else {
+                alert(result.error || 'Unable to create restore point');
+            }
+        }
+
+        function downloadPoint(id) {
+            window.location.href = `/api/restore-points/${encodeURIComponent(id)}/download`;
+        }
+
+        async function restorePoint(id) {
+            const typed = prompt('This will restore project files and databases from this checkpoint. Type RESTORE to continue.');
+            if (typed !== 'RESTORE') return;
+            const response = await fetch(`/api/restore-points/${encodeURIComponent(id)}/restore`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ confirm: 'RESTORE' })
+            });
+            const result = await response.json();
+            if (response.ok && result.success) {
+                alert(result.message || 'Project restored. Restart Flask now.');
+                loadPoints();
+            } else {
+                alert(result.error || 'Unable to restore project');
+            }
+        }
+
+        function formatSize(bytes) {
+            if (!bytes) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let value = bytes;
+            let unit = 0;
+            while (value >= 1024 && unit < units.length - 1) {
+                value /= 1024;
+                unit++;
+            }
+            return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+        }
+
+        function escapeAttr(value) {
+            return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) return;
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.href = '/logout';
+        }
+
+        document.addEventListener('DOMContentLoaded', loadPoints);
+    </script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+[
+  {
+    "id": "20260608_170157",
+    "created_at": "2026-06-08 17:01:58",
+    "type": "manual",
+    "note": "Before main report soft delete feature",
+    "file": "backup_20260608_170157.zip",
+    "skipped": []
+  },
+  {
+    "id": "20260608_161900",
+    "created_at": "2026-06-08 16:19:01",
+    "type": "manual",
+    "note": "Before splitting master view edit access",
+    "file": "backup_20260608_161900.zip",
+    "skipped": []
+  },
+  {
+    "id": "20260608_155326",
+    "created_at": "2026-06-08 15:53:27",
+    "type": "manual",
+    "note": "Before debtor navbar access control",
+    "file": "backup_20260608_155326.zip",
+    "skipped": []
+  },
+  {
+    "id": "20260608_154050",
+    "created_at": "2026-06-08 15:40:51",
+    "type": "manual",
+    "note": "Before dashboard summary removal",
+    "file": "backup_20260608_154050.zip",
+    "skipped": []
+  },
+  {
+    "id": "20260529_150658",
+    "created_at": "2026-05-29 15:06:59",
+    "type": "manual",
+    "note": "Final backup after navbar and report-as-on updates",
+    "file": "backup_20260529_150658.zip",
+    "skipped": []
+  },
+  {
+    "id": "20260529_143548",
+    "created_at": "2026-05-29 14:35:49",
+    "type": "manual",
+    "note": "Rollback backup after Tally receipt import and part-payment indicators",
+    "file": "backup_20260529_143548.zip",
+    "skipped": []
+  },
+  {
+    "id": "20260529_135735",
+    "created_at": "2026-05-29 13:57:36",
+    "type": "manual",
+    "note": "Before wiring Tally receipt import to receipt register",
+    "file": "backup_20260529_135735.zip",
+    "skipped": []
+  }
+]

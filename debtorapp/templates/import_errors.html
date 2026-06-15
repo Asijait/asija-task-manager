@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Missing Clients in Report</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="import-errors-page" data-active-page="import_errors">
+    {% include 'navbar.html' %}
+
+    <main class="container">
+        <section class="report-card">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <div class="compact-page-header">
+                <h1>Missing Clients in Report</h1>
+                <div class="compact-actions">
+                    <a href="{{ debtor_url('/download/missing-clients-report') }}" class="secondary-btn primary-btn">Export for Client Import</a>
+                    <a href="{{ debtor_url('/client-master') }}" class="secondary-btn">Client Master</a>
+                </div>
+            </div>
+
+            {% if rows %}
+            <div class="weekly-summary-strip compact-summary-strip">
+                <span>Missing Clients: {{ rows|length }}</span>
+                <span>Total Bills: {{ total_bills }}</span>
+                <span>Total Amount: Rs {{ total_amount | indian_currency }}</span>
+            </div>
+
+            <main class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Party Name Missing in Master</th>
+                            <th>Firm(s)</th>
+                            <th>Total Bill</th>
+                            <th>Total Amount</th>
+                            <th>Sample Ref. No.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr>
+                            <td>{{ row.party_name }}</td>
+                            <td>{{ row.firm_names }}</td>
+                            <td>{{ row.bill_count }}</td>
+                            <td>Rs {{ row.total_amount | indian_currency }}</td>
+                            <td>{{ row.sample_ref_nos }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </main>
+            {% else %}
+            <div class="empty-register">
+                No Main Report party name is missing from Client Master.
+            </div>
+            {% endif %}
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+</body>
+</html>

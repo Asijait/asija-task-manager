@@ -1,0 +1,150 @@
+.control-panel-shell {
+    width: min(1080px, 100%);
+    display: grid;
+    grid-template-columns: 330px minmax(0, 1fr);
+    gap: 14px;
+    margin: 0 auto;
+}
+
+.control-panel-actions {
+    display: grid;
+    gap: 14px;
+    align-content: start;
+}
+
+.control-panel-box,
+.control-panel-log {
+    padding: 14px;
+    background: #f1f4f6;
+    border: 1px solid #cfd8dc;
+    border-left: 5px solid #174a73;
+    border-radius: 6px;
+}
+
+.control-panel-box h2,
+.section-title {
+    margin: 0 0 12px;
+    color: #34495e;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 18px;
+}
+
+.control-panel-box label {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 12px;
+    color: #2c3e50;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.control-panel-box input,
+.control-panel-box select {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 13px;
+}
+
+.control-panel-note {
+    margin: 0 0 12px;
+    color: #5d6d76;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.control-panel-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.backup-log-list {
+    display: grid;
+    gap: 8px;
+    max-height: calc(100vh - 190px);
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.backup-log-card {
+    padding: 10px;
+    background: #ffffff;
+    border: 1px solid #d8e0e4;
+    border-radius: 6px;
+}
+
+.backup-log-main,
+.backup-log-actions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.backup-log-actions {
+    align-items: center;
+    margin-top: 8px;
+    color: #5d6d76;
+    font-size: 12px;
+}
+
+.backup-date {
+    color: #2c3e50;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.backup-note {
+    margin-top: 3px;
+    color: #34495e;
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+.backup-file {
+    margin-top: 4px;
+    color: #6d7c84;
+    font-size: 11px;
+    word-break: break-all;
+}
+
+.backup-type {
+    flex: 0 0 auto;
+    padding: 3px 7px;
+    background: #e3edf3;
+    border: 1px solid #c2d4df;
+    border-radius: 4px;
+    color: #34495e;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.empty-log {
+    padding: 16px;
+    background: #ffffff;
+    border: 1px solid #d8e0e4;
+    border-radius: 6px;
+    color: #5d6d76;
+}
+
+.danger-btn {
+    background: #c0392b;
+}
+
+.danger-btn:hover {
+    background: #922b21;
+}
+
+@media (max-width: 900px) {
+    .control-panel-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .backup-log-list {
+        max-height: none;
+    }
+}

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Panel</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Layout with Sidebar */
+        .page-wrapper { display: flex; flex: 1; overflow: hidden; }
+        
+        .panel-sidebar {
+            width: 280px;
+            background: #eaf5ff;
+            border-right: 1px solid #e1e4e8;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.02);
+        }
+
+        .sidebar-title { color: #174a73; font-size: 1.1rem; font-weight: normal; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+
+        .btn-sidebar {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #ddd;
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            font-weight: normal;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-sidebar:hover { background: #9fd0ff; color: #123a5a; border-color: #9fd0ff; }
+        .btn-sidebar.active { background: #9fd0ff; color: #123a5a; box-shadow: 0 4px 10px rgba(31, 95, 147, 0.18); }
+
+        /* Submenu styling for App Masters */
+        .submenu {
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            padding-left: 20px;
+            margin-top: -5px;
+        }
+        .main-panel-area { flex: 1; padding: 30px; overflow-y: auto; }
+        
+        .panel-card { background: #eaf5ff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        .report-update-form { margin-top: 20px; padding: 18px; border: 1px solid #c9dce9; border-radius: 8px; background: #f8fbfd; max-width: 520px; }
+        .report-update-form h2 { margin: 0 0 14px; color: #174a73; font-size: 1.1rem; }
+        .report-update-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        .report-update-form label { display: grid; gap: 6px; color: #123a5a; font-size: 0.9rem; font-weight: 600; }
+        .report-update-form input { width: 100%; padding: 9px 10px; border: 1px solid #b7c8d6; border-radius: 6px; box-sizing: border-box; font: inherit; }
+        .report-update-form button { margin-top: 14px; padding: 10px 16px; border: none; border-radius: 6px; background: #174a73; color: #fff; cursor: pointer; font-weight: 700; }
+        .report-update-form button:hover { background: #123a5a; }
+        h1 { color: #174a73; margin-top: 0; }
+        p { color: #666; line-height: 1.6; }
+        @media (max-width: 720px) {
+            .report-update-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="nav-brand">Task Manager</div>
+            <nav class="nav-links">
+                <span class="user-status-text">User: {{ session.get('user_email', 'Unknown') }}</span>
+                <a href="/" class="nav-btn">🏠 Home</a>
+                <a href="/work-master" class="nav-btn">⚙️ Task Master</a>
+                <a href="/today-work" class="nav-btn">📅 Today's Work</a>
+                <a href="/daily-debtor-report" class="nav-btn" target="_blank" rel="noopener">Debtor Report</a>
+                <a href="/report-section" class="nav-btn">📊 Report Section</a>
+                <a href="/control-panel" class="nav-btn active">🛠️ Control Panel</a>
+                <button class="nav-btn nav-logout" onclick="handleLogout()" style="background: #dc2626; border: none; cursor: pointer;">🚪 Logout</button>
+            </nav>
+        </div>
+    </header>
+
+    <div class="page-wrapper">
+        <aside class="panel-sidebar">
+            <div class="sidebar-title">System Tools</div>
+            {% if 'user_management' in user_permissions %}
+                <button class="btn-sidebar" onclick="window.location.href='/user-management'">User Accounts</button>
+            {% endif %}
+            {% if 'user_power_management' in user_permissions %}
+                <button class="btn-sidebar" onclick="window.location.href='/user-role-management'">User Powers</button>
+            {% endif %}
+            {% if 'deleted_records' in user_permissions %}
+                <button class="btn-sidebar" onclick="window.location.href='/deleted-records'">Deleted Records</button>
+            {% endif %}
+            {% if 'request_logs' in user_permissions %}
+                <button class="btn-sidebar" onclick="window.location.href='/request-logs'">Request Logs</button>
+            {% endif %}
+            {% if 'restore_points' in user_permissions %}
+                <button class="btn-sidebar" onclick="window.location.href='/restore-points'">Restore Points</button>
+            {% endif %}
+            <button class="btn-sidebar" onclick="toggleAppMasters()">📂 App Masters</button>
+            <div id="appMastersSubmenu" class="submenu">
+                {% if 'assign_to_master' in user_permissions %}
+                <button class="btn-sidebar" style="font-size: 0.9rem;" onclick="window.location.href='/assign-to-master'">Department Name</button>
+                {% endif %}
+            </div>
+            <button class="btn-sidebar" onclick="downloadBackup()">💾 Backup Software</button>
+        </aside>
+
+        <main class="main-panel-area">
+            <div class="panel-card">
+                <h1>Control Panel</h1>
+                <p>Welcome to the system administration area. Use the sidebar to access management tools, database maintenance, and project backup options.</p>
+                <form action="/control-panel/report-update" method="post" class="report-update-form">
+                    <h2>Report Update</h2>
+                    <div class="report-update-grid">
+                        <label>
+                            Report as on
+                            <input type="date" name="report_as_on_date" value="{{ report_update_dates.report_as_on_date }}" required>
+                        </label>
+                        <label>
+                            Last Bill update
+                            <input type="date" name="last_bill_update_date" value="{{ report_update_dates.last_bill_update_date }}" required>
+                        </label>
+                        <label>
+                            Last Receipt update
+                            <input type="date" name="last_receipt_update_date" value="{{ report_update_dates.last_receipt_update_date }}" required>
+                        </label>
+                    </div>
+                    <button type="submit">Save Report Update</button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        function downloadBackup() {
+            // Redirect to the backup API which triggers a file download
+            window.location.href = '/api/backup';
+            if (typeof showNotification === 'function') {
+                showNotification('Preparing project backup... Your download will start shortly.', 'info');
+            }
+        }
+
+        function toggleAppMasters() {
+            const submenu = document.getElementById('appMastersSubmenu');
+            submenu.style.display = submenu.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        // Handle logout functionality
+        function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) {
+                return;
+            }
+            sessionStorage.clear();
+            localStorage.clear();
+            history.replaceState(null, null, window.location.href);
+            window.location.href = '/logout';
+        }
+
+        // Prevent back navigation after page load
+        window.addEventListener('load', function() {
+            history.pushState(null, null, location.href);
+            window.onpopstate = function() {
+                history.go(1);
+            };
+        });
+
+        // Redirect if accessed via browser back button
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                window.location.href = '/login';
+            }
+        });
+    </script>
+</body>
+</html>

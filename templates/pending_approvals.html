@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pending Approvals</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .approvals-page { max-width: 1100px; margin: 0 auto; padding: 30px 20px; }
+        .approval-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .approval-list { display: grid; gap: 10px; margin-top: 16px; }
+        .approval-item { display: flex; justify-content: space-between; gap: 14px; align-items: center; border: 1px solid #edf2f7; border-radius: 6px; padding: 12px; background: #f8fafc; }
+        .approval-title { font-weight: 600; color: #1f2937; }
+        .approval-meta { color: #64748b; font-size: 0.85rem; margin-top: 4px; }
+        .approval-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; text-transform: capitalize; background: #e2e8f0; color: #334155; margin-left: 6px; }
+        .approval-status.pending { background: #fef3c7; color: #92400e; }
+        .approval-status.approved { background: #dcfce7; color: #166534; }
+        .approval-status.rejected { background: #fee2e2; color: #991b1b; }
+        .approval-actions { display: flex; gap: 8px; flex-shrink: 0; }
+        .approval-btn { border: none; border-radius: 5px; padding: 7px 12px; color: #fff; cursor: pointer; font-size: 0.85rem; }
+        .approval-approve { background: #16a34a; }
+        .approval-reject { background: #dc2626; }
+        .empty-state { color: #64748b; padding: 28px; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="nav-brand">Task Manager</div>
+            <nav class="nav-links">
+                <span class="user-status-text">User: {{ session.get('user_email', 'Unknown') }}</span>
+                <a href="/" class="nav-btn">🏠 Home</a>
+                <a href="/work-master" class="nav-btn">⚙️ Task Master</a>
+                <a href="/pending-approvals" class="nav-btn active">⏳ Pending Approvals</a>
+                {% if session.get('user_email', '').lower() == 'arif.siddiqui@asija.in' %}
+                    <a href="/deleted-records" class="nav-btn">Deleted Records</a>
+                {% endif %}
+                <button class="nav-btn nav-logout" onclick="handleLogout()" style="background: #dc2626; border: none; cursor: pointer;">🚪 Logout</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="approvals-page">
+        <div class="approval-card">
+            <h1>Pending Approvals</h1>
+            <p style="color:#64748b; margin-top:6px;">Task Master create, edit, and delete requests.</p>
+            <div id="approvalList" class="approval-list"></div>
+            <div id="emptyState" class="empty-state" style="display:none;">No approval requests found.</div>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        async function loadApprovals() {
+            const list = document.getElementById('approvalList');
+            const empty = document.getElementById('emptyState');
+            list.innerHTML = '<div class="empty-state">Loading...</div>';
+
+            try {
+                const response = await fetch('/api/work-change-requests');
+                const requests = await response.json();
+
+                if (!requests.length) {
+                    list.innerHTML = '';
+                    empty.style.display = 'block';
+                    return;
+                }
+
+                empty.style.display = 'none';
+                list.innerHTML = requests.map(req => {
+                    const payloadName = req.payload && req.payload.work_name ? req.payload.work_name : '';
+                    const taskName = payloadName || req.current_work_name || `Task #${req.work_id || ''}`;
+                    const actionLabel = capitalize(req.action);
+                    const requester = req.requester_email || 'Unknown user';
+                    const actions = req.can_approve ? `
+                        <div class="approval-actions">
+                            <button class="approval-btn approval-approve" onclick="reviewRequest(${req.id}, 'approve')">Approve</button>
+                            <button class="approval-btn approval-reject" onclick="reviewRequest(${req.id}, 'reject')">Reject</button>
+                        </div>
+                    ` : '';
+
+                    return `
+                        <div class="approval-item">
+                            <div>
+                                <div class="approval-title">${actionLabel}: ${escapeHtml(taskName)} <span class="approval-status ${req.status}">${req.status}</span></div>
+                                <div class="approval-meta">Requested by ${escapeHtml(requester)}${req.created_at ? ` on ${req.created_at}` : ''}</div>
+                            </div>
+                            ${actions}
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error(error);
+                list.innerHTML = '<div class="empty-state" style="color:#dc2626;">Unable to load approval requests.</div>';
+            }
+        }
+
+        async function reviewRequest(requestId, action) {
+            const label = action === 'approve' ? 'approve' : 'reject';
+            if (!confirm(`Are you sure you want to ${label} this request?`)) return;
+
+            const response = await fetch(`/api/work-change-requests/${requestId}/${action}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            const result = await response.json();
+            if (response.ok && result.success) {
+                loadApprovals();
+            } else {
+                alert('Error: ' + (result.error || 'Unable to review request'));
+            }
+        }
+
+        function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) return;
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.href = '/logout';
+        }
+
+        document.addEventListener('DOMContentLoaded', loadApprovals);
+    </script>
+</body>
+</html>

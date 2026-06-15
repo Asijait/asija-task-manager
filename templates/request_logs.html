@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Request Logs</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .logs-page { max-width: 1200px; margin: 0 auto; padding: 30px 20px; }
+        .logs-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .muted { color: #64748b; font-size: 0.9rem; }
+        .table-wrap { overflow-x: auto; margin-top: 16px; }
+        .logs-table { width: 100%; border-collapse: collapse; min-width: 980px; }
+        .logs-table th, .logs-table td { border-bottom: 1px solid #edf2f7; padding: 10px; text-align: left; vertical-align: top; }
+        .logs-table th { color: #475569; font-size: 0.82rem; background: #f8fafc; }
+        .log-title { font-weight: 600; color: #1f2937; }
+        .subtext { display: block; color: #64748b; font-size: 0.8rem; margin-top: 3px; }
+        .status-pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 0.76rem; text-transform: capitalize; background: #e2e8f0; color: #334155; }
+        .status-pill.pending { background: #fef3c7; color: #92400e; }
+        .status-pill.approved { background: #dcfce7; color: #166534; }
+        .status-pill.rejected { background: #fee2e2; color: #991b1b; }
+        .action-pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 6px; background: #f1f5f9; color: #334155; font-size: 0.8rem; text-transform: capitalize; }
+        .empty-state { color: #64748b; padding: 28px; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="nav-brand">Task Manager</div>
+            <nav class="nav-links">
+                <span class="user-status-text">User: {{ session.get('user_email', 'Unknown') }}</span>
+                <a href="/" class="nav-btn">Home</a>
+                <a href="/work-master" class="nav-btn">Task Master</a>
+                <a href="/pending-approvals" class="nav-btn">Pending Approvals</a>
+                <a href="/request-logs" class="nav-btn active">Logs</a>
+                <button class="nav-btn nav-logout" onclick="handleLogout()" style="background: #dc2626; border: none; cursor: pointer;">Logout</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="logs-page">
+        <div class="logs-card">
+            <h1>Task Request Logs</h1>
+            <p class="muted">Create, edit, and delete requests raised from Task Master.</p>
+            <div id="emptyState" class="empty-state" style="display:none;">No log records found.</div>
+            <div id="tableWrap" class="table-wrap" style="display:none;">
+                <table class="logs-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Task</th>
+                            <th>Action</th>
+                            <th>Status</th>
+                            <th>Raised By</th>
+                            <th>Raised At</th>
+                            <th>Reviewed By</th>
+                            <th>Reviewed At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logsBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        async function loadLogs() {
+            const tableWrap = document.getElementById('tableWrap');
+            const emptyState = document.getElementById('emptyState');
+            const tbody = document.getElementById('logsBody');
+            tbody.innerHTML = '<tr><td colspan="8">Loading...</td></tr>';
+            tableWrap.style.display = 'block';
+            emptyState.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/work-change-requests');
+                const logs = await response.json();
+                if (!logs.length) {
+                    tableWrap.style.display = 'none';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+
+                tbody.innerHTML = logs.map((log, index) => {
+                    const taskName = getTaskName(log);
+                    const note = log.review_note ? `<span class="subtext">Note: ${escapeHtml(log.review_note)}</span>` : '';
+                    return `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>
+                                <span class="log-title">${escapeHtml(taskName)}</span>
+                                ${log.work_id ? `<span class="subtext">Task ID: ${log.work_id}</span>` : ''}
+                            </td>
+                            <td><span class="action-pill">${escapeHtml(log.action || '')}</span></td>
+                            <td><span class="status-pill ${log.status || ''}">${escapeHtml(log.status || '')}</span>${note}</td>
+                            <td>${escapeHtml(log.requester_email || 'Unknown')}</td>
+                            <td>${escapeHtml(log.created_at || '')}</td>
+                            <td>${escapeHtml(log.reviewer_email || '')}</td>
+                            <td>${escapeHtml(log.reviewed_at || '')}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error(error);
+                tbody.innerHTML = '<tr><td colspan="8" style="color:#dc2626;">Unable to load logs.</td></tr>';
+            }
+        }
+
+        function getTaskName(log) {
+            if (log.payload && log.payload.work_name) return log.payload.work_name;
+            if (log.current_work_name) return log.current_work_name;
+            return log.work_id ? `Task #${log.work_id}` : 'New task request';
+        }
+
+        function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) return;
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.href = '/logout';
+        }
+
+        document.addEventListener('DOMContentLoaded', loadLogs);
+    </script>
+</body>
+</html>

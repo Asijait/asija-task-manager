@@ -1,0 +1,154 @@
+body.overdue-report-page {
+    margin: 0;
+    min-height: 100vh;
+    background: #eef3f6;
+    color: #203040;
+    font-family: Arial, sans-serif;
+}
+
+.overdue-shell {
+    width: min(1420px, calc(100% - 28px));
+    margin: 0 auto;
+    padding: calc(var(--nav-content-offset, 64px) + 10px) 0 24px;
+}
+
+.overdue-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 10px;
+}
+
+.overdue-header h1 {
+    margin: 0 0 4px;
+    color: #1c3446;
+    font-family: "Times New Roman", serif;
+    font-size: 26px;
+}
+
+.overdue-header p {
+    margin: 0;
+    color: #607382;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.overdue-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.overdue-actions a,
+.overdue-actions button {
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 4px;
+    background: #1f618d;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: Arial, sans-serif;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.overdue-actions a:hover,
+.overdue-actions button:hover {
+    background: #154360;
+}
+
+.overdue-card {
+    background: #ffffff;
+    border: 1px solid #d9e2e8;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(22, 45, 61, 0.06);
+    padding: 10px;
+}
+
+.table-wrap {
+    max-height: calc(100vh - 150px);
+    overflow: auto;
+    border: 1px solid #d8e0e6;
+}
+
+.overdue-table {
+    width: 100%;
+    min-width: 1320px;
+    border-collapse: collapse;
+}
+
+.overdue-table th,
+.overdue-table td {
+    padding: 6px 8px;
+    border: 1px solid #d8e0e6;
+    text-align: left;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12px;
+    line-height: 1.15;
+    white-space: nowrap;
+}
+
+.overdue-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #34495e;
+    color: #ffffff;
+    font-family: Arial, sans-serif;
+}
+
+.overdue-table tbody tr:nth-child(even) {
+    background: #f7fafc;
+}
+
+.amount {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.overdue-days {
+    color: #c0392b;
+    font-weight: 700;
+}
+
+.bill-no-text,
+.cheque-bounce-note {
+    display: block;
+}
+
+.cheque-bounce-note {
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #b03a2e;
+    font-family: Arial, sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1.05;
+    white-space: nowrap;
+}
+
+.empty-state {
+    padding: 18px;
+    text-align: center;
+    color: #607382;
+}
+
+@media (max-width: 720px) {
+    .overdue-shell {
+        width: min(100% - 18px, 1420px);
+        padding-top: var(--nav-content-offset, 18px);
+    }
+
+    .overdue-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .overdue-actions {
+        justify-content: flex-start;
+    }
+}

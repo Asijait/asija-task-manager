@@ -1,0 +1,224 @@
+.group-master-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.group-master-header h1 {
+    margin: 0;
+}
+
+.group-master-card {
+    width: min(50%, 980px);
+    margin-left: 0;
+    margin-right: auto;
+}
+
+.group-count {
+    border: 1px solid #cbd5df;
+    border-radius: 6px;
+    padding: 6px 10px;
+    background: #eef3f7;
+    color: #20384f;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.group-click-row {
+    cursor: pointer;
+}
+
+.group-click-row:hover {
+    background: #edf4f8;
+}
+
+.group-name-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.group-name-link:hover {
+    text-decoration: underline;
+}
+
+.group-master-card .client-table-toolbar {
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.group-master-card .client-table-toolbar input {
+    width: min(320px, 48%);
+}
+
+.group-toolbar-actions,
+.group-clients-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.group-add-toggle {
+    min-height: 32px;
+    padding: 7px 13px;
+}
+
+.excel-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid #2f855a;
+    border-radius: 4px;
+    background: #e8f5ee;
+    color: #146c43;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    line-height: 1;
+}
+
+.excel-icon-btn:hover {
+    background: #d6efe2;
+}
+
+.excel-icon-btn.is-disabled {
+    pointer-events: none;
+    opacity: 0.45;
+}
+
+.group-add-row {
+    background: #eef4f8;
+}
+
+.group-master-table-scroll {
+    max-height: calc(100vh - 190px);
+    overflow: auto;
+    border: 1px solid #b7c4cc;
+}
+
+.group-master-table-scroll table {
+    margin: 0;
+}
+
+.group-master-table-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+}
+
+.group-add-row input,
+.group-add-row select,
+.client-modal-grid select {
+    width: 100%;
+    min-width: 0;
+    padding: 7px 8px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 13px;
+}
+
+.group-add-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.group-row-action {
+    min-width: 48px;
+    height: 24px;
+    padding: 0 7px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    background: #ecf0f1;
+    color: #2c3e50;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.group-row-action:hover {
+    background: #d6e4ec;
+}
+
+.group-clients-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 310;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.group-clients-modal.is-open {
+    display: flex;
+}
+
+.group-clients-panel {
+    width: min(760px, 92vw);
+    max-height: 78vh;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #b7c4cc;
+    border-radius: 8px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+}
+
+.group-clients-summary {
+    padding: 9px 12px;
+    border-bottom: 1px solid #d4dde4;
+    color: #34495e;
+    font-weight: 700;
+}
+
+.group-clients-table {
+    max-height: calc(78vh - 92px);
+    overflow: auto;
+}
+
+.group-clients-table table {
+    margin: 0;
+}
+
+@media (max-width: 800px) {
+    .group-master-card {
+        width: 100%;
+    }
+
+    .group-master-card .client-table-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .group-master-card .client-table-toolbar input {
+        width: 100%;
+    }
+
+    .group-toolbar-actions {
+        justify-content: flex-end;
+    }
+
+    .group-master-table-scroll {
+        max-height: calc(100vh - 230px);
+    }
+
+    .group-clients-panel {
+        width: 96vw;
+    }
+
+    .group-master-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .group-master-form {
+        flex-direction: column;
+    }
+}

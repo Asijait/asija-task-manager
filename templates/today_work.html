@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Today's Work</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .app-layout { display: flex; flex: 1; overflow: hidden; }
+        .app-layout.sidebar-collapsed .sidebar { display: none; }
+        /* Sidebar Styles */
+        .sidebar { width: 320px; background: #eaf5ff; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; box-shadow: 2px 0 5px rgba(0,0,0,0.02); }
+        .main-content { flex: 1; padding: 25px; overflow-y: auto; background: #f8fafc; }
+        /* Calendar Styles */
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .calendar-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.85rem; }
+        .calendar-table th { color: #94a3b8; font-weight: normal; padding: 5px; }
+        .calendar-table td { text-align: center; padding: 8px 0; cursor: pointer; border-radius: 6px; transition: 0.2s; }
+        .calendar-table td:hover { background: #f1f5f9; }
+        .calendar-table td.today { color: #9fd0ff; font-weight: normal; box-shadow: inset 0 0 0 2px #9fd0ff; }
+        .calendar-table td.selected { background: #9fd0ff; color: #123a5a !important; font-weight: normal; }
+
+        /* Sidebar Button Styles */
+        .btn-sidebar {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #ddd;
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            font-weight: normal;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            margin-top: 5px;
+        }
+        .btn-sidebar:hover { background: #9fd0ff; color: #123a5a; border-color: #9fd0ff; }
+        .btn-sidebar.active { background: #9fd0ff; color: #123a5a; box-shadow: 0 4px 10px rgba(31, 95, 147, 0.18); }
+        .date-mode-actions { display: flex; flex-direction: column; gap: 8px; }
+        .date-mode-btn { background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.75rem; white-space: nowrap; }
+        .date-mode-btn:hover,
+        .date-mode-btn.active { background: #9fd0ff; color: #123a5a; border-color: #9fd0ff; }
+        .collapsed-mode-select { display: none; min-width: 170px; padding: 5px 9px; border: 1px solid #cbd5e1; border-radius: 5px; background: #f8fafc; color: #334155; font-size: 0.75rem; outline: none; }
+        .collapsed-date-picker { display: none; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 5px; background: #f8fafc; color: #334155; font-size: 0.75rem; outline: none; }
+        .app-layout.sidebar-collapsed .collapsed-mode-select { display: inline-block; }
+        .app-layout.sidebar-collapsed .collapsed-date-picker { display: inline-block; }
+
+        .sidebar-section { border-top: 1px solid #f1f5f9; padding-top: 20px; margin-top: 10px; }
+        .sidebar-section h3 { font-size: 0.9rem; color: #475569; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .filter-item { display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px; }
+        .filter-item label { font-size: 0.85rem; font-weight: bold; color: #555; }
+        .filter-item input { padding: 8px; border: 1px solid #e2e8f0; border-radius: 5px; outline: none; background: #eaf5ff; width: 100%; box-sizing: border-box; }
+
+        .table-section { background: #eaf5ff; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); min-height: 400px; }
+        .table-input { padding: 5px; border: 1px solid #eee; border-radius: 4px; font-size: 0.85rem; outline: none; }
+        #assignedWorkTable { table-layout: fixed; min-width: 1020px; }
+        #assignedWorkTable tbody tr { cursor: pointer; }
+        #assignedWorkTable tbody tr:hover { background: #f8fafc; }
+        #assignedWorkTable .col-id { width: 54px; min-width: 54px; max-width: 54px; text-align: center; }
+        #assignedWorkTable th.col-id,
+        #assignedWorkTable td.col-id { padding-left: 8px; padding-right: 8px; vertical-align: middle; }
+        #assignedWorkTable .daily-work-col { width: 34%; min-width: 330px; }
+        #assignedWorkTable .daily-status-col { width: 120px; }
+        #assignedWorkTable .daily-date-col { width: 135px; }
+        #assignedWorkTable .daily-assignee-col { width: 150px; }
+        #assignedWorkTable .daily-remark-col { width: 210px; }
+        #assignedWorkTable .daily-work-name { font-weight: 600; color: #1f2937; line-height: 1.35; }
+        #assignedWorkTable .daily-work-schedule { display: block; margin-top: 4px; color: #64748b; font-size: 0.78rem; line-height: 1.25; }
+        #assignedWorkTable .status-badge { display: block; padding: 0; background: transparent; }
+        #assignedWorkTable .daily-status-col .table-input { width: 100%; min-width: 0; }
+        #assignedWorkTable th { padding-top: 10px; padding-bottom: 10px; }
+        .th-label { display: block; font-size: 0.82rem; line-height: 1.2; letter-spacing: 0; }
+        .filterable-th { vertical-align: top; line-height: 1.2; }
+        .column-filter { position: relative; margin-top: 8px; }
+        .filter-toggle {
+            width: 100%;
+            min-height: 26px;
+            border: 1px solid #8ec5f4;
+            background: #d7ecff;
+            color: #123a5a;
+            border-radius: 5px;
+            padding: 4px 24px 4px 8px;
+            font-size: 0.72rem;
+            line-height: 1.2;
+            text-align: left;
+            cursor: pointer;
+            position: relative;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .filter-toggle::after {
+            content: "v";
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.62rem;
+            opacity: 0.75;
+        }
+        .filter-toggle:hover,
+        .column-filter.open .filter-toggle {
+            background: #d7ecff;
+            border-color: #8ec5f4;
+        }
+        .filter-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            min-width: 220px;
+            max-height: 280px;
+            overflow: hidden;
+            background: #d7ecff;
+            color: #1f2937;
+            border: 1px solid #8ec5f4;
+            border-radius: 8px;
+            box-shadow: 0 14px 36px rgba(15,23,42,0.22);
+            padding: 10px;
+            z-index: 60;
+        }
+        .column-filter.open .filter-menu { display: block; }
+        .filter-option { display: flex; align-items: center; gap: 8px; padding: 6px 5px; border-radius: 5px; font-size: 0.78rem; font-weight: normal; white-space: nowrap; }
+        .filter-option:hover { background: #f8fafc; }
+        .filter-option input { margin: 0; }
+        .filter-search { width: 100%; border: 1px solid #8ec5f4; border-radius: 6px; padding: 7px 9px; font-size: 0.78rem; margin-bottom: 8px; outline: none; background: #ffffff; }
+        .filter-search:focus { border-color: #9fd0ff; background: #eaf5ff; box-shadow: 0 0 0 2px rgba(31,95,147,0.14); }
+        .filter-options-list { max-height: 165px; overflow-y: auto; padding-right: 3px; }
+        .filter-actions { display: flex; gap: 6px; padding-bottom: 8px; margin-bottom: 6px; border-bottom: 1px solid #edf2f7; }
+        .filter-action-btn { border: 1px solid #cbd5e1; background: #eaf5ff; color: #334155; border-radius: 5px; padding: 4px 8px; font-size: 0.72rem; cursor: pointer; }
+        .filter-action-btn:hover { background: #d7ecff; border-color: #8ec5f4; color: #123a5a; }
+        .btn-action { background: #9fd0ff; color: #123a5a; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 0.85rem; }
+        .btn-action.active { background: #174a73; color: #ffffff; }
+        .daily-actions { display: flex; gap: 4px; align-items: center; justify-content: center; }
+        .btn-icon-sm { width: 30px; height: 30px; border: 1px solid #d7ddea; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: #eaf5ff; color: #475569; font-size: 0.88rem; line-height: 1; }
+        .btn-icon-sm svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .btn-icon-sm:hover { background: #f8fafc; border-color: #b8c2d6; }
+        .btn-save-date { color: #78bdec; }
+        .btn-delete-date { color: #b91c1c; }
+        .btn-save-sm { background: #9fd0ff; color: #123a5a; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
+        .btn-save-sm:hover { background: #78bdec; }
+        .task-detail-modal { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+        .task-detail-modal.open { display: flex; }
+        .task-detail-content { width: min(720px, 96vw); background: #eaf5ff; border: 1px solid #dbe3ef; border-radius: 8px; box-shadow: 0 18px 50px rgba(15,23,42,0.25); padding: 20px; }
+        .task-detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+        .task-detail-title { margin: 0; color: #174a73; font-size: 1.2rem; }
+        .task-detail-close { border: none; background: transparent; font-size: 1.4rem; line-height: 1; cursor: pointer; color: #475569; }
+        .task-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .task-detail-field { display: flex; flex-direction: column; gap: 5px; }
+        .task-detail-field label { font-size: 0.8rem; color: #475569; font-weight: 600; }
+        .task-detail-field .table-input { width: 100%; box-sizing: border-box; }
+        .task-detail-field.full-width { grid-column: 1 / -1; }
+        .task-detail-meta { display: flex; gap: 10px; flex-wrap: wrap; color: #64748b; font-size: 0.82rem; margin-top: 6px; }
+        .task-detail-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 18px; }
+        .task-detail-action-buttons { display: flex; gap: 8px; }
+        .task-detail-action-label { color: #475569; font-size: 0.82rem; font-weight: 600; }
+
+        /* Status Text Styles (from report section) */
+        .status-text { font-size: 0.65rem; font-weight: bold; text-transform: uppercase; white-space: nowrap; }
+        .text-due { color: #94a3b8; }
+        .text-wip { color: #d97706; }
+        .text-completed { color: #16a34a; }
+        .text-final { color: #9fd0ff; }
+        .text-future { color: #cbd5e1; }
+        .text-overdue { color: #dc2626; }
+
+        /* Priority Highlighting */
+        .priority-high { border-left: 5px solid #dc2626 !important; }
+
+        .btn-range { width: 100%; font-weight: 600; padding: 10px; }
+        
+        .header-flex { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+        .daily-header-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .period-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #d7ecff; border: 1px solid #8ec5f4; color: #123a5a; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; }
+        .period-notice strong { color: #174a73; }
+        .new-period-panel { display: none; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; align-items: center; justify-content: space-between; gap: 12px; }
+        h2, h3 { color: #174a73; margin-top: 0; font-weight: normal; }
+        .empty-message { text-align: center; color: #999; padding: 40px; border: 2px dashed #f0f0f0; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="nav-brand">Task Manager</div>
+            <nav class="nav-links">
+                <span class="user-status-text">User: {{ session.get('user_email', 'Unknown') }}</span>
+                <a href="/" class="nav-btn">🏠 Home</a>
+                <a href="/work-master" class="nav-btn">⚙️ Task Master</a>
+                <a href="/today-work" class="nav-btn active">📅 Today's Work</a>
+                <a href="/daily-debtor-report" class="nav-btn" target="_blank" rel="noopener">Debtor Report</a>
+                <a href="/report-section" class="nav-btn">📊 Report Section</a>
+                {% if 'pending_approvals' in user_permissions %}
+                    <a href="/pending-approvals" class="nav-btn">
+                        {{ approval_button_label or 'Pending Approvals' }}
+                        {% if approval_button_count %}
+                            <span class="nav-badge">{{ approval_button_count }}</span>
+                        {% endif %}
+                    </a>
+                {% endif %}
+                {% if 'request_logs' in user_permissions %}
+                    <a href="/request-logs" class="nav-btn">Logs</a>
+                {% endif %}
+                <a href="/control-panel" class="nav-btn">🛠️ Control Panel</a>
+                <button class="nav-btn nav-logout" onclick="handleLogout()" style="background: #dc2626; border: none; cursor: pointer;">🚪 Logout</button>
+            </nav>
+        </div>
+    </header>
+
+    <div class="app-layout" id="appLayout">
+        <aside class="sidebar" id="sidebar">
+            <div class="calendar-header">
+                <button onclick="changeMonth(-1)" class="btn-action">&lt;</button>
+                <span id="monthYearDisplay" style="font-weight: 600; color: #1e293b;"></span>
+                <button onclick="changeMonth(1)" class="btn-action">&gt;</button>
+            </div>
+            <table class="calendar-table">
+                <thead>
+                    <tr>
+                        <th>Su</th><th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th><th>Sa</th>
+                    </tr>
+                </thead>
+                <tbody id="calendarGrid"></tbody>
+            </table>
+
+            <div class="sidebar-section">
+                <h3>Today's Work</h3>
+                <div class="date-mode-actions">
+                    <button id="workStartDateBtn" class="btn-sidebar" onclick="setDailyDateMode('start')">Today's Work Start Date</button>
+                    <button id="targetDueDateBtn" class="btn-sidebar active" onclick="setDailyDateMode('due')">Today's Target / Due Date</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Reports</h3>
+                <button id="detailedReportBtn" class="btn-sidebar" onclick="toggleDetailedReport()">📑 Period wise Task</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div id="dailyViewArea">
+                <div class="period-notice">
+                    <span>Project Period: <strong>01.04.2026 - 31.03.2027</strong></span>
+                </div>
+                <div id="newPeriodPanel" class="new-period-panel">
+                    <span>This project period is over. Create a new period to continue task tracking.</span>
+                    <button type="button" class="btn-action" onclick="createNewPeriod()">Create New Period</button>
+                </div>
+                <div class="header-flex">
+                    <div class="daily-header-left">
+                        <button id="sidebarToggleBtn" class="date-mode-btn" onclick="toggleSidebar()">Hide Sidebar</button>
+                        <select id="collapsedDateModeSelect" class="collapsed-mode-select" onchange="setDailyDateMode(this.value)">
+                            <option value="start">Work Start Date</option>
+                            <option value="due" selected>Target / Due Date</option>
+                        </select>
+                        <input type="date" id="collapsedDatePicker" class="collapsed-date-picker" onchange="setSelectedDateFromPicker(this.value)" title="Select date">
+                        <h1 id="viewTitle" style="margin:0;">Daily Task Tracking</h1>
+                        <button id="previousOpenBtn" class="btn-action" style="background: #d7ecff; color: #123a5a; padding: 5px 12px; font-size: 0.75rem;" onclick="togglePreviousOpenTasks()">Prev Open</button>
+                        <button class="btn-action" style="background: #9fd0ff; color: #123a5a; padding: 5px 12px; font-size: 0.75rem;" onclick="exportDailyToExcel()">📥 Export Excel</button>
+                    </div>
+                    <div id="scheduleLabel" style="background: #d7ecff; color: #9fd0ff; padding: 5px 15px; border-radius: 20px; font-weight: normal; font-size: 0.9rem;">
+                        Day 1
+                    </div>
+                </div>
+
+                <section class="table-section">
+                    <table class="data-table" id="assignedWorkTable">
+                        <thead>
+                            <tr>
+                                <th class="col-id"><span class="th-label">#</span></th>
+                                <th class="daily-work-col filterable-th"><span class="th-label">Work Name</span><div id="filter-work_name" class="column-filter"></div></th>
+                                <th class="daily-date-col filterable-th"><span class="th-label">Work Start Date</span><div id="filter-work_start_date" class="column-filter"></div></th>
+                                <th class="daily-date-col filterable-th"><span class="th-label">Target Date</span><div id="filter-work_date" class="column-filter"></div></th>
+                                <th class="daily-status-col filterable-th"><span class="th-label">Status</span><div id="filter-status" class="column-filter"></div></th>
+                                <th class="daily-assignee-col filterable-th"><span class="th-label">Assign To</span><div id="filter-assignee_name" class="column-filter"></div></th>
+                                <th class="daily-remark-col filterable-th"><span class="th-label">Remark</span><div id="filter-remarks" class="column-filter"></div></th>
+                            </tr>
+                        </thead>
+                        <tbody id="assignedWorkTableBody"></tbody>
+                    </table>
+                    <div id="noWorkMessage" class="empty-message" style="display: none;">
+                        No tasks scheduled for the selected period.
+                    </div>
+                </section>
+            </div>
+
+            <div id="detailedReportArea" style="display: none;">
+                <div class="header-flex">
+                    <h1 style="font-size: 1.4rem;">Period wise Task</h1>
+                    <div class="report-controls" style="display: flex; gap: 8px; align-items: center; background: #eaf5ff; padding: 5px 12px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+                        <label style="font-size: 0.8rem; font-weight: normal; color: #475569;">From:</label>
+                        <input type="date" id="reportStart" class="table-input" style="padding: 4px; font-size: 0.8rem;">
+                        <label style="font-size: 0.8rem; font-weight: normal; color: #475569;">To:</label>
+                        <input type="date" id="reportEnd" class="table-input" style="padding: 4px; font-size: 0.8rem;">
+                        <button class="btn-action" style="padding: 6px 15px; font-size: 0.8rem; font-weight: normal;" onclick="generateDetailedReport()">Generate</button>
+                        <button class="btn-action" style="background: #9fd0ff; color: #123a5a; padding: 6px 15px; font-size: 0.8rem; font-weight: normal;" onclick="exportDetailedToExcel()">📥 Export</button>
+                    </div>
+                </div>
+
+                <section class="table-section">
+                    <div id="reportResults">
+                        <p style="color: #666; font-style: italic;">Results will be displayed here...</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <div id="taskDetailModal" class="task-detail-modal">
+        <div class="task-detail-content">
+            <div class="task-detail-header">
+                <div>
+                    <h2 id="detailWorkName" class="task-detail-title">Task Details</h2>
+                    <div class="task-detail-meta">
+                        <span id="detailWorkStartDate"></span>
+                        <span id="detailTargetDate"></span>
+                    </div>
+                </div>
+                <button type="button" class="task-detail-close" onclick="closeTaskDetailModal()">&times;</button>
+            </div>
+            <input type="hidden" id="detailWorkId">
+            <input type="hidden" id="detailDateKey">
+            <div class="task-detail-grid">
+                <div class="task-detail-field">
+                    <label for="start-detail">Actual Start</label>
+                    <input type="date" id="start-detail" class="table-input">
+                </div>
+                <div class="task-detail-field">
+                    <label for="end-detail">Actual End</label>
+                    <input type="date" id="end-detail" class="table-input">
+                </div>
+                <div class="task-detail-field">
+                    <label for="status-detail">Status</label>
+                    <select id="status-detail" class="table-input"></select>
+                </div>
+                <div class="task-detail-field">
+                    <label for="assignee-detail">Assign To</label>
+                    <select id="assignee-detail" class="table-input"></select>
+                </div>
+                <div class="task-detail-field full-width">
+                    <label for="remark-detail">Remark</label>
+                    <input type="text" id="remark-detail" class="table-input" placeholder="Notes...">
+                </div>
+            </div>
+            <div class="task-detail-actions">
+                <span class="task-detail-action-label">Action</span>
+                <div class="task-detail-action-buttons">
+                    <button type="button" class="btn-save-sm" onclick="saveTaskDetailsFromModal()">Save</button>
+                    <button type="button" class="btn-save-sm" style="background:#fee2e2; color:#b91c1c;" onclick="deleteTaskFromModal()">Delete This Date</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        const projectPeriodStart = new Date('{{ project_period_start }}T00:00:00');
+        const projectPeriodEnd = new Date('{{ project_period_end }}T00:00:00');
+        let selectedDate = clampToProjectPeriod(new Date());
+        let viewMonth = new Date(selectedDate);
+        let currentDailyData = [];
+        let currentDetailedData = [];
+        let assigneesList = [];
+        let dailyFilters = {};
+        let dailyDateMode = 'due';
+        let includePreviousOpenTasks = false;
+        const blankFilterValue = '__blank__';
+        const dailyFilterColumns = [
+            { key: 'work_name', label: 'Work Name', searchable: true },
+            { key: 'work_start_date', label: 'Work Start Date' },
+            { key: 'work_date', label: 'Target Date' },
+            { key: 'status', label: 'Status' },
+            { key: 'assignee_name', label: 'Assign To' },
+            { key: 'remarks', label: 'Remark', searchable: true }
+        ];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('collapsedDatePicker').value = formatDateForAPI(selectedDate);
+            document.getElementById('collapsedDatePicker').min = formatDateForAPI(projectPeriodStart);
+            document.getElementById('collapsedDatePicker').max = formatDateForAPI(projectPeriodEnd);
+            updateNewPeriodPanel();
+            document.getElementById('taskDetailModal').addEventListener('click', function(event) {
+                if (event.target === this) closeTaskDetailModal();
+            });
+            loadAssignees().then(() => {
+                renderCalendar();
+                updateView();
+            });
+        });
+
+        function clampToProjectPeriod(date) {
+            const cleanDate = new Date(date);
+            cleanDate.setHours(0, 0, 0, 0);
+            if (cleanDate < projectPeriodStart) return new Date(projectPeriodStart);
+            if (cleanDate > projectPeriodEnd) return new Date(projectPeriodEnd);
+            return cleanDate;
+        }
+
+        function isWithinProjectPeriod(date) {
+            return date >= projectPeriodStart && date <= projectPeriodEnd;
+        }
+
+        function updateNewPeriodPanel() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            document.getElementById('newPeriodPanel').style.display = today > projectPeriodEnd ? 'flex' : 'none';
+        }
+
+        function createNewPeriod() {
+            alert('The current project is fixed for 01.04.2026 - 31.03.2027. Create a backup first, then set the next project period before adding new-year tasks.');
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const display = document.getElementById('monthYearDisplay');
+            grid.innerHTML = '';
+            
+            display.innerText = viewMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+            
+            const firstDay = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1).getDay();
+            const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
+            
+            let date = 1;
+            for (let i = 0; i < 6; i++) {
+                let row = document.createElement('tr');
+                for (let j = 0; j < 7; j++) {
+                    let cell = document.createElement('td');
+                    if (i === 0 && j < firstDay || date > daysInMonth) {
+                        row.appendChild(cell);
+                    } else {
+                        cell.innerText = date;
+                        const cellDate = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), date);
+                        if (!isWithinProjectPeriod(cellDate)) {
+                            cell.style.opacity = '0.35';
+                            cell.style.cursor = 'not-allowed';
+                            row.appendChild(cell);
+                            date++;
+                            continue;
+                        }
+                        
+                        if (isSameDate(cellDate, new Date())) cell.classList.add('today');
+                        if (isSameDate(cellDate, selectedDate)) cell.classList.add('selected');
+                        
+                        cell.onclick = () => {
+                            selectedDate = clampToProjectPeriod(cellDate);
+                            hideDetailedReport();
+                            renderCalendar();
+                            updateView();
+                        };
+                        row.appendChild(cell);
+                        date++;
+                    }
+                }
+                grid.appendChild(row);
+                if (date > daysInMonth) break;
+            }
+        }
+
+        function changeMonth(dir) {
+            viewMonth.setMonth(viewMonth.getMonth() + dir);
+            if (viewMonth < new Date(projectPeriodStart.getFullYear(), projectPeriodStart.getMonth(), 1)) {
+                viewMonth = new Date(projectPeriodStart);
+            }
+            if (viewMonth > new Date(projectPeriodEnd.getFullYear(), projectPeriodEnd.getMonth(), 1)) {
+                viewMonth = new Date(projectPeriodEnd);
+            }
+            renderCalendar();
+        }
+
+        async function loadAssignees() {
+            try {
+                const response = await fetch('/api/assignees');
+                assigneesList = await response.json();
+            } catch (error) {
+                console.error('Error loading assignees:', error);
+            }
+        }
+
+        function toggleSidebar() {
+            const appLayout = document.getElementById('appLayout');
+            const toggleBtn = document.getElementById('sidebarToggleBtn');
+            const isCollapsed = appLayout.classList.toggle('sidebar-collapsed');
+            toggleBtn.innerText = isCollapsed ? 'Show Sidebar' : 'Hide Sidebar';
+            document.getElementById('collapsedDatePicker').value = formatDateForAPI(selectedDate);
+        }
+
+        function setDailyDateMode(mode) {
+            dailyDateMode = mode;
+            document.getElementById('workStartDateBtn').classList.toggle('active', mode === 'start');
+            document.getElementById('targetDueDateBtn').classList.toggle('active', mode === 'due');
+            document.getElementById('collapsedDateModeSelect').value = mode;
+            hideDetailedReport();
+            updateView();
+        }
+
+        function togglePreviousOpenTasks() {
+            includePreviousOpenTasks = !includePreviousOpenTasks;
+            const btn = document.getElementById('previousOpenBtn');
+            btn.classList.toggle('active', includePreviousOpenTasks);
+            btn.style.background = includePreviousOpenTasks ? '#174a73' : '#d7ecff';
+            btn.style.color = includePreviousOpenTasks ? '#ffffff' : '#123a5a';
+            updateView();
+        }
+
+        function setSelectedDateFromPicker(value) {
+            if (!value) return;
+            selectedDate = clampToProjectPeriod(new Date(value + 'T00:00:00'));
+            viewMonth = new Date(selectedDate);
+            hideDetailedReport();
+            renderCalendar();
+            updateView();
+        }
+
+        async function updateView() {
+            const tbody = document.getElementById('assignedWorkTableBody');
+            const table = document.getElementById('assignedWorkTable');
+            const noWorkMsg = document.getElementById('noWorkMessage');
+            const title = document.getElementById('viewTitle');
+            const scheduleLabel = document.getElementById('scheduleLabel');
+
+            document.getElementById('dailyViewArea').style.display = 'block';
+            document.getElementById('detailedReportArea').style.display = 'none';
+            document.getElementById('detailedReportBtn').classList.remove('active');
+
+            const dateStr = formatDateForAPI(selectedDate);
+            document.getElementById('collapsedDatePicker').value = dateStr;
+            const url = `/api/assigned/${dateStr}?date_type=${dailyDateMode}&include_previous_open=${includePreviousOpenTasks ? '1' : '0'}`;
+            const modeTitle = dailyDateMode === 'start' ? 'Work Start Date' : 'Target / Due Date';
+            title.innerText = `${modeTitle}: ${formatDate(dateStr)}${includePreviousOpenTasks ? ' + Previous Open' : ''}`;
+            const day = selectedDate.getDate();
+            scheduleLabel.innerText = `Day ${day}${getDaySuffix(day)} of Month`;
+            scheduleLabel.style.display = 'block';
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                currentDailyData = data;
+                dailyFilters = {};
+                tbody.innerHTML = '';
+
+                if (data.length === 0) {
+                    table.style.display = 'none';
+                    noWorkMsg.style.display = 'block';
+                    noWorkMsg.innerText = dailyDateMode === 'start'
+                        ? 'No tasks starting on the selected date.'
+                        : 'No tasks due on the selected date.';
+                    buildDailyFilters([]);
+                } else {
+                    noWorkMsg.style.display = 'none';
+                    table.style.display = 'table';
+                    buildDailyFilters(data);
+                    renderDailyRows(applyDailyFilters(data));
+                }
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+            }
+        }
+
+        function getDailyFilterValue(work, key, originalIndex) {
+            if (key === 'assignee_name') return work.assignee_name || 'Unassigned';
+            if (key === 'work_date') return getOccurrenceDate(work);
+            return work[key] || '';
+        }
+
+        function getDailyFilterLabel(value, key) {
+            if (!value) return '(Blank)';
+            if (key === 'work_start_date' || key === 'work_date') return formatDate(value);
+            return value;
+        }
+
+        function normalizeFilterValue(value) {
+            return value ? String(value) : blankFilterValue;
+        }
+
+        function escapeAttr(text) {
+            return String(text || '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function buildDailyFilters(data) {
+            dailyFilterColumns.forEach(column => {
+                const container = document.getElementById(`filter-${column.key}`);
+                if (!container) return;
+
+                const values = [];
+                const seen = new Set();
+                data.forEach((work, index) => {
+                    const rawValue = getDailyFilterValue(work, column.key, index);
+                    const value = normalizeFilterValue(rawValue);
+                    if (!seen.has(value)) {
+                        seen.add(value);
+                        values.push({ value, label: getDailyFilterLabel(rawValue, column.key) });
+                    }
+                });
+
+                const selected = dailyFilters[column.key];
+                const activeText = selected && selected.size ? `${selected.size} selected` : 'All';
+                container.className = 'column-filter';
+                container.innerHTML = `
+                    <button type="button" class="filter-toggle" onclick="toggleDailyFilterMenu(event, '${column.key}')">${activeText}</button>
+                    <div class="filter-menu" onclick="event.stopPropagation()">
+                        ${column.searchable ? `<input type="text" class="filter-search" placeholder="Search..." oninput="searchDailyFilterOptions('${column.key}', this.value)">` : ''}
+                        <div class="filter-actions">
+                            <button type="button" class="filter-action-btn" onclick="setDailyFilterAll('${column.key}', true)">All</button>
+                            <button type="button" class="filter-action-btn" onclick="setDailyFilterAll('${column.key}', false)">Clear</button>
+                        </div>
+                        <div class="filter-options-list">
+                            ${values.map(option => `
+                            <label class="filter-option" data-filter-label="${escapeAttr(option.label.toLowerCase())}">
+                                <input type="checkbox" value="${escapeAttr(option.value)}" ${!selected || selected.has(option.value) ? 'checked' : ''} onchange="updateDailyFilter('${column.key}')">
+                                <span>${escapeHtml(option.label)}</span>
+                            </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function searchDailyFilterOptions(key, query) {
+            const normalizedQuery = String(query || '').trim().toLowerCase();
+            const container = document.getElementById(`filter-${key}`);
+            container.querySelectorAll('.filter-option').forEach(option => {
+                const label = option.getAttribute('data-filter-label') || '';
+                option.style.display = label.includes(normalizedQuery) ? 'flex' : 'none';
+            });
+        }
+
+        function toggleDailyFilterMenu(event, key) {
+            event.stopPropagation();
+            document.querySelectorAll('.column-filter').forEach(filter => {
+                if (filter.id !== `filter-${key}`) filter.classList.remove('open');
+            });
+            document.getElementById(`filter-${key}`).classList.toggle('open');
+        }
+
+        function updateDailyFilter(key) {
+            const container = document.getElementById(`filter-${key}`);
+            const checkboxes = Array.from(container.querySelectorAll('input[type="checkbox"]'));
+            const checked = checkboxes.filter(cb => cb.checked).map(cb => cb.value);
+            dailyFilters[key] = checked.length === checkboxes.length ? null : new Set(checked);
+            buildDailyFilters(currentDailyData);
+            renderDailyRows(applyDailyFilters(currentDailyData));
+            document.getElementById(`filter-${key}`).classList.add('open');
+        }
+
+        function setDailyFilterAll(key, checked) {
+            const container = document.getElementById(`filter-${key}`);
+            container.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = checked);
+            updateDailyFilter(key);
+        }
+
+        function applyDailyFilters(data) {
+            return data.filter((work, index) => dailyFilterColumns.every(column => {
+                const selected = dailyFilters[column.key];
+                if (!selected) return true;
+                if (!selected.size) return false;
+                return selected.has(normalizeFilterValue(getDailyFilterValue(work, column.key, index)));
+            }));
+        }
+
+        function renderDailyRows(data) {
+            const tbody = document.getElementById('assignedWorkTableBody');
+            const table = document.getElementById('assignedWorkTable');
+            const noWorkMsg = document.getElementById('noWorkMessage');
+            tbody.innerHTML = '';
+
+            if (!data.length) {
+                table.style.display = 'table';
+                noWorkMsg.style.display = 'block';
+                noWorkMsg.innerText = 'No tasks match the selected filters.';
+                return;
+            }
+
+            noWorkMsg.style.display = 'none';
+            noWorkMsg.innerText = 'No tasks scheduled for the selected period.';
+
+            data.forEach((work, index) => {
+                const row = document.createElement('tr');
+                if (work.priority === 'High') row.classList.add('priority-high');
+                const workId = work.work_id || work.id;
+                const dateKey = work.assigned_date || work.scheduled_date;
+                row.onclick = () => openTaskDetailModal(workId, dateKey);
+
+                row.innerHTML = `
+                    <td class="col-id">${index + 1}</td>
+                    <td class="daily-work-col">
+                        <div class="daily-work-name">${escapeHtml(work.work_name)}${work.is_previous_open ? ' <span class="status-text text-overdue">Prev Open</span>' : ''}</div>
+                        <small class="daily-work-schedule">${getDailyScheduleDescription(work)}</small>
+                    </td>
+                    <td class="daily-date-col">${formatDate(work.work_start_date)}</td>
+                    <td class="daily-date-col">${formatDate(getOccurrenceDate(work))}</td>
+                    <td class="daily-status-col"><span class="status-text ${getStatusClass(work.status)}">${formatStatusLabel(work.status)}</span></td>
+                    <td class="daily-assignee-col">${escapeHtml(work.assignee_name || 'Unassigned')}</td>
+                    <td class="daily-remark-col">${work.remarks ? escapeHtml(work.remarks) : '<span style="color:#94a3b8;">-</span>'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function getStatusClass(status) {
+            if (status === 'WIP') return 'text-wip';
+            if (status === 'completed') return 'text-completed';
+            if (status === 'final and approved') return 'text-final';
+            return 'text-due';
+        }
+
+        function formatStatusLabel(status) {
+            if (status === 'completed') return 'Completed';
+            if (status === 'final and approved') return 'Final & Approved';
+            return status || 'Due';
+        }
+
+        function openTaskDetailModal(workId, dateKey) {
+            const work = currentDailyData.find(item => {
+                const currentWorkId = item.work_id || item.id;
+                const currentDate = item.assigned_date || item.scheduled_date;
+                return currentWorkId == workId && currentDate === dateKey;
+            });
+            if (!work) return;
+
+            document.getElementById('detailWorkId').value = workId;
+            document.getElementById('detailDateKey').value = dateKey;
+            document.getElementById('detailWorkName').innerText = work.work_name;
+            document.getElementById('detailWorkStartDate').innerText = `Work Start: ${formatDate(work.work_start_date)}`;
+            document.getElementById('detailTargetDate').innerText = `Target: ${formatDate(getOccurrenceDate(work))}`;
+            document.getElementById('start-detail').value = work.actual_start || '';
+            document.getElementById('end-detail').value = work.actual_end || '';
+            document.getElementById('remark-detail').value = work.remarks || '';
+
+            const statusSelect = document.getElementById('status-detail');
+            const statusOptions = ['Due', 'WIP', 'completed', 'final and approved'];
+            statusSelect.innerHTML = statusOptions.map(option => (
+                `<option value="${option}" ${work.status === option ? 'selected' : ''}>${formatStatusLabel(option)}</option>`
+            )).join('');
+
+            const assigneeSelect = document.getElementById('assignee-detail');
+            assigneeSelect.innerHTML = '<option value="">-- Unassigned --</option>';
+            assigneesList.forEach(assignee => {
+                assigneeSelect.appendChild(new Option(assignee.name, assignee.id, false, work.assignee_id == assignee.id));
+            });
+
+            document.getElementById('taskDetailModal').classList.add('open');
+        }
+
+        function closeTaskDetailModal() {
+            document.getElementById('taskDetailModal').classList.remove('open');
+        }
+
+        function saveTaskDetailsFromModal() {
+            const workId = document.getElementById('detailWorkId').value;
+            const dateKey = document.getElementById('detailDateKey').value;
+            return saveTaskDetails(workId, dateKey);
+        }
+
+        function deleteTaskFromModal() {
+            const workId = document.getElementById('detailWorkId').value;
+            const dateKey = document.getElementById('detailDateKey').value;
+            return deleteTaskForDate(workId, dateKey);
+        }
+
+        function getDailyScheduleDescription(work) {
+            const targetText = `Target: ${formatDate(getOccurrenceDate(work))}`;
+            const startText = work.work_start_date ? `Work Start: ${formatDate(work.work_start_date)}` : 'Work Start: Not set';
+            return dailyDateMode === 'start'
+                ? `${startText} | ${targetText}`
+                : `${targetText} | ${startText}`;
+        }
+
+        function getOccurrenceDate(work) {
+            return work.assigned_date || work.scheduled_date || work.work_date;
+        }
+
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.column-filter').forEach(filter => filter.classList.remove('open'));
+        });
+
+        function exportDailyToExcel() {
+            if (!currentDailyData.length) return alert('No data to export');
+            const dateStr = formatDateForAPI(selectedDate);
+            const displayDate = formatDate(dateStr);
+            const modeTitle = dailyDateMode === 'start' ? 'Work Start Date' : 'Target / Due Date';
+            const title = `Daily Tasks (${modeTitle}): ${displayDate}`;
+            const headers = ['#', modeTitle, 'Work Name', 'Work Start Date', 'Target Date', 'Assignee', 'Status', 'Remark'];
+            const rows = currentDailyData.map((work, index) => [
+                index + 1,
+                displayDate,
+                work.work_name,
+                formatDate(work.work_start_date),
+                formatDate(getOccurrenceDate(work)),
+                work.assignee_name || 'N/A',
+                formatStatusLabel(work.status),
+                work.remarks || '-'
+            ]);
+            exportToExcel(`daily_tasks_${dailyDateMode}_${formatDateForAPI(selectedDate)}.xlsx`, headers, rows, title);
+        }
+
+        function toggleDetailedReport() {
+            const reportArea = document.getElementById('detailedReportArea');
+            const dailyArea = document.getElementById('dailyViewArea');
+            const btn = document.getElementById('detailedReportBtn');
+
+            if (reportArea.style.display === 'none') {
+                reportArea.style.display = 'block';
+                dailyArea.style.display = 'none';
+                btn.classList.add('active');
+                
+                // Set default dates if empty
+                if (!document.getElementById('reportStart').value) {
+                    const now = new Date();
+                    document.getElementById('reportStart').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+                    document.getElementById('reportEnd').value = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+                }
+            } else {
+                hideDetailedReport();
+            }
+        }
+
+        function hideDetailedReport() {
+            document.getElementById('detailedReportArea').style.display = 'none';
+            document.getElementById('dailyViewArea').style.display = 'block';
+            document.getElementById('detailedReportBtn').classList.remove('active');
+        }
+
+        async function generateDetailedReport() {
+            const start = document.getElementById('reportStart').value;
+            const end = document.getElementById('reportEnd').value;
+            
+            if (!start || !end) return alert('Please select both start and end dates');
+
+            const resultsDiv = document.getElementById('reportResults');
+            resultsDiv.innerHTML = '<p style="padding: 20px;">Generating detailed analysis...</p>';
+
+            try {
+                const response = await fetch(`/api/reports/status?status=All&start_date=${start}&end_date=${end}`);
+                const data = await response.json();
+                currentDetailedData = data;
+
+                if (data.length === 0) {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px; border: 2px dashed #f0f0f0; border-radius: 10px;">No records found for the selected period.</p>';
+                    return;
+                }
+
+                let tableHtml = `<table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Work Name</th>
+                            <th>Target Date</th>
+                            <th>Actual Start</th>
+                            <th>Actual End</th>
+                            <th>Status</th>
+                            <th>Assign To</th>
+                            <th>Remark</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                data.forEach(item => {
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    const scheduledDate = new Date(item.scheduled_date + 'T00:00:00');
+                    scheduledDate.setHours(0,0,0,0);
+                    const workId = item.work_id;
+                    const dateKey = item.scheduled_date;
+
+                    // Create Status Dropdown
+                    const statusOptions = ['Due', 'WIP', 'completed', 'final and approved'];
+                    let statusSelect = `<select id="status-${workId}-${dateKey}" class="table-input">`;
+                    statusOptions.forEach(opt => {
+                        let label = opt;
+                        if (opt === 'Due') {
+                            if (scheduledDate > today) label = 'No Due';
+                            else {
+                                const diffDays = Math.floor((today - scheduledDate) / (1000 * 60 * 60 * 24));
+                                if (diffDays > 7) label = 'Overdue';
+                            }
+                        } else if (opt === 'completed') label = 'Completed';
+                        else if (opt === 'final and approved') label = 'Final & Approved';
+                        
+                        statusSelect += `<option value="${opt}" ${item.status === opt ? 'selected' : ''}>${label}</option>`;
+                    });
+                    statusSelect += `</select>`;
+
+                    let assigneeSelect = `<select id="assignee-${workId}-${dateKey}" class="table-input">`;
+                    assigneeSelect += `<option value="">-- Unassigned --</option>`;
+                    assigneesList.forEach(a => {
+                        assigneeSelect += `<option value="${a.id}" ${item.assignee_id == a.id ? 'selected' : ''}>${a.name}</option>`;
+                    });
+                    assigneeSelect += `</select>`;
+
+                    tableHtml += `
+                        <tr>
+                            <td>${escapeHtml(item.work_name)}</td>
+                            <td>${formatDate(item.scheduled_date)}</td>
+                            <td><input type="date" id="start-${workId}-${dateKey}" value="${item.actual_start || ''}" class="table-input"></td>
+                            <td><input type="date" id="end-${workId}-${dateKey}" value="${item.actual_end || ''}" class="table-input"></td>
+                            <td>${statusSelect}</td>
+                            <td>${assigneeSelect}</td>
+                            <td><input type="text" id="remark-${workId}-${dateKey}" value="${escapeHtml(item.remarks || '')}" placeholder="Add notes..." class="table-input"></td>
+                            <td><button onclick="saveReportTask(${workId}, '${dateKey}')" class="btn-save-sm">Save</button></td>
+                        </tr>
+                    `;
+                });
+
+                tableHtml += `</tbody></table>`;
+                resultsDiv.innerHTML = tableHtml;
+
+            } catch (error) {
+                console.error(error);
+                resultsDiv.innerHTML = '<p style="color:red; padding: 20px;">Error loading data.</p>';
+            }
+        }
+
+        function exportDetailedToExcel() {
+            if (!currentDetailedData.length) return alert('No data to export. Please generate the report first.');
+            const start = document.getElementById('reportStart').value;
+            const end = document.getElementById('reportEnd').value;
+            const period = `${formatDate(start)} to ${formatDate(end)}`;
+            const title = `Period wise Task Report: ${period}`;
+            const headers = ['Work Name', 'Assignee', 'Report Period', 'Target Date', 'Actual Start', 'Actual End', 'Status', 'Remark'];
+            const rows = currentDetailedData.map(item => [
+                item.work_name,
+                item.assignee_name || 'N/A',
+                period,
+                formatDate(item.scheduled_date),
+                item.actual_start || '-',
+                item.actual_end || '-',
+                item.status,
+                item.remarks || '-'
+            ]);
+            exportToExcel(`period_wise_report.xlsx`, headers, rows, title);
+        }
+
+        async function exportToExcel(filename, headers, rows, title = '') {
+            const response = await fetch('/api/export/excel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename, headers, rows, title })
+            });
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = filename;
+                document.body.appendChild(a); a.click();
+                window.URL.revokeObjectURL(url); a.remove();
+            } else { alert('Export failed'); }
+        }
+
+        async function saveReportTask(workId, dateKey) {
+            const payload = {
+                work_id: workId,
+                assigned_date: dateKey,
+                actual_start: document.getElementById(`start-${workId}-${dateKey}`).value,
+                actual_end: document.getElementById(`end-${workId}-${dateKey}`).value,
+                status: document.getElementById(`status-${workId}-${dateKey}`).value,
+                remarks: document.getElementById(`remark-${workId}-${dateKey}`).value,
+                assignee_id: document.getElementById(`assignee-${workId}-${dateKey}`).value || null
+            };
+
+            try {
+                const response = await fetch('/api/assigned', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (response.ok) alert('Task updated successfully!');
+                else alert('Failed to update task.');
+            } catch (error) { console.error('Error saving:', error); }
+        }
+
+        async function saveTaskDetails(workId, assignedDate) {
+            const dateStr = assignedDate || formatDateForAPI(selectedDate);
+            const payload = {
+                work_id: workId,
+                assigned_date: dateStr,
+                actual_start: document.getElementById('start-detail').value,
+                actual_end: document.getElementById('end-detail').value,
+                status: document.getElementById('status-detail').value,
+                remarks: document.getElementById('remark-detail').value,
+                assignee_id: document.getElementById('assignee-detail').value || null
+            };
+
+            try {
+                const response = await fetch('/api/assigned', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    closeTaskDetailModal();
+                    updateView();
+                    alert('Task updated successfully!');
+                } else {
+                    alert('Failed to update task.');
+                }
+            } catch (error) {
+                console.error('Error saving task details:', error);
+            }
+        }
+
+        async function deleteTaskForDate(workId, assignedDate) {
+            const dateStr = assignedDate || formatDateForAPI(selectedDate);
+            if (!confirm('Delete this task only for the selected date? The recurring series will remain unchanged.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/assigned/${workId}/${dateStr}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    closeTaskDetailModal();
+                    currentDailyData = currentDailyData.filter(work => {
+                        const currentWorkId = work.work_id || work.id;
+                        const currentDate = work.assigned_date || work.scheduled_date;
+                        return !(currentWorkId == workId && currentDate === dateStr);
+                    });
+                    buildDailyFilters(currentDailyData);
+                    renderDailyRows(applyDailyFilters(currentDailyData));
+                    alert('Task deleted only for this date.');
+                } else {
+                    alert('Failed to delete task for this date: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error deleting task for date:', error);
+                alert('Failed to delete task for this date.');
+            }
+        }
+
+        function isToday(date) {
+            const today = new Date();
+            return date.getDate() === today.getDate() &&
+                   date.getMonth() === today.getMonth() &&
+                   date.getFullYear() === today.getFullYear();
+        }
+
+        function isSameDate(date1, date2) {
+            return date1.getDate() === date2.getDate() &&
+                   date1.getMonth() === date2.getMonth() &&
+                   date1.getFullYear() === date2.getFullYear();
+        }
+
+        // Handle logout functionality
+        function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) {
+                return;
+            }
+            sessionStorage.clear();
+            localStorage.clear();
+            history.replaceState(null, null, window.location.href);
+            window.location.href = '/logout';
+        }
+
+        // Prevent back navigation after page load
+        window.addEventListener('load', function() {
+            history.pushState(null, null, location.href);
+            window.onpopstate = function() {
+                history.go(1);
+            };
+        });
+
+        // Redirect if accessed via browser back button
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                window.location.href = '/login';
+            }
+        });
+    </script>
+</body>
+</html>

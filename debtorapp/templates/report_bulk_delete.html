@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Delete Report</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="bulk-delete-report-page" data-active-page="bulk_delete_report">
+    {% set active_page = 'control_panel' %}
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <div class="report-card">
+            {% with messages = get_flashed_messages() %}
+              {% if messages %}
+                {% for message in messages %}
+                  <div class="flash-message">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <form action="{{ debtor_url('/control-panel/bulk-delete-report') }}" method="POST" id="controlBulkDeleteForm">
+                <div class="report-toolbar">
+                    <div class="bulk-delete-title">
+                        <h1>Bulk Delete Report</h1>
+                        <span id="bulkDeleteSelectedText">0 records selected</span>
+                    </div>
+
+                    <div class="report-actions bulk-delete-actions">
+                        <div class="column-chooser">
+                            <button type="button" class="secondary-btn toolbar-icon-btn" id="columnChooserBtn" aria-expanded="false" title="Selected All" aria-label="Selected All" data-tooltip="Selected All">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M4 5h16M4 12h16M4 19h16"></path>
+                                    <path d="M8 5v14M16 5v14"></path>
+                                </svg>
+                            </button>
+                            <div class="column-chooser-menu" id="columnChooserMenu">
+                                <div class="column-chooser-title">Show / Hide Columns</div>
+                                <div class="column-chooser-actions">
+                                    <button type="button" id="selectAllColumns">Select All</button>
+                                    <button type="button" id="clearColumns">Clear</button>
+                                </div>
+                                <div class="column-chooser-list" id="columnChooserList"></div>
+                            </div>
+                        </div>
+                        <button type="button" class="secondary-btn toolbar-icon-btn" id="clearTableFiltersBtn" title="Clear Filters" aria-label="Clear Filters" data-tooltip="Clear Filters">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M4 5h16l-7 8v5l-2 1v-6L4 5z"></path>
+                                <path d="M17 17l4 4M21 17l-4 4"></path>
+                            </svg>
+                        </button>
+                        <button type="submit" class="secondary-btn danger-btn bulk-delete-submit-btn" id="bulkDeleteSubmitBtn" disabled>Bulk Delete</button>
+                    </div>
+                </div>
+
+                <main class="table-scroll">
+                    <table id="reportTable">
+                        <colgroup>
+                            <col class="col-firm">
+                            <col class="col-bill-date">
+                            <col class="col-ref">
+                            <col class="col-party">
+                            <col class="col-amount">
+                            <col class="col-due-date">
+                            <col class="col-overdue">
+                            <col class="col-group">
+                            <col class="col-followup">
+                            <col class="col-ep">
+                            <col class="col-crp">
+                            <col class="col-category">
+                            <col class="col-fy">
+                            <col class="col-select">
+                            <col class="col-edit">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Firm</th>
+                                <th>Bill Date</th>
+                                <th>Ref. No.</th>
+                                <th>Party's Name</th>
+                                <th>Amount</th>
+                                <th>Due Date</th>
+                                <th>Over Due</th>
+                                <th>Group</th>
+                                <th>Followup Partner</th>
+                                <th>EP</th>
+                                <th>CRP</th>
+                                <th>Category</th>
+                                <th>F.Y.</th>
+                                <th><input type="checkbox" id="bulkDeleteSelectVisible" aria-label="Select visible rows"></th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                            <tr data-row-id="{{ row.id }}">
+                                <td>{{ row.short_name }}</td>
+                                <td>{{ row.bill_date_display }}</td>
+                                <td>{{ row.ref_no }}</td>
+                                <td>{{ row.party_name }}</td>
+                                <td class="amount {{ 'amt-red' if row.amount >= 2000000 else 'amt-orange' if row.amount >= 1000000 else '' }}">Rs {{ "{:,.2f}".format(row.amount) }}</td>
+                                <td>{{ row.due_date_display }}</td>
+                                <td class="days-cell {{ 'status-red' if row.overdue_days > 0 else 'status-green' }}">{{ row.overdue_days }}</td>
+                                <td>{{ row.client_group or '' }}</td>
+                                <td>{{ row.followup_partner or '' }}</td>
+                                <td>{{ row.final_ep or '' }}</td>
+                                <td>{{ row.crp_of_group or '' }}</td>
+                                <td>{{ row.client_category or '' }}</td>
+                                <td>{{ row.financial_year or '' }}</td>
+                                <td><input type="checkbox" name="row_ids" value="{{ row.id }}" class="row-select bulk-delete-row-check" aria-label="Select row"></td>
+                                <td></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </main>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

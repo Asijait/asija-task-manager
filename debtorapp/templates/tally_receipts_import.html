@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Tally Receipts</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='tally_receipts_import.css') }}">
+</head>
+<body class="import-tally-receipts-page"
+      data-preview-url="{{ debtor_url('/api/import-tally-receipts/preview') }}"
+      data-post-url="{{ debtor_url('/api/import-tally-receipts/post') }}"
+      data-auto-preview="{{ '1' if request.args.get('uploaded') else '' }}">
+    {% set can_edit_tally_receipts = 'import_tally_receipts' in debtor_nav_access %}
+    {% include 'navbar.html' %}
+
+    <main class="tally-page">
+        <section class="tally-panel">
+            <div class="tally-header">
+                <div>
+                    <h1>Import Tally Receipts</h1>
+                    <p>Preview from <strong>fcRece.xlsx</strong>, match with debtor bills, then post to Receipt Register.</p>
+                </div>
+                <span class="trial-badge">Tally Import</span>
+            </div>
+
+            <form class="tally-controls" id="tallyReceiptForm">
+                <label>
+                    Receipt Date
+                    <input type="date" id="tallyReceiptDate">
+                </label>
+                <button type="submit">Preview</button>
+                <button type="button" id="clearTallyDate">All Dates</button>
+                {% if can_edit_tally_receipts %}
+                <button type="button" id="postTallyReceipts" disabled>Post Matched Receipts</button>
+                {% endif %}
+            </form>
+
+            {% if can_edit_tally_receipts %}
+            <form class="receipt-file-import" id="tallyReceiptUploadForm" action="{{ debtor_url('/import-tally-receipts/upload') }}" method="post" enctype="multipart/form-data">
+                <button type="button" id="chooseTallyReceiptFile">Import Receipts File</button>
+                <span id="tallyReceiptFileName">Current file: fcRece.xlsx</span>
+                <input type="file" name="file" id="tallyReceiptFileInput" accept=".xlsx,.xlsm" hidden>
+            </form>
+            {% endif %}
+
+            <form class="tally-import-summary-form" action="{{ debtor_url('/tally-receipts/import-summary') }}" method="get">
+                <label>
+                    Import From
+                    <input type="date" name="start_date" value="{{ import_summary.start_date if import_summary else '' }}" required>
+                </label>
+                <label>
+                    Import To
+                    <input type="date" name="end_date" value="{{ import_summary.end_date if import_summary else '' }}" required>
+                </label>
+                <button type="submit">Import Summary</button>
+                {% if import_summary and import_summary.message %}
+                <span>{{ import_summary.message }}</span>
+                {% endif %}
+            </form>
+
+            {% if import_summary and import_summary.message %}
+            <div class="tally-summary-panel">
+                <div class="tally-summary-head">
+                    <strong>Total Entries: {{ import_summary.total_count }}</strong>
+                    <strong>Total Amount: Rs {{ import_summary.total_amount | indian_currency }}</strong>
+                </div>
+                <div class="tally-summary-table-wrap">
+                    <table class="tally-summary-table">
+                        <thead>
+                            <tr>
+                                <th>Import Date</th>
+                                <th>Entries Imported</th>
+                                <th>Total Amount</th>
+                                <th>Receipt Voucher Date Period</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in import_summary.summary_rows %}
+                            <tr>
+                                <td>{{ row.import_date_display }}</td>
+                                <td>{{ row.entry_count }}</td>
+                                <td class="amount-cell">Rs {{ row.total_amount | indian_currency }}</td>
+                                <td>{{ row.receipt_period_display }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4">No Tally receipt imports found for selected import date period.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tally-summary-head tally-detail-head">
+                    <strong>Import Details</strong>
+                    <span>{{ import_summary.detail_rows | length }} row(s)</span>
+                </div>
+                <div class="tally-summary-table-wrap tally-detail-wrap">
+                    <table class="tally-summary-table tally-detail-table">
+                        <thead>
+                            <tr>
+                                <th>Import Date</th>
+                                <th>Posted At</th>
+                                <th>Receipt Date</th>
+                                <th>Vch No.</th>
+                                <th>Ref No.</th>
+                                <th>Firm</th>
+                                <th>Bill Date</th>
+                                <th>Bill No</th>
+                                <th>Party</th>
+                                <th>Received Amount</th>
+                                <th>Bank</th>
+                                <th>Excel Rows</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in import_summary.detail_rows %}
+                            <tr>
+                                <td>{{ row.import_date_display }}</td>
+                                <td>{{ row.posted_at_display }}</td>
+                                <td>{{ row.receipt_date_display }}</td>
+                                <td>{{ row.tally_voucher_no or '' }}</td>
+                                <td>{{ row.tally_reference_no or '' }}</td>
+                                <td>{{ row.short_name }}</td>
+                                <td>{{ row.bill_date_display }}</td>
+                                <td>{{ row.ref_no }}</td>
+                                <td>{{ row.party_name }}</td>
+                                <td class="amount-cell">Rs {{ row.received_amount | indian_currency }}</td>
+                                <td>{{ row.tally_bank_name or '' }}</td>
+                                <td>{{ row.tally_excel_rows or '' }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="12">No detail rows found for selected import date period.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="tally-flashes">
+                        {% for category, message in messages %}
+                            <div class="tally-flash {{ 'is-error' if category == 'error' else 'is-success' }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <div class="tally-status" id="tallyStatus">Select a date and preview Tally receipts.</div>
+
+            <div class="tally-meta" id="tallyMeta" hidden>
+                <span id="tallyFileName"></span>
+                <span id="tallySheetName"></span>
+                <span id="tallyStartRow"></span>
+            </div>
+
+            <div class="tally-table-wrap">
+                <table class="tally-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Party</th>
+                            <th>Vch Type</th>
+                            <th>Vch No.</th>
+                            <th>Ref No.</th>
+                            <th>Credit</th>
+                            <th>Matched Bill</th>
+                            <th>Status</th>
+                            <th>Bank</th>
+                            <th>Excel Rows</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tallyReceiptRows"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tally_receipts_import.js') }}"></script>
+</body>
+</html>
