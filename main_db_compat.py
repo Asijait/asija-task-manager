@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3 as _sqlite3
+from dotenv import load_dotenv
 
 try:
     import psycopg2
@@ -8,6 +9,7 @@ try:
 except ImportError:
     psycopg2 = None
 
+load_dotenv()
 
 APP_DATABASE_URL = os.environ.get('APP_DATABASE_URL')
 APP_SQLITE_PATH = os.path.abspath(

@@ -1,11 +1,12 @@
 import os
 import traceback
 from datetime import datetime
+from dotenv import load_dotenv
 
+load_dotenv()
 
-os.environ.setdefault(
-    'DEBTOR_DATABASE_URL',
-    'postgresql://postgres:arif4004@localhost:5432/debtorapp?sslmode=disable',
+os.environ.get(
+    'DEBTOR_DATABASE_URL'
 )
 
 from debtorapp import app as da

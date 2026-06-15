@@ -4,11 +4,6 @@ services:
     container_name: asija-app-web
     ports:
       - "5001:5001"
-    environment:
-      APP_DATABASE_URL: postgresql://postgres:postgres@db:5432/asijaapp?sslmode=disable
-      DEBTOR_DATABASE_URL: postgresql://postgres:postgres@db:5432/debtorapp?sslmode=disable
-      APP_SQLITE_PATH: /app/tasks.db
-      DEBTOR_SQLITE_PATH: /app/debtorapp/database.db
     volumes:
       - ./client_analytic:/app/client_analytic
       - ./debtorapp/uploads:/app/debtorapp/uploads
@@ -22,10 +17,8 @@ services:
   db:
     image: postgres:16-alpine
     container_name: asija-app-db
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: asijaapp
+    .env_file:
+      - .env
     ports:
       - "5432:5432"
     volumes:

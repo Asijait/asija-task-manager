@@ -1,13 +1,25 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 :: Stop old Asija App server on port 5001
 powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort 5001 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }; Start-Sleep -Seconds 1" >nul 2>&1
 
+:: Load environment variables from .env if available
+if exist ".env" (
+    for /f "usebackq tokens=* delims=" %%A in (".env") do (
+        set "line=%%A"
+        if defined line (
+            if not "!line:~0,1!"=="#" (
+                for /f "tokens=1* delims==" %%B in ("!line!") do call set "%%B=%%C"
+            )
+        )
+    )
+)
+
 :: PostgreSQL database for debtor report
-set "APP_DATABASE_URL=postgresql://postgres:arif4004@localhost:5432/asijaapp?sslmode=disable"
-set "DEBTOR_DATABASE_URL=postgresql://postgres:arif4004@localhost:5432/debtorapp?sslmode=disable"
+set "APP_DATABASE_URL=%APP_DATABASE_URL%"
+set "DEBTOR_DATABASE_URL=%DEBTOR_DATABASE_URL%"
 set "PYTHON_EXE=%CD%\venv\Scripts\python.exe"
 set "LOG_DIR=%CD%\logs"
 

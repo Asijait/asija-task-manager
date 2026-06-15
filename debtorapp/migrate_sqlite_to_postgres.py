@@ -2,11 +2,12 @@ import argparse
 import os
 import sqlite3
 import sys
+from dotenv import load_dotenv
 
 
+load_dotenv()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SQLITE_DB_PATH = os.path.join(BASE_DIR, 'database.db')
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Migrate debtorapp database.db data to PostgreSQL.')
