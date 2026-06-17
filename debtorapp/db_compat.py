@@ -137,6 +137,14 @@ class PgCursor:
         return self._lastrowid
 
     @property
+    def description(self):
+        if self._buffer is not None:
+            if not self._buffer:
+                return None
+            return [(key, None, None, None, None, None, None) for key in self._buffer[0].keys()]
+        return self.raw.description
+
+    @property
     def rowcount(self):
         if self._buffer is not None:
             return len(self._buffer)
@@ -250,6 +258,18 @@ def translate_sql(sql):
     sql = sql.replace(
         "GROUP_CONCAT(DISTINCT COALESCE(NULLIF(billing_report.short_name, ''), billing_report.firm_name))",
         "STRING_AGG(DISTINCT COALESCE(NULLIF(billing_report.short_name, ''), billing_report.firm_name)::text, ', ')",
+    )
+    sql = re.sub(
+        r'GROUP_CONCAT\s*\(\s*DISTINCT\s+([^)]+?)\s*\)',
+        r"STRING_AGG(DISTINCT \1::text, ', ')",
+        sql,
+        flags=re.IGNORECASE,
+    )
+    sql = re.sub(
+        r'GROUP_CONCAT\s*\(\s*([^)]+?)\s*\)',
+        r"STRING_AGG(\1::text, ', ')",
+        sql,
+        flags=re.IGNORECASE,
     )
     return sql.replace('?', '%s')
 

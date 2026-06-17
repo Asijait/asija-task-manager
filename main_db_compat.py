@@ -133,6 +133,18 @@ class PgCursor:
         self._buffer = None
 
     @property
+    def description(self):
+        if self._buffer is not None:
+            if not self._buffer:
+                return None
+            return [(key, None, None, None, None, None, None) for key in self._buffer[0].keys()]
+        return self.raw.description
+
+    @property
+    def lastrowid(self):
+        return self.connection._last_insert_id
+
+    @property
     def rowcount(self):
         if self._buffer is not None:
             return len(self._buffer)
