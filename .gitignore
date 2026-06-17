@@ -145,3 +145,5 @@ thumbs.db
 Thumbs.db
 .AppleDouble
 .LSOverride
+postgres_backups/
+uploads/

@@ -1911,7 +1911,46 @@ def find_report_header(df):
             }
     return None
 
-def process_data_file(data_file, manual_firm_name=''):
+def find_sales_register_header(df, source_filename=''):
+    source_name = normalize_cell(os.path.basename(source_filename or ''))
+    title_labels = {
+        normalize_cell(value)
+        for row_index in range(min(len(df), 12))
+        for value in df.iloc[row_index].tolist()
+    }
+    is_sales_register = (
+        'salreg' in source_name
+        or 'salesregister' in title_labels
+        or 'salesregister' in ''.join(title_labels)
+        or 'daybook' in title_labels
+    )
+
+    for row_index in range(min(len(df), 30)):
+        labels = [normalize_cell(value) for value in df.iloc[row_index].tolist()]
+        next_labels = [normalize_cell(value) for value in df.iloc[row_index + 1].tolist()] if row_index + 1 < len(df) else []
+        combined = [
+            f'{labels[index]}{next_labels[index] if index < len(next_labels) else ""}'
+            for index in range(len(labels))
+        ]
+
+        date_idx = next((index for index, label in enumerate(combined) if label == 'date'), None)
+        party_idx = next((index for index, label in enumerate(combined) if label == 'particulars'), None)
+        ref_idx = next((index for index, label in enumerate(combined) if label in ('vchno', 'voucherno', 'vouchernumber')), None)
+        debit_idx = next((index for index, label in enumerate(combined) if label in ('debitamount', 'debit')), None)
+        amount_idx = next((index for index, label in enumerate(combined) if label in ('amount', 'netamount', 'invoiceamount')), None)
+
+        if date_idx is not None and party_idx is not None and ref_idx is not None and (debit_idx is not None or amount_idx is not None):
+            return {
+                'row_index': row_index,
+                'date_idx': date_idx,
+                'ref_idx': ref_idx,
+                'party_idx': party_idx,
+                'amount_idx': debit_idx if debit_idx is not None else amount_idx,
+                'is_sales_register': is_sales_register,
+            }
+    return None
+
+def process_data_file(data_file, manual_firm_name='', source_filename=''):
     """Parses a file and appends rows to the database."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -1973,23 +2012,46 @@ def process_data_file(data_file, manual_firm_name=''):
                         except Exception:
                             continue
                 else:
-                    df_main = pd.read_excel(xls, skiprows=1, header=None)
-                    for row in df_main.values.tolist():
-                        try:
-                            if len(row) < 4:
+                    sales_header = find_sales_register_header(df, source_filename)
+                    if sales_header and sales_header['is_sales_register']:
+                        start_index = sales_header['row_index'] + 1
+                        for row_index in range(start_index, len(df)):
+                            row = df.iloc[row_index]
+                            try:
+                                bill_date_obj = parse_input_date(row.iloc[sales_header['date_idx']])
+                                if not bill_date_obj:
+                                    continue
+                                ref_no = row.iloc[sales_header['ref_idx']]
+                                party_name = row.iloc[sales_header['party_idx']]
+                                amount = to_float(row.iloc[sales_header['amount_idx']])
+                                if insert_billing_row(cursor, firm_name, bill_date_obj, ref_no, party_name, amount, import_batch_id=batch_id):
+                                    imported_count += 1
+                                    imported_rows.append({
+                                        'firm_name': firm_name,
+                                        'ref_no': str(ref_no).strip(),
+                                        'party_name': str(party_name).strip(),
+                                        'amount': amount,
+                                    })
+                            except Exception:
                                 continue
-                            bill_date_obj = parse_input_date(row[0])
-                            amount = to_float(row[3])
-                            if insert_billing_row(cursor, firm_name, bill_date_obj, row[1], row[2], amount, import_batch_id=batch_id):
-                                imported_count += 1
-                                imported_rows.append({
-                                    'firm_name': firm_name,
-                                    'ref_no': str(row[1]).strip(),
-                                    'party_name': str(row[2]).strip(),
-                                    'amount': amount,
-                                })
-                        except Exception:
-                            continue
+                    else:
+                        df_main = pd.read_excel(xls, skiprows=1, header=None)
+                        for row in df_main.values.tolist():
+                            try:
+                                if len(row) < 4:
+                                    continue
+                                bill_date_obj = parse_input_date(row[0])
+                                amount = to_float(row[3])
+                                if insert_billing_row(cursor, firm_name, bill_date_obj, row[1], row[2], amount, import_batch_id=batch_id):
+                                    imported_count += 1
+                                    imported_rows.append({
+                                        'firm_name': firm_name,
+                                        'ref_no': str(row[1]).strip(),
+                                        'party_name': str(row[2]).strip(),
+                                        'amount': amount,
+                                    })
+                            except Exception:
+                                continue
         missing_client_count = save_import_client_errors(cursor, batch_id, imported_rows)
         if imported_count > 0:
             set_app_meta(cursor, 'last_debtor_imported_at', datetime.now().strftime('%Y-%m-%d'))
@@ -5867,7 +5929,7 @@ def upload_file():
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         target_path = os.path.join(UPLOAD_DIR, f'import_{timestamp}{ext}')
         file.save(target_path)
-        import_result = process_data_file(target_path, manual_firm_name)
+        import_result = process_data_file(target_path, manual_firm_name, file.filename)
         imported_count = import_result.get('imported_count', 0)
         missing_client_count = import_result.get('missing_client_count', 0)
         batch_id = import_result.get('batch_id', '')
