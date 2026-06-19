@@ -997,10 +997,42 @@ document.addEventListener('DOMContentLoaded', function() {
         th.appendChild(wrapper);
     }
 
+    function applyUrlFilters() {
+        if (isReceiptsPage || isOverduePage || isBulkDeletePage) return;
+
+        const params = new URLSearchParams(window.location.search);
+        const firm = (params.get('firm') || '').trim();
+        const shouldFilterOverdue = params.get('overdue') === '1';
+        const shouldClearFilters = params.get('clear_filters') === '1' || firm || shouldFilterOverdue;
+        if (!shouldClearFilters) return;
+
+        Object.keys(activeFilters).forEach(cellIndex => {
+            delete activeFilters[cellIndex];
+        });
+        Object.keys(activeNumberFilters).forEach(cellIndex => {
+            delete activeNumberFilters[cellIndex];
+        });
+        localStorage.removeItem(filterStorageKey);
+        localStorage.removeItem(numberFilterStorageKey);
+
+        if (firm) {
+            activeFilters[0] = new Set([firm]);
+        }
+        if (shouldFilterOverdue) {
+            activeNumberFilters[6] = '>30';
+        }
+
+        saveStoredFilters();
+        Object.entries(filterButtonsByColumn).forEach(([cellIndex, button]) => {
+            updateFilterButton(button, Number(cellIndex));
+        });
+    }
+
     filterableColumns.forEach(cellIndex => {
         const th = table.tHead.rows[0].cells[cellIndex];
         if (th) buildColumnFilter(th, cellIndex);
     });
+    applyUrlFilters();
     filterTable();
 
     buildColumnChooser();

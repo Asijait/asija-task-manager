@@ -31,17 +31,19 @@
             </div>
         </section>
 
-        <section class="kpi-grid">
-            <a class="kpi-card kpi-link-card" href="{{ debtor_url('/report') }}" title="Open Main Report">
+        <section class="dashboard-top-summary">
+            <article class="combined-kpi-card panel">
+            <a class="combined-kpi-row" href="{{ debtor_url('/report') }}?clear_filters=1" title="Open Main Report">
                 <span>Total Outstanding</span>
                 <strong>₹ {{ total_amount | indian_currency(decimals=False) }}</strong>
                 <small>{{ total_bills }} open bills</small>
             </a>
-            <a class="kpi-card kpi-link-card" href="{{ debtor_url('/overdue-report') }}" target="_blank" rel="noopener" title="Open Overdue Report">
+            <a class="combined-kpi-row" href="{{ debtor_url('/report') }}?overdue=1" title="Open Main Report filtered by overdue">
                 <span>Overdue Amount</span>
                 <strong>₹ {{ overdue_total | indian_currency(decimals=False) }}</strong>
                 <small>{{ overdue_count }} overdue bills</small>
             </a>
+            </article>
             <!-- <article class="kpi-card">
                 <span>Average Bill</span>
                 <strong>₹ {{ avg_bill | indian_currency(decimals=False) }}</strong>
@@ -52,23 +54,41 @@
                 <strong>{{ chart_data.followup | length }}</strong>
                 <small>Active collection partners</small>
             </article> -->
-        </section>
+            <section class="firm-summary-panel panel">
+                <div class="panel-head">
+                    <h2>Firm Wise Summary</h2>
+                <span>LLP, FC, AFS and remaining firms</span>
+            </div>
+            <div class="firm-summary-grid">
+                {% for item in firm_summary %}
+                <a class="firm-summary-card" href="{{ debtor_url('/report') }}?firm={{ item.label | urlencode }}">
+                    <span>{{ item.label }}</span>
+                    <strong>Rs {{ item.total | indian_currency(decimals=False) }}</strong>
+                    <small>{{ item.count }} bill{{ '' if item.count == 1 else 's' }}</small>
+                </a>
+                {% endfor %}
+                {% if not firm_summary %}
+                <article class="firm-summary-empty">No firm data available.</article>
+                {% endif %}
+                </div>
+            </section>
 
-        <section class="dashboard-grid">
-            <article class="panel panel-wide">
+            <article class="panel top-ageing-panel">
                 <div class="panel-head">
                     <h2>Ageing Mix</h2>
                     <span>Amount by Over Due column</span>
                 </div>
-                <canvas id="ageingChart" height="150"></canvas>
+                <canvas id="ageingChart" height="110"></canvas>
             </article>
+        </section>
 
+        <section class="dashboard-grid">
             <article class="panel">
                 <div class="panel-head">
                     <h2>Followup Wise</h2>
                     <span>Top owners</span>
                 </div>
-                <canvas id="followupChart" height="180"></canvas>
+                <canvas id="followupChart" height="125"></canvas>
             </article>
 
             <article class="panel">
@@ -76,7 +96,7 @@
                     <h2>Category Wise</h2>
                     <span>Client categories</span>
                 </div>
-                <canvas id="categoryChart" height="180"></canvas>
+                <canvas id="categoryChart" height="125"></canvas>
             </article>
 
             <article class="panel">
@@ -84,7 +104,7 @@
                     <h2>EP Wise</h2>
                     <span>Executive partner exposure</span>
                 </div>
-                <canvas id="epChart" height="190"></canvas>
+                <canvas id="epChart" height="125"></canvas>
             </article>
 
             <article class="panel">
@@ -92,7 +112,7 @@
                     <h2>Financial Year</h2>
                     <span>Period spread</span>
                 </div>
-                <canvas id="fyChart" height="190"></canvas>
+                <canvas id="fyChart" height="125"></canvas>
             </article>
         </section>
 

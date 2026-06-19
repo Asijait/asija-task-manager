@@ -1091,6 +1091,12 @@ def get_tally_receipt_amount(row):
         return credit_amount
     return debit_amount
 
+def tally_posted_key(voucher_no, reference_no, receipt_date, amount):
+    date_obj = parse_input_date(receipt_date or '')
+    normalized_date = date_obj.strftime('%Y-%m-%d') if date_obj else str(receipt_date or '').strip()
+    normalized_amount = f"{round(float(amount or 0), 2):.2f}"
+    return (voucher_no or '', normalize_reference_key(reference_no), normalized_date, normalized_amount)
+
 def ensure_receipt_register_tally_columns(cursor):
     cursor.execute('PRAGMA table_info(receipt_register)')
     existing_columns = {row[1] for row in cursor.fetchall()}
@@ -1117,13 +1123,13 @@ def build_current_bill_matches(cursor):
 def enrich_tally_receipt_rows(tally_rows, cursor):
     bill_matches = build_current_bill_matches(cursor)
     cursor.execute('''
-        SELECT tally_voucher_no, tally_reference_no
+        SELECT tally_voucher_no, tally_reference_no, receipt_date, received_amount
         FROM receipt_register
         WHERE import_source = 'Tally'
           AND tally_voucher_no IS NOT NULL AND tally_reference_no IS NOT NULL
     ''')
     posted_keys = {
-        (row['tally_voucher_no'] or '', normalize_reference_key(row['tally_reference_no']))
+        tally_posted_key(row['tally_voucher_no'], row['tally_reference_no'], row['receipt_date'], row['received_amount'])
         for row in cursor.fetchall()
     }
     cursor.execute('''
@@ -1138,7 +1144,9 @@ def enrich_tally_receipt_rows(tally_rows, cursor):
         for ref_value in (row['ref_no'], row['tally_reference_no']):
             key = normalize_reference_key(ref_value)
             if key:
-                posted_receipts_by_ref.setdefault(key, row)
+                receipts = posted_receipts_by_ref.setdefault(key, [])
+                if not any(existing['id'] == row['id'] for existing in receipts):
+                    receipts.append(row)
 
     enriched_rows = []
     seen_preview_keys = set()
@@ -1148,7 +1156,7 @@ def enrich_tally_receipt_rows(tally_rows, cursor):
         ref_key = normalize_reference_key(item.get('reference_no'))
         voucher_no = item.get('voucher_no') or ''
         candidates = bill_matches.get(ref_key, [])
-        posted_key = (voucher_no, ref_key)
+        posted_key = tally_posted_key(voucher_no, item.get('reference_no'), item.get('receipt_date'), amount)
 
         item['post_amount'] = amount
         item['matched_bill_id'] = ''
@@ -1167,19 +1175,16 @@ def enrich_tally_receipt_rows(tally_rows, cursor):
             item['post_status'] = 'Already Posted'
             item['post_message'] = 'This Tally voucher/reference is already in receipt register.'
             item['already_posted_from_receipt_register'] = True
-            posted_receipt = posted_receipts_by_ref.get(ref_key)
-            if posted_receipt:
+            posted_receipts = posted_receipts_by_ref.get(ref_key) or []
+            if posted_receipts:
+                posted_receipt = posted_receipts[0]
+                posted_total = round(sum(float(receipt['received_amount'] or 0) for receipt in posted_receipts), 2)
+                posted_dates = sorted({format_display_date(receipt['receipt_date']) for receipt in posted_receipts if receipt['receipt_date']})
                 item['matched_ref_no'] = posted_receipt['ref_no'] or posted_receipt['tally_reference_no'] or ''
                 item['matched_party_name'] = posted_receipt['party_name'] or ''
-                item['matched_bill_amount'] = round(float(posted_receipt['received_amount'] or 0), 2)
-        elif ref_key in posted_receipts_by_ref:
-            posted_receipt = posted_receipts_by_ref[ref_key]
-            item['post_status'] = 'Already Posted'
-            item['post_message'] = 'This reference number is already available in receipt register.'
-            item['matched_ref_no'] = posted_receipt['ref_no'] or posted_receipt['tally_reference_no'] or ''
-            item['matched_party_name'] = posted_receipt['party_name'] or ''
-            item['matched_bill_amount'] = round(float(posted_receipt['received_amount'] or 0), 2)
-            item['already_posted_from_receipt_register'] = True
+                item['matched_bill_amount'] = posted_total
+                item['posted_receipt_count'] = len(posted_receipts)
+                item['posted_receipt_dates'] = ', '.join(posted_dates)
         elif not ref_key:
             item['post_status'] = 'Missing Ref'
             item['post_message'] = 'Reference number is blank.'
@@ -1197,12 +1202,26 @@ def enrich_tally_receipt_rows(tally_rows, cursor):
                 item['post_status'] = 'Invalid Amount'
                 item['post_message'] = 'Receipt amount is zero or blank.'
             elif amount > bill_amount:
-                item['post_status'] = 'Excess Amount'
-                item['post_message'] = 'Receipt amount is greater than current bill balance.'
+                item['post_status'] = 'Ready'
+                item['post_message'] = 'Ready to post. Receipt amount is greater than current bill balance; bill will be closed.'
+                item['is_postable'] = True
             else:
                 item['post_status'] = 'Ready'
                 item['post_message'] = 'Ready to post.'
                 item['is_postable'] = True
+        elif ref_key in posted_receipts_by_ref:
+            posted_receipts = posted_receipts_by_ref[ref_key]
+            posted_receipt = posted_receipts[0]
+            posted_total = round(sum(float(receipt['received_amount'] or 0) for receipt in posted_receipts), 2)
+            posted_dates = sorted({format_display_date(receipt['receipt_date']) for receipt in posted_receipts if receipt['receipt_date']})
+            item['post_status'] = 'Already Posted'
+            item['post_message'] = 'This reference number is not open in main report and is already available in receipt register.'
+            item['matched_ref_no'] = posted_receipt['ref_no'] or posted_receipt['tally_reference_no'] or ''
+            item['matched_party_name'] = posted_receipt['party_name'] or ''
+            item['matched_bill_amount'] = posted_total
+            item['posted_receipt_count'] = len(posted_receipts)
+            item['posted_receipt_dates'] = ', '.join(posted_dates)
+            item['already_posted_from_receipt_register'] = True
 
         if ref_key:
             seen_preview_keys.add(posted_key)
@@ -1231,10 +1250,7 @@ def post_receipt_rows(cursor, receipt_rows, receipt_mode, receipt_date, posted_a
             raise ValueError('One selected bill is no longer available in the debtor report.')
 
         bill_amount = float(row.get('amount') or 0)
-        if received_amount > bill_amount:
-            raise ValueError('Actual received amount cannot be greater than bill amount.')
-
-        balance_amount = round(bill_amount - received_amount, 2)
+        balance_amount = max(0, round(bill_amount - received_amount, 2))
         existing_paid_amount = float(row.get('paid_amount') or 0)
         total_paid_amount = round(existing_paid_amount + received_amount, 2)
         meta = import_meta_by_bill.get(bill_id, {})
@@ -2572,6 +2588,16 @@ def build_dashboard_context():
         items = sorted(summary.values(), key=lambda item: item['total'], reverse=True)
         return items[:limit] if limit else items
 
+    def firm_sort_key(item):
+        label = (item.get('label') or '').upper()
+        if 'LLP' in label:
+            return (0, -item['total'], label)
+        if 'FC' in label:
+            return (1, -item['total'], label)
+        if 'AFS' in label:
+            return (2, -item['total'], label)
+        return (3, -item['total'], label)
+
     high_risk_rows = sorted(rows, key=lambda row: float(row.get('amount') or 0), reverse=True)[:8]
 
     detail_base_url = f"{request.script_root}/sub-report/detail"
@@ -2579,8 +2605,10 @@ def build_dashboard_context():
     for item in ageing_items:
         item['url'] = f"{detail_base_url}?{urlencode({'ageing': item['label']})}"
 
+    firm_summary_items = sorted(firm_summary.values(), key=firm_sort_key)
+
     chart_data = {
-        'firm': sorted_items(firm_summary, 8),
+        'firm': firm_summary_items[:8],
         'followup': sorted_items(followup_summary, 8),
         'ep': sorted_items(ep_summary, 8),
         'category': sorted_items(category_summary, 8),
@@ -2597,6 +2625,7 @@ def build_dashboard_context():
         'overdue_total': overdue_total,
         'overdue_count': overdue_count,
         'chart_data': chart_data,
+        'firm_summary': firm_summary_items,
         'top_followups': sorted_items(followup_summary, 6),
         'top_categories': sorted_items(category_summary, 6),
         'high_risk_rows': high_risk_rows,
@@ -3986,6 +4015,18 @@ def periodic_group_detail_export_excel():
             else:
                 cell.value = row.get(key) or ''
 
+    total_row_index = len(rows) + 2
+    total_amount = sum(float(row.get('amount') or 0) for row in rows)
+    total_fill = PatternFill('solid', fgColor='F1F4F6')
+    for col_index in range(1, len(columns) + 1):
+        cell = worksheet.cell(row=total_row_index, column=col_index)
+        cell.fill = total_fill
+        cell.font = Font(bold=True)
+    worksheet.cell(row=total_row_index, column=4, value='Grand Total')
+    total_cell = worksheet.cell(row=total_row_index, column=5, value=total_amount)
+    total_cell.number_format = '#,##,##0'
+    total_cell.alignment = Alignment(horizontal='right')
+
     widths = [13, 12, 18, 34, 14, 13, 10, 18, 16, 16, 14]
     for index, width in enumerate(widths, start=1):
         worksheet.column_dimensions[worksheet.cell(row=1, column=index).column_letter].width = width
@@ -4003,13 +4044,17 @@ def periodic_group_detail_export_excel():
 
 def periodic_export_visible_columns():
     return [
-        ('Bill Date', 'bill_date_display', 92),
-        ('Firm', 'short_name', 82),
-        ('Ref No.', 'ref_no', 140),
-        ('Party', 'party_name', 280),
-        ('Amount', 'amount_display', 118),
-        ('Due Date', 'due_date_display', 92),
-        ('Overdue', 'overdue_days', 76),
+        ('Bill Date', 'bill_date_display', 82),
+        ('Firm', 'short_name', 64),
+        ('Ref No.', 'ref_no', 118),
+        ('Party', 'party_name', 220),
+        ('Amount', 'amount_display', 96),
+        ('Due Date', 'due_date_display', 82),
+        ('Overdue', 'overdue_days', 62),
+        ('Followup', 'followup_partner', 96),
+        ('EP', 'final_ep', 82),
+        ('Category', 'client_category', 82),
+        ('FY', 'financial_year', 112),
     ]
 
 def export_cell_text(row, key):
@@ -4020,7 +4065,7 @@ def export_cell_text(row, key):
 
 def truncate_text(value, limit):
     value = str(value or '')
-    return value if len(value) <= limit else value[:max(0, limit - 1)] + '~'
+    return value if len(value) <= limit else value[:max(0, limit)]
 
 def periodic_group_detail_svg(group_name, rows):
     columns = [
@@ -4029,11 +4074,13 @@ def periodic_group_detail_svg(group_name, rows):
     ]
     row_height = 26
     header_height = 30
+    total_height = 30
     title_height = 42
     padding = 16
     table_width = sum(col[2] for col in columns)
     width = table_width + padding * 2
-    height = title_height + header_height + max(len(rows), 1) * row_height + padding
+    height = title_height + header_height + max(len(rows), 1) * row_height + total_height + padding
+    total_amount = sum(row.get('amount') or 0 for row in rows)
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
         '<rect width="100%" height="100%" fill="#ffffff"/>',
@@ -4060,8 +4107,31 @@ def periodic_group_detail_svg(group_name, rows):
             parts.append(f'<text x="{x + 5}" y="{y_row + 17}" fill="#24384a" font-family="Arial, sans-serif" font-size="10">{html.escape(value)}</text>')
             x += col_width
 
+    total_y = y + header_height + max(len(rows), 1) * row_height
+    x = padding
+    for _, key, col_width, _ in columns:
+        parts.append(f'<rect x="{x}" y="{total_y}" width="{col_width}" height="{total_height}" fill="#f1f4f6" stroke="#34495e"/>')
+        if key == 'party_name':
+            parts.append(f'<text x="{x + 5}" y="{total_y + 20}" fill="#1f2d3a" font-family="Arial, sans-serif" font-size="12" font-weight="700">Grand Total</text>')
+        elif key == 'amount_display':
+            parts.append(f'<text x="{x + 5}" y="{total_y + 20}" fill="#1f2d3a" font-family="Arial, sans-serif" font-size="12" font-weight="700">{html.escape("Rs " + format_indian_currency(total_amount, decimals=False))}</text>')
+        x += col_width
     parts.append('</svg>')
     return '\n'.join(parts).encode('utf-8')
+
+def scaled_periodic_pdf_columns(available_width):
+    base_columns = periodic_export_visible_columns()
+    base_width = sum(width for _, _, width in base_columns)
+    scale = available_width / base_width
+    scaled_columns = []
+    used_width = 0
+    for index, (label, key, width) in enumerate(base_columns):
+        col_width = int(round(width * scale))
+        if index == len(base_columns) - 1:
+            col_width = available_width - used_width
+        scaled_columns.append((label, key, col_width, max(8, int(col_width / 7))))
+        used_width += col_width
+    return scaled_columns
 
 def pdf_escape(value):
     value = str(value or '')
@@ -4069,15 +4139,16 @@ def pdf_escape(value):
     return value.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
 
 def periodic_group_detail_pdf(group_name, rows):
-    columns = [
-        (label, key, width, max(8, int(width / 7)))
-        for label, key, width in periodic_export_visible_columns()
-    ]
     row_height = 18
+    total_height = 22
     width = 842
-    height = max(595, 70 + (len(rows) + 2) * row_height)
     left = 24
+    available_width = width - (left * 2)
+    columns = scaled_periodic_pdf_columns(available_width)
+    table_width = sum(col[2] for col in columns)
+    height = max(595, 90 + (len(rows) + 2) * row_height + total_height)
     y = height - 34
+    total_amount = sum(row.get('amount') or 0 for row in rows)
     commands = [
         'q',
         '1 1 1 rg 0 0 842 {0} re f'.format(height),
@@ -4087,22 +4158,50 @@ def periodic_group_detail_pdf(group_name, rows):
     y -= 28
     x = left
     commands.append('0.20 0.29 0.37 rg')
-    commands.append(f'{left} {y - 5} {sum(col[2] for col in columns)} 20 re f')
-    commands.append('1 1 1 rg /F1 8 Tf')
+    commands.append(f'{left} {y - 5} {table_width} 20 re f')
+    commands.append('0.72 0.77 0.80 RG')
+    commands.append(f'{left} {y - 5} {table_width} 20 re S')
+    x = left
+    for _, _, col_width, _ in columns:
+        commands.append(f'{x} {y - 5} {col_width} 20 re S')
+        x += col_width
+    commands.append('1 1 1 rg /F1 7 Tf')
+    x = left
     for label, _, col_width, _ in columns:
         commands.append(f'BT {x + 3} {y} Td ({pdf_escape(label)}) Tj ET')
         x += col_width
     y -= row_height
-    commands.append('0 0 0 rg /F1 8 Tf')
+    commands.append('0 0 0 rg /F1 7 Tf')
     if not rows:
+        commands.append('0.81 0.85 0.86 RG')
+        commands.append(f'{left} {y - 4} {table_width} {row_height} re S')
         commands.append(f'BT {left + 3} {y} Td (No records found.) Tj ET')
     for row in rows:
         x = left
+        commands.append('0.81 0.85 0.86 RG')
         for _, key, col_width, char_limit in columns:
+            commands.append(f'{x} {y - 4} {col_width} {row_height} re S')
             value = truncate_text(export_cell_text(row, key), char_limit)
+            commands.append('0 0 0 rg')
             commands.append(f'BT {x + 3} {y} Td ({pdf_escape(value)}) Tj ET')
             x += col_width
         y -= row_height
+    total_y = y - total_height + 4
+    x = left
+    commands.append('0.95 0.96 0.96 rg')
+    for _, key, col_width, _ in columns:
+        commands.append(f'{x} {total_y} {col_width} {total_height} re f')
+        commands.append('0.20 0.29 0.37 RG')
+        commands.append(f'{x} {total_y} {col_width} {total_height} re S')
+        x += col_width
+    commands.append('0 0 0 rg /F1 7 Tf')
+    x = left
+    for _, key, col_width, _ in columns:
+        if key == 'party_name':
+            commands.append(f'BT {x + 3} {total_y + 8} Td (Grand Total) Tj ET')
+        elif key == 'amount_display':
+            commands.append(f'BT {x + 3} {total_y + 8} Td ({pdf_escape("Rs " + format_indian_currency(total_amount, decimals=False))}) Tj ET')
+        x += col_width
     commands.append('Q')
     stream = '\n'.join(commands).encode('latin-1', errors='replace')
     objects = [

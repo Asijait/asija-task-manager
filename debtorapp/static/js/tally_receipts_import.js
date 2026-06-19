@@ -57,6 +57,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    function matchedBillText(item) {
+        if (!item.matched_ref_no) return '';
+
+        const amount = Number(item.matched_bill_amount || 0);
+        const amountText = amount ? ` | Rs ${formatAmount(amount)}` : '';
+        const dateText = item.posted_receipt_dates ? ` | ${item.posted_receipt_dates}` : '';
+        const countText = item.posted_receipt_count > 1 ? ` | ${item.posted_receipt_count} receipts` : '';
+        return `${item.matched_ref_no} - ${item.matched_party_name || ''}${amountText}${dateText}${countText}`;
+    }
+
     function renderRows(rows) {
         rowsBody.innerHTML = '';
 
@@ -82,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 item.voucher_no,
                 item.reference_no,
                 formatAmount(item.post_amount || item.credit_amount || item.reference_amount),
-                item.matched_ref_no ? `${item.matched_ref_no} - ${item.matched_party_name}` : '',
+                matchedBillText(item),
                 item.post_status || '',
                 item.bank_name,
                 (item.raw_rows || []).join(', ')

@@ -133,36 +133,98 @@
             gap: 14px;
             margin-bottom: 12px;
         }
-        .periodic-detail-header h2 { margin: 0 0 4px; }
-        .periodic-detail-meta { color: #607382; font-size: 12px; }
+        .periodic-detail-title-block { min-width: 0; }
+        .periodic-detail-header h2 { margin: 0 0 6px; }
+        .periodic-detail-meta { color: #34495e; font-size: 15px; font-weight: 700; }
+        .periodic-detail-actions {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            flex-shrink: 0;
+        }
         .periodic-detail-close {
-            width: 30px;
-            height: 30px;
+            width: 34px;
+            height: 34px;
             border: 1px solid #8ca0b3;
             border-radius: 4px;
             background: #fff;
             cursor: pointer;
-        }
-        .periodic-detail-tools {
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
+            font-size: 16px;
+            line-height: 1;
         }
         .periodic-detail-export {
-            padding: 7px 10px;
-            border: 1px solid #8ca0b3;
+            width: 34px;
+            height: 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid transparent;
             border-radius: 4px;
-            background: #eef4f8;
-            color: #24384a;
+            background: #fff;
             text-decoration: none;
-            font-size: 12px;
-            font-weight: 700;
         }
-        .periodic-detail-export:hover { background: #dcebf3; }
+        .periodic-detail-export:hover { border-color: #8ca0b3; background: #eef4f8; }
+        .export-file-icon {
+            width: 28px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            font-size: 9px;
+            font-weight: 800;
+            line-height: 1;
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+        }
+        .export-file-icon.excel-icon {
+            background: #1f7a4d;
+            color: #fff;
+            font-size: 17px;
+        }
+        .export-file-icon.excel-icon::after {
+            content: "";
+            position: absolute;
+            right: 3px;
+            top: 4px;
+            width: 9px;
+            height: 19px;
+            border: 1px solid rgba(255,255,255,0.85);
+            background:
+                linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)) 0 6px / 100% 1px no-repeat,
+                linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)) 0 13px / 100% 1px no-repeat,
+                linear-gradient(rgba(255,255,255,0.85), rgba(255,255,255,0.85)) 50% 0 / 1px 100% no-repeat;
+        }
+        .export-file-icon.pdf-icon {
+            border: 2px solid #e53935;
+            color: #e53935;
+            background: #fff;
+            font-size: 9px;
+            padding-top: 13px;
+            box-sizing: border-box;
+        }
+        .export-file-icon.pdf-icon::before {
+            content: "";
+            position: absolute;
+            top: 4px;
+            left: 8px;
+            width: 11px;
+            height: 13px;
+            border-bottom: 2px solid #e53935;
+            transform: rotate(-18deg);
+        }
+        .export-file-icon.image-icon {
+            border: 2px solid #607382;
+            color: #34495e;
+            background: #fff;
+        }
         .periodic-detail-table-wrap { overflow: auto; max-height: 70vh; }
         .periodic-detail-table th { position: sticky; top: 0; z-index: 1; }
+        .periodic-detail-total-row td {
+            background: #f1f4f6;
+            border-top: 2px solid #34495e;
+            font-weight: 800;
+        }
 
         @media (max-width: 1024px) {
             .report-grid { grid-template-columns: 1fr; }
@@ -302,7 +364,7 @@
                     </thead>
                     <tbody>
                         {% for name, data in prev_accum_summary.items() %}
-                        <tr class="periodic-detail-row" data-group="{{ name }}" data-period="previous">
+                        <tr class="periodic-detail-row" data-group="{{ name }}" data-period="all">
                             <td>{{ name }}</td>
                             <td class="amount-cell {{ 'amt-red' if data.total >= 2000000 else 'amt-orange' if data.total >= 1000000 else '' }}">
                                 ₹ {{ data.total | indian_currency(decimals=False) }}
@@ -479,16 +541,22 @@
     <div class="periodic-detail-modal" id="periodicDetailModal" aria-hidden="true">
         <div class="periodic-detail-panel" role="dialog" aria-modal="true" aria-labelledby="periodicDetailTitle">
             <div class="periodic-detail-header">
-                <div>
+                <div class="periodic-detail-title-block">
                     <h2 id="periodicDetailTitle">Group Detail</h2>
                     <div class="periodic-detail-meta" id="periodicDetailMeta"></div>
                 </div>
-                <button type="button" class="periodic-detail-close" id="periodicDetailClose" aria-label="Close">x</button>
-            </div>
-            <div class="periodic-detail-tools">
-                <a href="#" class="periodic-detail-export" id="periodicDetailExcel">Excel Export</a>
-                <a href="#" class="periodic-detail-export" id="periodicDetailPdf">PDF Export</a>
-                <a href="#" class="periodic-detail-export" id="periodicDetailImage">Image Export</a>
+                <div class="periodic-detail-actions">
+                    <a href="#" class="periodic-detail-export" id="periodicDetailExcel" title="Excel Export" aria-label="Excel Export">
+                        <span class="export-file-icon excel-icon">X</span>
+                    </a>
+                    <a href="#" class="periodic-detail-export" id="periodicDetailPdf" title="PDF Export" aria-label="PDF Export">
+                        <span class="export-file-icon pdf-icon">PDF</span>
+                    </a>
+                    <a href="#" class="periodic-detail-export" id="periodicDetailImage" title="Image Export" aria-label="Image Export">
+                        <span class="export-file-icon image-icon">SVG</span>
+                    </a>
+                    <button type="button" class="periodic-detail-close" id="periodicDetailClose" aria-label="Close">x</button>
+                </div>
             </div>
             <div class="periodic-detail-table-wrap">
                 <table class="summary-table periodic-detail-table">
@@ -508,6 +576,7 @@
                         </tr>
                     </thead>
                     <tbody id="periodicDetailRows"></tbody>
+                    <tfoot id="periodicDetailFoot"></tfoot>
                 </table>
             </div>
         </div>
@@ -517,6 +586,7 @@
         const periodicDetailUrl = "{{ debtor_url('/api/periodic-report/group-detail') }}";
         const periodicDetailExcelUrl = "{{ debtor_url('/periodic-report/group-detail/export/excel') }}";
         const periodicDetailPdfUrl = "{{ debtor_url('/periodic-report/group-detail/export/pdf') }}";
+        const periodicDetailImageUrl = "{{ debtor_url('/periodic-report/group-detail/export/image') }}";
 
         function escapeHtml(value) {
             return String(value || '').replace(/[&<>"']/g, char => ({
@@ -533,11 +603,12 @@
             const title = document.getElementById('periodicDetailTitle');
             const meta = document.getElementById('periodicDetailMeta');
             const rowsBody = document.getElementById('periodicDetailRows');
+            const rowsFoot = document.getElementById('periodicDetailFoot');
             const closeButton = document.getElementById('periodicDetailClose');
             const excelButton = document.getElementById('periodicDetailExcel');
             const pdfButton = document.getElementById('periodicDetailPdf');
             const imageButton = document.getElementById('periodicDetailImage');
-            if (!modal || !title || !meta || !rowsBody || !closeButton) return;
+            if (!modal || !title || !meta || !rowsBody || !rowsFoot || !closeButton) return;
             let activeGroupName = '';
             let activePeriodScope = '';
             let activeDetailRows = [];
@@ -548,7 +619,7 @@
                 const query = new URLSearchParams({ group: groupName, period: periodScope || '' }).toString();
                 if (excelButton) excelButton.href = `${periodicDetailExcelUrl}?${query}`;
                 if (pdfButton) pdfButton.href = `${periodicDetailPdfUrl}?${query}`;
-                if (imageButton) imageButton.href = '#';
+                if (imageButton) imageButton.href = `${periodicDetailImageUrl}?${query}`;
             }
 
             function exportCurrentDetailJpeg(event) {
@@ -579,7 +650,7 @@
                 function fitText(text, width) {
                     let value = String(text || '');
                     while (value.length > 0 && ctx.measureText(value).width > width - 10) {
-                        value = value.slice(0, -2) + '~';
+                        value = value.slice(0, -1);
                     }
                     return value;
                 }
@@ -663,6 +734,7 @@
                 title.textContent = groupName;
                 meta.textContent = 'Loading date-wise records...';
                 rowsBody.innerHTML = '';
+                rowsFoot.innerHTML = '';
                 setExportLinks(groupName, periodScope);
                 modal.classList.add('is-open');
                 modal.setAttribute('aria-hidden', 'false');
@@ -679,7 +751,7 @@
                     activeDetailRows = result.rows || [];
                     activeDetailCount = result.count || activeDetailRows.length;
                     activeDetailTotal = result.total_amount_display || '0';
-                    meta.textContent = `${result.count} record(s) | Total Rs ${result.total_amount_display}`;
+                    meta.textContent = `${activeDetailCount} record(s) | Total Rs ${activeDetailTotal}`;
                     rowsBody.innerHTML = activeDetailRows.map(row => `
                         <tr>
                             <td>${escapeHtml(row.bill_date_display)}</td>
@@ -695,15 +767,22 @@
                             <td>${escapeHtml(row.financial_year)}</td>
                         </tr>
                     `).join('') || '<tr><td colspan="11" style="text-align:center;">No records found.</td></tr>';
+                    rowsFoot.innerHTML = `
+                        <tr class="periodic-detail-total-row">
+                            <td colspan="4">Grand Total</td>
+                            <td class="amount-cell">Rs ${escapeHtml(activeDetailTotal)}</td>
+                            <td colspan="6"></td>
+                        </tr>
+                    `;
                 } catch (error) {
                     meta.textContent = 'Unable to load records.';
+                    rowsFoot.innerHTML = '';
                 }
             }
 
             document.querySelectorAll('.periodic-detail-row').forEach(row => {
                 row.addEventListener('click', () => openGroupDetail(row.dataset.group || '', row.dataset.period || ''));
             });
-            if (imageButton) imageButton.addEventListener('click', exportCurrentDetailJpeg);
             closeButton.addEventListener('click', closeModal);
             modal.addEventListener('click', event => {
                 if (event.target === modal) closeModal();
