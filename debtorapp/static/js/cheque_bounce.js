@@ -7,6 +7,7 @@
     const selectAll = document.getElementById('receiptSelectAll');
     const rowChecks = Array.from(form.querySelectorAll('.receipt-row-check'));
     const submitButton = document.getElementById('chequeBounceSubmit');
+    const deleteButton = document.getElementById('receiptDeleteSubmit');
     const dialog = document.getElementById('chequeBounceDialog');
     const dateInput = document.getElementById('bounceDateInput');
     const reasonInput = document.getElementById('bounceReasonInput');
@@ -27,6 +28,10 @@
         if (submitButton) {
             submitButton.disabled = count === 0;
             submitButton.classList.toggle('is-ready', count > 0);
+        }
+        if (deleteButton) {
+            deleteButton.disabled = count === 0;
+            deleteButton.classList.toggle('is-ready', count > 0);
         }
         if (selectAll) {
             selectAll.checked = count > 0;
@@ -93,6 +98,20 @@
                 return;
             }
             openDialog();
+        });
+    }
+
+    if (deleteButton) {
+        deleteButton.addEventListener('click', () => {
+            if (selectedCount() !== 1) {
+                alert('Please select one receipt.');
+                return;
+            }
+            if (!confirm('Delete the selected receipt record?')) {
+                return;
+            }
+            form.action = form.dataset.deleteAction;
+            form.submit();
         });
     }
 

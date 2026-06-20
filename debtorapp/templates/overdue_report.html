@@ -51,8 +51,8 @@
                             <td>{{ row.short_name }}</td>
                             <td class="bill-no-cell">
                                 <span class="bill-no-text">{{ row.ref_no }}</span>
-                                {% if (row.import_batch_id or '').startswith('cheque_bounce_') %}
-                                <span class="cheque-bounce-note">Re-added Due to Cheque Bounced</span>
+                                {% if row.receipt_status == 'cheque_bounce' or (row.import_batch_id or '').startswith('cheque_bounce_') %}
+                                <span class="cheque-bounce-note">Cheque Bounce</span>
                                 {% endif %}
                             </td>
                             <td>{{ row.party_name }}</td>

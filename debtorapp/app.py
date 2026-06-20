@@ -114,12 +114,13 @@ DEBTOR_NAV_EDIT_TO_VIEW = {
 # Register the filter
 app.jinja_env.filters['indian_currency'] = format_indian_currency
 
+def debtor_url(path='/'):
+    if not path.startswith('/'):
+        path = '/' + path
+    return f"{request.script_root}{path}"
+
 @app.context_processor
 def debtor_report_template_helpers():
-    def debtor_url(path='/'):
-        if not path.startswith('/'):
-            path = '/' + path
-        return f"{request.script_root}{path}"
     user_email = str(session.get('user_email', '')).lower()
     is_arif = user_email == 'arif.siddiqui@asija.in'
     debtor_nav_access = get_debtor_nav_access_for_user(user_email)
@@ -208,7 +209,7 @@ def log_deleted_record(cursor, source_table, source_pk, display_type, display_la
     ))
 
 def insert_deleted_payload(cursor, table_name, payload):
-    allowed_tables = {'billing_report', 'client_group_master', 'crp_master', 'firm_master'}
+    allowed_tables = {'billing_report', 'client_group_master', 'crp_master', 'firm_master', 'receipt_register'}
     if table_name not in allowed_tables:
         raise ValueError('Recall is not available for this record type.')
 
@@ -1730,6 +1731,80 @@ def ensure_cheque_bounce_register_table(cursor):
     if 'bounce_date' not in existing_columns:
         cursor.execute('ALTER TABLE cheque_bounce_register ADD COLUMN bounce_date TEXT')
 
+    # A bounced cheque reverses a receipt. Keep the reversal visible anywhere
+    # receipt_register amounts are used, including records bounced before this
+    # migration was introduced.
+    cursor.execute('''
+        UPDATE receipt_register
+        SET received_amount = -ABS(received_amount)
+        WHERE received_amount > 0
+          AND id IN (
+              SELECT receipt_register_id
+              FROM cheque_bounce_register
+              WHERE receipt_register_id IS NOT NULL
+          )
+    ''')
+
+    # Older versions created a second billing_report row for a bounced cheque.
+    # Merge those rows back into the original bill so one reference remains.
+    cursor.execute('''
+        SELECT receipt_register_id, source_bill_id, readded_bill_id, bounced_amount
+        FROM cheque_bounce_register
+        WHERE source_bill_id IS NOT NULL
+          AND readded_bill_id IS NOT NULL
+          AND source_bill_id != readded_bill_id
+    ''')
+    for bounce_row in cursor.fetchall():
+        source_bill_id = bounce_row['source_bill_id']
+        duplicate_bill_id = bounce_row['readded_bill_id']
+        cursor.execute('SELECT * FROM billing_report WHERE id = ?', (source_bill_id,))
+        source_row = cursor.fetchone()
+        cursor.execute('SELECT * FROM billing_report WHERE id = ?', (duplicate_bill_id,))
+        duplicate_row = cursor.fetchone()
+        if not source_row or not duplicate_row:
+            continue
+
+        source = sqlite_record_to_dict(source_row)
+        duplicate = sqlite_record_to_dict(duplicate_row)
+        source_balance = 0 if source.get('receipt_status') == 'full_paid' else float(source.get('amount') or 0)
+        duplicate_balance = 0 if duplicate.get('receipt_status') == 'full_paid' else float(duplicate.get('amount') or 0)
+        new_balance = round(source_balance + duplicate_balance, 2)
+        new_paid = max(0, round(
+            float(source.get('paid_amount') or 0)
+            - float(bounce_row['bounced_amount'] or 0)
+            + float(duplicate.get('paid_amount') or 0),
+            2,
+        ))
+        new_status = 'full_paid' if new_balance <= 0 else 'cheque_bounce'
+        cursor.execute('''
+            UPDATE billing_report
+            SET amount = ?, receipt_status = ?, paid_amount = ?,
+                closed_at = ?,
+                followup_partner = COALESCE(NULLIF(followup_partner, ''), ?)
+            WHERE id = ?
+        ''', (
+            new_balance,
+            new_status,
+            new_paid,
+            duplicate.get('closed_at') if new_status == 'full_paid' else None,
+            duplicate.get('followup_partner') or '',
+            source_bill_id,
+        ))
+        cursor.execute(
+            'UPDATE receipt_register SET source_bill_id = ? WHERE source_bill_id = ?',
+            (source_bill_id, duplicate_bill_id),
+        )
+        cursor.execute(
+            'UPDATE receipt_adjustment_register SET source_bill_id = ? WHERE source_bill_id = ?',
+            (source_bill_id, duplicate_bill_id),
+        )
+        cursor.execute('''
+            UPDATE cheque_bounce_register
+            SET readded_bill_id = ?
+            WHERE receipt_register_id = ?
+        ''', (source_bill_id, bounce_row['receipt_register_id']))
+        cursor.execute('DELETE FROM billing_report WHERE id = ?', (duplicate_bill_id,))
+
 def readd_receipts_as_cheque_bounce(cursor, receipt_ids, reason='', bounce_date=''):
     ensure_cheque_bounce_register_table(cursor)
     clean_ids = []
@@ -1746,7 +1821,6 @@ def readd_receipts_as_cheque_bounce(cursor, receipt_ids, reason='', bounce_date=
     skipped_count = 0
     bounced_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     bounce_date = (bounce_date or datetime.now().strftime('%Y-%m-%d')).strip()
-    import_batch_id = 'cheque_bounce_' + datetime.now().strftime('%Y%m%d%H%M%S')
     placeholders = ','.join('?' for _ in clean_ids)
     cursor.execute(f'''
         SELECT *
@@ -1777,31 +1851,45 @@ def readd_receipts_as_cheque_bounce(cursor, receipt_ids, reason='', bounce_date=
             bill_date_obj = parse_input_date(bill_date)
             due_date = (bill_date_obj + timedelta(days=30)).strftime('%Y-%m-%d') if bill_date_obj else ''
 
+        source_bill_id = row.get('source_bill_id')
+        cursor.execute('SELECT * FROM billing_report WHERE id = ? LIMIT 1', (source_bill_id,))
+        source_bill = cursor.fetchone()
+        if not source_bill:
+            cursor.execute('''
+                SELECT * FROM billing_report
+                WHERE lower(trim(ref_no)) = lower(trim(?))
+                  AND lower(trim(party_name)) = lower(trim(?))
+                  AND deleted_at IS NULL
+                ORDER BY id
+                LIMIT 1
+            ''', (row.get('ref_no') or '', row.get('party_name') or ''))
+            source_bill = cursor.fetchone()
+        if not source_bill:
+            skipped_count += 1
+            continue
+
+        source_bill = sqlite_record_to_dict(source_bill)
+        source_bill_id = source_bill.get('id')
+        current_balance = (
+            0 if source_bill.get('receipt_status') == 'full_paid'
+            else float(source_bill.get('amount') or 0)
+        )
+        restored_balance = round(current_balance + bounced_amount, 2)
+        restored_paid = max(0, round(float(source_bill.get('paid_amount') or 0) - bounced_amount, 2))
         cursor.execute('''
-            INSERT INTO billing_report (
-                firm_name, short_name, bill_date, ref_no, party_name, amount,
-                due_date, overdue_days, import_batch_id, ep_override, receipt_status,
-                paid_amount, closed_at, group_override, followup_partner
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', 0, NULL, ?, '')
-        ''', (
-            row.get('firm_name') or '',
-            row.get('short_name') or '',
-            bill_date,
-            row.get('ref_no') or '',
-            row.get('party_name') or '',
-            bounced_amount,
-            due_date,
-            row.get('overdue_days') or 0,
-            import_batch_id,
-            row.get('final_ep') or '',
-            row.get('client_group') or '',
-        ))
-        readded_bill_id = cursor.lastrowid
-        followup_partner = resolve_or_copy_followup_partner_for_row(cursor, readded_bill_id)
+            UPDATE billing_report
+            SET amount = ?, receipt_status = 'cheque_bounce', paid_amount = ?,
+                closed_at = NULL, deleted_at = NULL, deleted_by = NULL, delete_reason = NULL
+            WHERE id = ?
+        ''', (restored_balance, restored_paid, source_bill_id))
+        readded_bill_id = source_bill_id
+        followup_partner = (
+            source_bill.get('followup_partner')
+            or resolve_or_copy_followup_partner_for_row(cursor, source_bill_id)
+        )
         cursor.execute(
             'UPDATE billing_report SET followup_partner = ? WHERE id = ?',
-            (followup_partner, readded_bill_id)
+            (followup_partner, source_bill_id),
         )
 
         cursor.execute('''
@@ -1815,7 +1903,7 @@ def readd_receipts_as_cheque_bounce(cursor, receipt_ids, reason='', bounce_date=
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             receipt_id,
-            row.get('source_bill_id'),
+            source_bill_id,
             readded_bill_id,
             bounced_at,
             bounce_date,
@@ -1839,6 +1927,10 @@ def readd_receipts_as_cheque_bounce(cursor, receipt_ids, reason='', bounce_date=
             row.get('financial_year') or '',
             reason,
         ))
+        cursor.execute(
+            'UPDATE receipt_register SET received_amount = -ABS(received_amount) WHERE id = ?',
+            (receipt_id,)
+        )
         added_count += 1
 
     return {'added_count': added_count, 'skipped_count': skipped_count}
@@ -2887,17 +2979,67 @@ def mark_receipts_cheque_bounce():
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    result = readd_receipts_as_cheque_bounce(cursor, receipt_ids, reason, bounce_date)
-    conn.commit()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        result = readd_receipts_as_cheque_bounce(cursor, receipt_ids, reason, bounce_date)
+        conn.commit()
+    except sqlite3.Error as exc:
+        conn.rollback()
+        app.logger.exception('Unable to mark receipt as cheque bounce')
+        flash(f'Cheque bounce could not be saved: {exc}')
+        return redirect(debtor_url('/receipt-register'))
+    finally:
+        conn.close()
 
-    message = f"{result['added_count']} cheque bounce record(s) re-added to debtor report."
+    message = f"{result['added_count']} cheque bounce record(s) updated in the original debtor row."
     if result['skipped_count']:
         message += f" {result['skipped_count']} record(s) skipped because they were already bounced or invalid."
-    message += ' Receipt Register entries are unchanged.'
+    message += ' Bounced receipt amount is shown as negative in Receipt Register.'
     flash(message)
     return redirect(debtor_url('/cheque-bounce'))
+
+@app.route('/receipt-register/delete', methods=['POST'])
+def delete_receipt_register_record():
+    receipt_ids = request.form.getlist('receipt_ids')
+    if len(receipt_ids) != 1:
+        flash('Please select one receipt to delete.')
+        return redirect(debtor_url('/receipt-register'))
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM receipt_register WHERE id = ?', (receipt_ids[0],))
+        receipt = cursor.fetchone()
+        if not receipt:
+            flash('Receipt record not found.')
+            return redirect(debtor_url('/receipt-register'))
+
+        receipt_dict = sqlite_record_to_dict(receipt)
+        log_deleted_record(
+            cursor,
+            'receipt_register',
+            receipt_dict.get('id'),
+            'Receipt Register',
+            receipt_dict.get('ref_no') or f"Receipt #{receipt_dict.get('id')}",
+            receipt_dict,
+            ' | '.join(part for part in [
+                receipt_dict.get('party_name') or '',
+                receipt_dict.get('receipt_date') or '',
+                f"Rs {format_indian_currency(receipt_dict.get('received_amount') or 0)}",
+            ] if part),
+        )
+        cursor.execute('DELETE FROM receipt_register WHERE id = ?', (receipt_dict.get('id'),))
+        conn.commit()
+        flash('Receipt record deleted successfully.')
+    except sqlite3.Error as exc:
+        conn.rollback()
+        app.logger.exception('Unable to delete receipt register record')
+        flash(f'Receipt record could not be deleted: {exc}')
+    finally:
+        conn.close()
+
+    return redirect(debtor_url('/receipt-register'))
 
 @app.route('/cheque-bounce')
 def cheque_bounce_report():

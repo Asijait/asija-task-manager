@@ -39,11 +39,12 @@
                 </form>
             </div>
 
-            <form action="{{ debtor_url('/receipt-register/cheque-bounce') }}" method="post" id="chequeBounceForm">
+            <form action="{{ debtor_url('/receipt-register/cheque-bounce') }}" method="post" id="chequeBounceForm" data-delete-action="{{ debtor_url('/receipt-register/delete') }}">
                 <input type="hidden" name="bounce_date" id="bounceDateValue">
                 <input type="hidden" name="reason" id="bounceReasonValue">
                 <div class="receipt-action-bar">
                     <button type="button" class="secondary-btn danger-btn bounce-action-btn" id="chequeBounceSubmit" disabled>Cheque Bounce</button>
+                    <button type="button" class="secondary-btn danger-btn" id="receiptDeleteSubmit" disabled>Delete Receipt</button>
                     <a href="{{ debtor_url('/cheque-bounce') }}" class="secondary-btn">Cheque Bounce Report</a>
                 </div>
 
