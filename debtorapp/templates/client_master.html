@@ -50,9 +50,10 @@
                     <h2>Add Client</h2>
                     <button type="button" class="client-form-close" id="hideClientFormBtn">x</button>
                 </div>
-                <form action="{{ debtor_url('/client-master/add') }}" method="POST" class="client-form">
+                <form action="{{ debtor_url('/client-master/add') }}" method="POST" class="client-form" id="clientAddForm">
                     <div class="form-group">
-                        <input type="text" name="client_name" placeholder="Client Name" required>
+                        <input type="text" name="client_name" id="addClientName" placeholder="Client Name" required autocomplete="off">
+                        <div class="duplicate-client-warning" id="addClientNameWarning" hidden></div>
                     </div>
                     <div class="form-group">
                         <div class="searchable-select" id="clientGroupSelect">
@@ -90,7 +91,7 @@
                     <div class="form-group">
                         <input type="text" name="gstin" placeholder="GSTIN">
                     </div>
-                    <button type="submit" class="submit-btn">Add Client</button>
+                    <button type="submit" class="submit-btn" id="addClientSubmit">Add Client</button>
                 </form>
             </section>
             {% endif %}
@@ -158,6 +159,7 @@
                     <label>
                         Client Name
                         <input type="text" name="client_name" id="editClientName" required>
+                        <span class="duplicate-client-warning" id="editClientNameWarning" hidden></span>
                     </label>
                     <label>
                         Client Group
@@ -206,7 +208,7 @@
                 </div>
                 <div class="client-modal-actions">
                     <button type="button" class="secondary-btn" id="clientEditCancel">Cancel</button>
-                    <button type="submit" class="secondary-btn primary-btn">Update</button>
+                    <button type="submit" class="secondary-btn primary-btn" id="editClientSubmit">Update</button>
                 </div>
             </form>
         </div>

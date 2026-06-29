@@ -132,6 +132,31 @@
     color: #5d6d76;
 }
 
+.client-form input.is-duplicate,
+.client-modal-grid input.is-duplicate,
+.group-add-row input.is-duplicate,
+.crp-add-row input.is-duplicate {
+    border-color: #c0392b;
+    background: #fff5f5;
+}
+
+.duplicate-client-warning {
+    display: block;
+    margin-top: 5px;
+    color: #a93226;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.submit-btn:disabled,
+.secondary-btn:disabled,
+.group-row-action:disabled,
+.crp-row-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
 .inline-check {
     display: flex;
     align-items: center;

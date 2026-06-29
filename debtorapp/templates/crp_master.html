@@ -59,10 +59,13 @@
                         {% if can_edit_crp_master %}
                         <tr class="crp-add-row" id="crpAddRow" hidden>
                             <td>New</td>
-                            <td><input type="text" name="crp_name" form="crpAddForm" placeholder="CRP Name" required></td>
+                            <td>
+                                <input type="text" name="crp_name" form="crpAddForm" id="addCrpName" placeholder="CRP Name" required autocomplete="off">
+                                <div class="duplicate-client-warning" id="addCrpNameWarning" hidden></div>
+                            </td>
                             <td>0</td>
                             <td class="crp-add-actions">
-                                <button type="submit" class="crp-row-action" form="crpAddForm" title="Save CRP" aria-label="Save CRP">Save</button>
+                                <button type="submit" class="crp-row-action" form="crpAddForm" id="addCrpSubmit" title="Save CRP" aria-label="Save CRP">Save</button>
                             </td>
                             <td>
                                 <button type="button" class="crp-row-action" id="hideCrpAddRow" title="Cancel" aria-label="Cancel">Cancel</button>
@@ -140,11 +143,12 @@
                     <label>
                         CRP Name
                         <input type="text" name="crp_name" id="editCrpName" required>
+                        <span class="duplicate-client-warning" id="editCrpNameWarning" hidden></span>
                     </label>
                 </div>
                 <div class="client-modal-actions">
                     <button type="button" class="secondary-btn" id="crpEditCancel">Cancel</button>
-                    <button type="submit" class="secondary-btn primary-btn">Update</button>
+                    <button type="submit" class="secondary-btn primary-btn" id="editCrpSubmit">Update</button>
                 </div>
             </form>
         </div>
@@ -164,6 +168,68 @@
         const crpGroupsBody = document.getElementById('crpGroupsBody');
         const crpGroupsClose = document.getElementById('crpGroupsClose');
         const crpGroupsExport = document.getElementById('crpGroupsExport');
+
+        const crpNameIndex = new Map();
+
+        function normalizeMasterName(value) {
+            return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+        }
+
+        document.querySelectorAll('.crp-edit-btn').forEach(function(button) {
+            const key = normalizeMasterName(button.dataset.crpName);
+            if (!key) return;
+            crpNameIndex.set(key, {
+                id: button.dataset.crpId || '',
+                name: button.dataset.crpName || ''
+            });
+        });
+
+        function setupCrpDuplicateWarning(input, warning, submitButton, options) {
+            if (!input || !warning) return;
+            let lastAlertKey = '';
+            options = options || {};
+
+            function checkDuplicate(showAlert) {
+                const key = normalizeMasterName(input.value);
+                const ownId = String(options.ownId ? options.ownId() : '');
+                const matched = key ? crpNameIndex.get(key) : null;
+                const isDuplicate = Boolean(matched && String(matched.id) !== ownId);
+
+                input.classList.toggle('is-duplicate', isDuplicate);
+                warning.hidden = !isDuplicate;
+                warning.textContent = isDuplicate ? 'CRP already exists: ' + matched.name : '';
+
+                if (submitButton) {
+                    submitButton.disabled = isDuplicate;
+                    submitButton.title = isDuplicate ? 'This CRP already exists.' : '';
+                }
+
+                if (isDuplicate && showAlert && lastAlertKey !== key) {
+                    lastAlertKey = key;
+                    alert('CRP already exists: ' + matched.name);
+                } else if (!isDuplicate) {
+                    lastAlertKey = '';
+                }
+
+                return !isDuplicate;
+            }
+
+            input.addEventListener('input', function() { checkDuplicate(true); });
+            input.addEventListener('blur', function() { checkDuplicate(false); });
+            input.form?.addEventListener('submit', function(event) {
+                if (!checkDuplicate(true)) {
+                    event.preventDefault();
+                    input.focus();
+                }
+            });
+            checkDuplicate(false);
+        }
+
+        setupCrpDuplicateWarning(
+            document.getElementById('addCrpName'),
+            document.getElementById('addCrpNameWarning'),
+            document.getElementById('addCrpSubmit')
+        );
 
         if (showCrpAddRow && crpAddRow) {
             showCrpAddRow.addEventListener('click', function() {
@@ -267,8 +333,16 @@
         const crpEditModal = document.getElementById('crpEditModal');
         const editCrpId = document.getElementById('editCrpId');
         const editCrpName = document.getElementById('editCrpName');
+        const editCrpSubmit = document.getElementById('editCrpSubmit');
         const crpEditClose = document.getElementById('crpEditClose');
         const crpEditCancel = document.getElementById('crpEditCancel');
+
+        setupCrpDuplicateWarning(
+            editCrpName,
+            document.getElementById('editCrpNameWarning'),
+            editCrpSubmit,
+            { ownId: function() { return editCrpId?.value || ''; } }
+        );
 
         function closeCrpEditModal() {
             if (!crpEditModal) return;
@@ -280,6 +354,7 @@
             button.addEventListener('click', function() {
                 editCrpId.value = button.dataset.crpId || '';
                 editCrpName.value = button.dataset.crpName || '';
+                editCrpName.dispatchEvent(new Event('blur'));
                 crpEditModal.classList.add('is-open');
                 crpEditModal.setAttribute('aria-hidden', 'false');
                 editCrpName.focus();

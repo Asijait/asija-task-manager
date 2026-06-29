@@ -58,7 +58,10 @@
                         {% if can_edit_client_group_master %}
                         <tr class="group-add-row" id="groupAddRow" hidden>
                             <td>New</td>
-                            <td><input type="text" name="group_name" form="groupAddForm" placeholder="Group Name" required></td>
+                            <td>
+                                <input type="text" name="group_name" form="groupAddForm" id="addGroupName" placeholder="Group Name" required autocomplete="off">
+                                <div class="duplicate-client-warning" id="addGroupNameWarning" hidden></div>
+                            </td>
                             <td>
                                 <select name="crp_name" form="groupAddForm">
                                     <option value="">Select CRP</option>
@@ -70,7 +73,7 @@
                             <td><input type="text" name="reffered_by" form="groupAddForm" placeholder="Referred By"></td>
                             <td>0</td>
                             <td class="group-add-actions">
-                                <button type="submit" class="group-row-action" form="groupAddForm" title="Save group" aria-label="Save group">Save</button>
+                                <button type="submit" class="group-row-action" form="groupAddForm" id="addGroupSubmit" title="Save group" aria-label="Save group">Save</button>
                                 <button type="button" class="group-row-action" id="hideGroupAddRow" title="Cancel" aria-label="Cancel">Cancel</button>
                             </td>
                         </tr>
@@ -113,6 +116,7 @@
                     <label>
                         Group Name
                         <input type="text" name="group_name" id="editClientName" required>
+                        <span class="duplicate-client-warning" id="editGroupNameWarning" hidden></span>
                     </label>
                     <label>
                         CRP Name
@@ -130,7 +134,7 @@
                 </div>
                 <div class="client-modal-actions">
                     <button type="button" class="secondary-btn" id="clientEditCancel">Cancel</button>
-                    <button type="submit" class="secondary-btn primary-btn">Update</button>
+                    <button type="submit" class="secondary-btn primary-btn" id="editGroupSubmit">Update</button>
                 </div>
             </form>
         </div>
@@ -177,6 +181,76 @@
         const showGroupAddRow = document.getElementById('showGroupAddRow');
         const hideGroupAddRow = document.getElementById('hideGroupAddRow');
         const groupAddRow = document.getElementById('groupAddRow');
+
+        const groupRows = Array.from(document.querySelectorAll('.group-click-row'));
+        const groupNameIndex = new Map();
+
+        function normalizeMasterName(value) {
+            return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+        }
+
+        groupRows.forEach(function(row) {
+            const key = normalizeMasterName(row.dataset.clientName);
+            if (!key) return;
+            groupNameIndex.set(key, {
+                id: row.dataset.clientId || '',
+                name: row.dataset.clientName || ''
+            });
+        });
+
+        function setupMasterDuplicateWarning(input, warning, submitButton, options) {
+            if (!input || !warning) return;
+            let lastAlertKey = '';
+            options = options || {};
+
+            function checkDuplicate(showAlert) {
+                const key = normalizeMasterName(input.value);
+                const ownId = String(options.ownId ? options.ownId() : '');
+                const matched = key ? groupNameIndex.get(key) : null;
+                const isDuplicate = Boolean(matched && String(matched.id) !== ownId);
+
+                input.classList.toggle('is-duplicate', isDuplicate);
+                warning.hidden = !isDuplicate;
+                warning.textContent = isDuplicate ? 'Group already exists: ' + matched.name : '';
+
+                if (submitButton) {
+                    submitButton.disabled = isDuplicate;
+                    submitButton.title = isDuplicate ? 'This group already exists.' : '';
+                }
+
+                if (isDuplicate && showAlert && lastAlertKey !== key) {
+                    lastAlertKey = key;
+                    alert('Group already exists: ' + matched.name);
+                } else if (!isDuplicate) {
+                    lastAlertKey = '';
+                }
+
+                return !isDuplicate;
+            }
+
+            input.addEventListener('input', function() { checkDuplicate(true); });
+            input.addEventListener('blur', function() { checkDuplicate(false); });
+            input.form?.addEventListener('submit', function(event) {
+                if (!checkDuplicate(true)) {
+                    event.preventDefault();
+                    input.focus();
+                }
+            });
+            checkDuplicate(false);
+        }
+
+        setupMasterDuplicateWarning(
+            document.getElementById('addGroupName'),
+            document.getElementById('addGroupNameWarning'),
+            document.getElementById('addGroupSubmit')
+        );
+
+        setupMasterDuplicateWarning(
+            document.getElementById('editClientName'),
+            document.getElementById('editGroupNameWarning'),
+            document.getElementById('editGroupSubmit'),
+            { ownId: function() { return document.getElementById('editClientId')?.value || ''; } }
+        );
 
         if (showGroupAddRow && groupAddRow) {
             showGroupAddRow.addEventListener('click', function() {

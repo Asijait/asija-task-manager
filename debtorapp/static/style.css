@@ -910,6 +910,18 @@ tr:hover { background: #f9f9f9; }
     color: #ffffff;
     cursor: pointer;
 }
+.edit-modal input.is-duplicate {
+    border-color: #c0392b;
+    background: #fff5f5;
+}
+.duplicate-ref-warning {
+    display: block;
+    margin-top: 5px;
+    color: #a93226;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.25;
+}
 .edit-frames {
     display: grid;
     grid-template-columns: 1.35fr 1fr;

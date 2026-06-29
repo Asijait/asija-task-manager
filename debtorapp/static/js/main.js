@@ -1081,6 +1081,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('editRowForm');
         const addRecordButton = document.getElementById('addReportRecordBtn');
         const deleteRecordButton = document.getElementById('deleteReportRecordBtn');
+        const saveRecordButton = document.getElementById('saveReportRecordBtn');
+        const refNoInput = document.getElementById('editRefNo');
+        const refNoWarning = document.getElementById('editRefNoWarning');
         const partyNameInput = document.getElementById('editPartyName');
         const groupSelect = document.getElementById('editGroup');
         const crpInput = document.getElementById('editCrp');
@@ -1093,8 +1096,18 @@ document.addEventListener('DOMContentLoaded', function() {
         let groupCrpMap = {};
         let masterClientNames = new Set();
         let clientGroupMap = {};
+        const refNoIndex = new Map();
 
         if (!modal) return;
+
+        document.querySelectorAll('#reportTable tbody tr[data-row-id]').forEach(row => {
+            const key = normalizeRefNo(row.dataset.refNo);
+            if (!key) return;
+            refNoIndex.set(key, {
+                id: row.dataset.rowId || '',
+                refNo: row.dataset.refNo || ''
+            });
+        });
 
         try {
             groupCrpMap = groupCrpData ? JSON.parse(groupCrpData.textContent || '{}') : {};
@@ -1138,6 +1151,36 @@ document.addEventListener('DOMContentLoaded', function() {
             select.value = selectedValue;
         }
 
+        function normalizeRefNo(value) {
+            return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+        }
+
+        function checkDuplicateRefNo(showAlert) {
+            if (!refNoInput || !refNoWarning) return true;
+            const key = normalizeRefNo(refNoInput.value);
+            const rowId = String(document.getElementById('editRowId')?.value || '');
+            const matched = key ? refNoIndex.get(key) : null;
+            const isDuplicate = Boolean(matched && String(matched.id) !== rowId);
+
+            refNoInput.classList.toggle('is-duplicate', isDuplicate);
+            refNoWarning.hidden = !isDuplicate;
+            refNoWarning.textContent = isDuplicate ? `Ref. No. already exists: ${matched.refNo}` : '';
+
+            if (saveRecordButton) {
+                saveRecordButton.disabled = isDuplicate;
+                saveRecordButton.title = isDuplicate ? 'This Ref. No. already exists.' : '';
+            }
+
+            if (isDuplicate && showAlert && refNoInput.dataset.lastDuplicateAlert !== key) {
+                refNoInput.dataset.lastDuplicateAlert = key;
+                alert(`Ref. No. already exists: ${matched.refNo}`);
+            } else if (!isDuplicate) {
+                refNoInput.dataset.lastDuplicateAlert = '';
+            }
+
+            return !isDuplicate;
+        }
+
         function updateCrpFromGroup() {
             if (!groupSelect || !crpInput) return;
             crpInput.value = groupCrpMap[groupSelect.value] || '';
@@ -1169,6 +1212,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateCrpFromGroup();
             if (crpInput && !crpInput.value) crpInput.value = row.dataset.crp || '';
             if (addToMasterInput) addToMasterInput.value = 'no';
+            checkDuplicateRefNo(false);
             modal.classList.add('is-open');
             modal.setAttribute('aria-hidden', 'false');
         }
@@ -1189,6 +1233,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setSelectValue('editGroup', '');
             setSelectValue('editFinalEp', '');
             if (addToMasterInput) addToMasterInput.value = 'no';
+            checkDuplicateRefNo(false);
             modal.classList.add('is-open');
             modal.setAttribute('aria-hidden', 'false');
             document.getElementById('editFirmName')?.focus();
@@ -1221,6 +1266,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (closeButton) closeButton.addEventListener('click', closeEditor);
         if (cancelButton) cancelButton.addEventListener('click', closeEditor);
         if (addRecordButton) addRecordButton.addEventListener('click', openAddEditor);
+        if (refNoInput) {
+            refNoInput.addEventListener('input', () => checkDuplicateRefNo(true));
+            refNoInput.addEventListener('blur', () => checkDuplicateRefNo(false));
+        }
         if (groupSelect) groupSelect.addEventListener('change', updateCrpFromGroup);
         if (partyNameInput) {
             partyNameInput.addEventListener('change', updateGroupFromParty);
@@ -1229,6 +1278,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (form) {
             form.addEventListener('submit', event => {
                 if (event.submitter && event.submitter.id === 'deleteReportRecordBtn') return;
+                if (!checkDuplicateRefNo(true)) {
+                    event.preventDefault();
+                    refNoInput?.focus();
+                    return;
+                }
                 if (!partyNameInput || !addToMasterInput) return;
 
                 const partyName = partyNameInput.value.trim();

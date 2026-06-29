@@ -266,6 +266,7 @@
                         <label>
                             Client Ref. No.
                             <input type="text" name="ref_no" id="editRefNo">
+                            <span class="duplicate-ref-warning" id="editRefNoWarning" hidden></span>
                         </label>
                         <label>
                             Date
@@ -328,7 +329,7 @@
                         onclick="return confirm('Move this record to Deleted Records? You can recall it later.');"
                     >Delete Record</button>
                     <button type="button" class="secondary-btn" id="editCancelBtn">Cancel</button>
-                    <button type="submit" class="secondary-btn primary-btn">Save</button>
+                    <button type="submit" class="secondary-btn primary-btn" id="saveReportRecordBtn">Save</button>
                 </div>
             </form>
         </div>

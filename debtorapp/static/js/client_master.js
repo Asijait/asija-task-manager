@@ -152,6 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('editCrpOfGroup'),
             document.getElementById('editRefferedBy')
         );
+        document.getElementById('editClientName')?.dispatchEvent(new Event('blur'));
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
     }
@@ -201,6 +202,79 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!clientTable) return;
 
     const clientRows = Array.from(clientTable.querySelectorAll('tbody tr'));
+    const clientNameIndex = new Map();
+
+    function normalizeClientName(value) {
+        return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    clientRows.forEach(row => {
+        const key = normalizeClientName(row.dataset.clientName);
+        if (!key) return;
+        clientNameIndex.set(key, {
+            id: row.dataset.clientId || '',
+            name: row.dataset.clientName || ''
+        });
+    });
+
+    function setupClientDuplicateWarning(input, warning, submitButton, options = {}) {
+        if (!input || !warning) return;
+        let lastAlertKey = '';
+
+        function checkDuplicate(showAlert) {
+            const key = normalizeClientName(input.value);
+            const ownId = String(options.ownId ? options.ownId() : '');
+            const matchedClient = key ? clientNameIndex.get(key) : null;
+            const isDuplicate = Boolean(matchedClient && String(matchedClient.id) !== ownId);
+
+            input.classList.toggle('is-duplicate', isDuplicate);
+            warning.hidden = !isDuplicate;
+            warning.textContent = isDuplicate
+                ? `Client already exists: ${matchedClient.name}`
+                : '';
+
+            if (submitButton) {
+                submitButton.disabled = isDuplicate;
+                submitButton.title = isDuplicate ? 'This client already exists.' : '';
+            }
+
+            if (isDuplicate && showAlert && lastAlertKey !== key) {
+                lastAlertKey = key;
+                alert(`Client already exists: ${matchedClient.name}`);
+            } else if (!isDuplicate) {
+                lastAlertKey = '';
+            }
+
+            return !isDuplicate;
+        }
+
+        input.addEventListener('input', () => checkDuplicate(true));
+        input.addEventListener('blur', () => checkDuplicate(false));
+        input.form?.addEventListener('submit', event => {
+            if (!checkDuplicate(true)) {
+                event.preventDefault();
+                input.focus();
+            }
+        });
+
+        checkDuplicate(false);
+    }
+
+    setupClientDuplicateWarning(
+        document.getElementById('addClientName'),
+        document.getElementById('addClientNameWarning'),
+        document.getElementById('addClientSubmit')
+    );
+
+    setupClientDuplicateWarning(
+        document.getElementById('editClientName'),
+        document.getElementById('editClientNameWarning'),
+        document.getElementById('editClientSubmit'),
+        {
+            ownId: () => document.getElementById('editClientId')?.value || ''
+        }
+    );
+
     const filterableColumns = [1, 2, 3, 4, 5];
     const activeFilters = {};
     const quickSearch = document.getElementById('clientQuickSearch');

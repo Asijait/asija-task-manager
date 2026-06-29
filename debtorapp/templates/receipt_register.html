@@ -22,21 +22,7 @@
 
             <div class="register-heading">
                 <h1>Receipt Register</h1>
-                <form class="weekly-report-form" action="{{ debtor_url('/weekly-recovery-report') }}" method="get">
-                    <label>
-                        From
-                        <input type="date" name="start_date" required>
-                    </label>
-                    <label>
-                        To
-                        <input type="date" name="end_date" required>
-                    </label>
-                    <label>
-                        Total From
-                        <input type="date" name="cumulative_start_date" required>
-                    </label>
-                    <button type="submit" class="secondary-btn primary-btn">Weekly Report</button>
-                </form>
+                <button type="button" class="secondary-btn primary-btn weekly-report-btn">Weekly Report</button>
             </div>
 
             <form action="{{ debtor_url('/receipt-register/cheque-bounce') }}" method="post" id="chequeBounceForm" data-delete-action="{{ debtor_url('/receipt-register/delete') }}">

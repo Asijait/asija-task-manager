@@ -6,6 +6,86 @@
     <title>Weekly Recovery Report</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .weekly-recovery-report-page .container {
+            width: min(760px, calc(100% - 16px));
+        }
+
+        .weekly-recovery-report-page .report-card {
+            padding: 6px;
+        }
+
+        .weekly-recovery-report-page .register-heading {
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .weekly-recovery-report-page .register-heading h1 {
+            font-size: 14px;
+            line-height: 1.15;
+        }
+
+        .weekly-recovery-report-page .weekly-report-actions {
+            gap: 4px;
+        }
+
+        .weekly-recovery-report-page .weekly-report-actions .secondary-btn {
+            min-height: 22px;
+            padding: 3px 7px;
+            font-size: 10px;
+            line-height: 1.1;
+        }
+
+        .weekly-recovery-report-page .weekly-message-box,
+        .weekly-recovery-report-page .weekly-message-print {
+            min-height: 82px;
+            padding: 6px;
+            font-size: 10px;
+            line-height: 1.25;
+        }
+
+        .weekly-recovery-report-page .weekly-summary-strip {
+            gap: 6px;
+            margin: 6px 0;
+            padding: 4px 6px;
+            font-size: 10px;
+        }
+
+        .weekly-recovery-report-page .weekly-detail-heading {
+            margin: 8px 0 4px;
+            font-size: 12px;
+        }
+
+        .weekly-recovery-report-page .table-scroll {
+            max-height: none;
+        }
+
+        .weekly-recovery-report-page .weekly-summary-table-wrap {
+            width: 50%;
+            min-width: 360px;
+        }
+
+        .weekly-recovery-report-page #weeklySummaryTable {
+            width: 100%;
+        }
+
+        .weekly-recovery-report-page .receipt-register-table {
+            font-size: 9px;
+        }
+
+        .weekly-recovery-report-page .receipt-register-table th,
+        .weekly-recovery-report-page .receipt-register-table td {
+            padding: 3px 5px;
+            line-height: 1.15;
+        }
+
+        @media (max-width: 760px) {
+            .weekly-recovery-report-page .weekly-summary-table-wrap {
+                width: 100%;
+                min-width: 0;
+            }
+        }
+    </style>
 </head>
 <body class="weekly-recovery-report-page" data-active-page="weekly_recovery_report">
     {% include 'navbar.html' %}
@@ -36,7 +116,6 @@
                         <thead>
                             <tr>
                                 <th>Followup Partner</th>
-                                <th>Receipt Count</th>
                                 <th>Recovered Amount</th>
                             </tr>
                         </thead>
@@ -46,12 +125,11 @@
                                 <td>
                                     <a href="{{ debtor_url('/weekly-recovery-report') }}?start_date={{ start_date }}&end_date={{ end_date }}&cumulative_start_date={{ cumulative_start }}&partner={{ row.partner | urlencode }}" target="_blank" rel="noopener">{{ row.partner }}</a>
                                 </td>
-                                <td>{{ row.receipt_count }}</td>
                                 <td class="amount">Rs {{ row.received_amount_display }}</td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="3" class="empty-register">No recovery found for selected dates.</td>
+                                <td colspan="2" class="empty-register">No recovery found for selected dates.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -59,7 +137,6 @@
                         <tfoot>
                             <tr class="weekly-total-row">
                                 <td>Total</td>
-                                <td>{{ weekly_receipt_count }}</td>
                                 <td class="amount">Rs {{ weekly_total_display }}</td>
                             </tr>
                         </tfoot>
@@ -171,12 +248,12 @@
             const message = document.getElementById('weeklyMessageText')?.value || '';
             const summaryRows = tableRows('weeklySummaryTable');
             const detailRows = tableRows('weeklyDetailTable');
-            const width = 1400;
-            const margin = 44;
-            const lineHeight = 24;
-            const rowHeight = 34;
+            const width = 700;
+            const margin = 22;
+            const lineHeight = 12;
+            const rowHeight = 17;
             const estimatedMessageLines = Math.ceil(message.length / 88) + 8;
-            const height = Math.max(900, 190 + estimatedMessageLines * lineHeight + (summaryRows.length + detailRows.length + 10) * rowHeight);
+            const height = Math.max(450, 95 + estimatedMessageLines * lineHeight + (summaryRows.length + detailRows.length + 10) * rowHeight);
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
@@ -184,21 +261,21 @@
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
             ctx.fillStyle = '#1f2d3a';
-            ctx.font = '700 30px Arial';
-            ctx.fillText(document.querySelector('.register-heading h1')?.textContent.trim() || 'Weekly Recovery Report', margin, 58);
-            ctx.font = '600 18px Arial';
-            ctx.fillText('Week: {{ start_date_display }} to {{ end_date_display }}    Recovered: Rs {{ weekly_total_display }}', margin, 92);
-            let y = 132;
-            ctx.font = '18px Arial';
+            ctx.font = '700 15px Arial';
+            ctx.fillText(document.querySelector('.register-heading h1')?.textContent.trim() || 'Weekly Recovery Report', margin, 29);
+            ctx.font = '600 9px Arial';
+            ctx.fillText('Week: {{ start_date_display }} to {{ end_date_display }}    Recovered: Rs {{ weekly_total_display }}', margin, 46);
+            let y = 66;
+            ctx.font = '9px Arial';
             message.split('\n').forEach(line => {
                 y = line.trim() ? wrapCanvasText(ctx, line, margin, y, width - margin * 2, lineHeight) : y + lineHeight;
             });
             function drawTable(title, rows, columns) {
-                y += 20;
-                ctx.font = '700 22px Arial';
+                y += 10;
+                ctx.font = '700 11px Arial';
                 ctx.fillStyle = '#1f2d3a';
                 ctx.fillText(title, margin, y);
-                y += 16;
+                y += 8;
                 const usableWidth = width - margin * 2;
                 rows.forEach((row, index) => {
                     const values = row.slice(0, columns);
@@ -208,15 +285,15 @@
                     ctx.strokeStyle = '#b8c6cf';
                     ctx.strokeRect(margin, y, usableWidth, rowHeight);
                     ctx.fillStyle = '#23313d';
-                    ctx.font = `${index === 0 ? '700' : '400'} 16px Arial`;
+                    ctx.font = `${index === 0 ? '700' : '400'} 8px Arial`;
                     values.forEach((value, cellIndex) => {
                         const text = String(value || '').slice(0, cellIndex === columns - 1 ? 24 : 32);
-                        ctx.fillText(text, margin + cellIndex * cellWidth + 8, y + 22);
+                        ctx.fillText(text, margin + cellIndex * cellWidth + 4, y + 11);
                     });
                     y += rowHeight;
                 });
             }
-            drawTable('Followup Partner Summary', summaryRows, 3);
+            drawTable('Followup Partner Summary', summaryRows, 2);
             drawTable('Receipt Details', detailRows, 7);
             const link = document.createElement('a');
             link.download = 'weekly_recovery_report_{{ start_date }}_{{ end_date }}.png';

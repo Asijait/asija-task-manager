@@ -331,6 +331,132 @@ def build_deleted_records_rows(cursor):
     rows.sort(key=lambda item: (item.get('deleted_at') or '', str(item.get('delete_log_id') or item.get('legacy_billing_id') or '')), reverse=True)
     return rows
 
+def normalize_master_name(value):
+    return re.sub(r'\s+', ' ', str(value or '').strip())
+
+def master_name_key(value):
+    return normalize_master_name(value).lower()
+
+def first_non_empty(*values):
+    for value in values:
+        normalized = normalize_master_name(value)
+        if normalized:
+            return normalized
+    return ''
+
+def find_master_by_name(cursor, table_name, name_column, name, exclude_id=None):
+    target_key = master_name_key(name)
+    if not target_key:
+        return None
+    cursor.execute(f'SELECT * FROM {table_name} ORDER BY id')
+    for row in cursor.fetchall():
+        row_dict = sqlite_record_to_dict(row)
+        if exclude_id is not None and str(row_dict.get('id')) == str(exclude_id):
+            continue
+        if master_name_key(row_dict.get(name_column)) == target_key:
+            return row_dict
+    return None
+
+def update_normalized_references(cursor, table_name, column_name, old_name, new_name):
+    old_key = master_name_key(old_name)
+    new_name = normalize_master_name(new_name)
+    if not old_key or not new_name:
+        return
+    cursor.execute(f'SELECT id, {column_name} FROM {table_name}')
+    for row in cursor.fetchall():
+        row_dict = sqlite_record_to_dict(row)
+        if master_name_key(row_dict.get(column_name)) == old_key and row_dict.get(column_name) != new_name:
+            cursor.execute(
+                f'UPDATE {table_name} SET {column_name} = ? WHERE id = ?',
+                (new_name, row_dict.get('id'))
+            )
+
+def dedupe_master_table(cursor, table_name, name_column, merge_columns=None, reference_columns=None):
+    merge_columns = merge_columns or []
+    reference_columns = reference_columns or []
+    cursor.execute(f'SELECT * FROM {table_name} ORDER BY id')
+    grouped_rows = {}
+    for row in cursor.fetchall():
+        row_dict = sqlite_record_to_dict(row)
+        key = master_name_key(row_dict.get(name_column))
+        if key:
+            grouped_rows.setdefault(key, []).append(row_dict)
+
+    removed_count = 0
+    for rows in grouped_rows.values():
+        primary = rows[0]
+        canonical_name = normalize_master_name(primary.get(name_column))
+        update_values = {name_column: canonical_name}
+
+        for duplicate in rows[1:]:
+            duplicate_name = duplicate.get(name_column)
+            for ref_table, ref_column in reference_columns:
+                update_normalized_references(cursor, ref_table, ref_column, duplicate_name, canonical_name)
+
+            for column_name in merge_columns:
+                if not normalize_master_name(update_values.get(column_name, primary.get(column_name))):
+                    update_values[column_name] = duplicate.get(column_name)
+
+            cursor.execute(f'DELETE FROM {table_name} WHERE id = ?', (duplicate.get('id'),))
+            removed_count += 1
+
+        set_parts = []
+        params = []
+        for column_name, value in update_values.items():
+            set_parts.append(f'{column_name} = ?')
+            params.append(normalize_master_name(value))
+        if set_parts:
+            params.append(primary.get('id'))
+            cursor.execute(
+                f'UPDATE {table_name} SET {", ".join(set_parts)} WHERE id = ?',
+                params
+            )
+
+    return removed_count
+
+def ensure_master_unique_indexes(cursor):
+    for index_sql in (
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_client_master_name_unique ON client_master (lower(trim(client_name)))',
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_client_group_name_unique ON client_group_master (lower(trim(group_name)))',
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_crp_name_unique ON crp_master (lower(trim(crp_name)))',
+    ):
+        try:
+            cursor.execute(index_sql)
+        except sqlite3.Error:
+            pass
+
+def dedupe_master_records(cursor):
+    dedupe_master_table(
+        cursor,
+        'client_master',
+        'client_name',
+        merge_columns=['phone', 'email', 'gstin', 'client_group', 'crp_of_group', 'reffered_by', 'whatapp_group', 'client_category'],
+    )
+    dedupe_master_table(
+        cursor,
+        'client_group_master',
+        'group_name',
+        merge_columns=['crp_name', 'reffered_by'],
+        reference_columns=[
+            ('client_master', 'client_group'),
+            ('billing_report', 'group_override'),
+            ('receipt_register', 'client_group'),
+            ('receipt_adjustment_register', 'client_group'),
+        ],
+    )
+    dedupe_master_table(
+        cursor,
+        'crp_master',
+        'crp_name',
+        reference_columns=[
+            ('client_group_master', 'crp_name'),
+            ('client_master', 'crp_of_group'),
+            ('receipt_register', 'crp_of_group'),
+            ('receipt_adjustment_register', 'crp_of_group'),
+        ],
+    )
+    ensure_master_unique_indexes(cursor)
+
 def soft_delete_billing_rows(cursor, row_ids, delete_reason=''):
     deleted_count = 0
     deleted_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -383,29 +509,57 @@ def ensure_client_group_master_seed(cursor):
         group_name = (row['client_group'] if isinstance(row, sqlite3.Row) else row[0]) or ''
         crp_name = (row['crp_of_group'] if isinstance(row, sqlite3.Row) else row[1]) or ''
         reffered_by = (row['reffered_by'] if isinstance(row, sqlite3.Row) else row[2]) or ''
-        group_name = group_name.strip()
-        group_key = group_name.lower()
+        group_name = normalize_master_name(group_name)
+        group_key = master_name_key(group_name)
         if not group_name or group_key in seeded_groups:
             continue
-        cursor.execute('''
-            INSERT OR IGNORE INTO client_group_master (group_name, crp_name, reffered_by)
-            VALUES (?, ?, ?)
-        ''', (group_name, crp_name.strip(), reffered_by.strip()))
+        existing_group = find_master_by_name(cursor, 'client_group_master', 'group_name', group_name)
+        if existing_group:
+            cursor.execute('''
+                UPDATE client_group_master
+                SET crp_name = ?, reffered_by = ?, updated_at = ?
+                WHERE id = ?
+                  AND (COALESCE(crp_name, '') = '' OR COALESCE(reffered_by, '') = '')
+            ''', (
+                first_non_empty(existing_group.get('crp_name'), crp_name),
+                first_non_empty(existing_group.get('reffered_by'), reffered_by),
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                existing_group.get('id'),
+            ))
+        else:
+            cursor.execute('''
+                INSERT INTO client_group_master (group_name, crp_name, reffered_by)
+                VALUES (?, ?, ?)
+            ''', (group_name, normalize_master_name(crp_name), normalize_master_name(reffered_by)))
         seeded_groups.add(group_key)
 
 def ensure_crp_master_seed(cursor):
+    crp_names = []
     cursor.execute('''
-        INSERT OR IGNORE INTO crp_master (crp_name)
-        SELECT DISTINCT trim(crp_name)
+        SELECT crp_name
         FROM client_group_master
         WHERE crp_name IS NOT NULL AND trim(crp_name) != ''
     ''')
+    crp_names.extend(row['crp_name'] if isinstance(row, sqlite3.Row) else row[0] for row in cursor.fetchall())
     cursor.execute('''
-        INSERT OR IGNORE INTO crp_master (crp_name)
-        SELECT DISTINCT trim(crp_of_group)
+        SELECT crp_of_group
         FROM client_master
         WHERE crp_of_group IS NOT NULL AND trim(crp_of_group) != ''
     ''')
+    crp_names.extend(row['crp_of_group'] if isinstance(row, sqlite3.Row) else row[0] for row in cursor.fetchall())
+
+    seen = set()
+    for crp_name in crp_names:
+        crp_name = normalize_master_name(crp_name)
+        crp_key = master_name_key(crp_name)
+        if not crp_name or crp_key in seen:
+            continue
+        seen.add(crp_key)
+        if not find_master_by_name(cursor, 'crp_master', 'crp_name', crp_name):
+            cursor.execute(
+                'INSERT INTO crp_master (crp_name, updated_at) VALUES (?, ?)',
+                (crp_name, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            )
 
 def get_crp_options(cursor):
     cursor.execute('''
@@ -417,24 +571,18 @@ def get_crp_options(cursor):
     return [row['crp_name'] if isinstance(row, sqlite3.Row) else row[0] for row in cursor.fetchall()]
 
 def resolve_client_group_parent(cursor, client_group, crp_of_group='', reffered_by=''):
-    group_name = (client_group or '').strip()
-    crp_of_group = (crp_of_group or '').strip()
-    reffered_by = (reffered_by or '').strip()
+    group_name = normalize_master_name(client_group)
+    crp_of_group = normalize_master_name(crp_of_group)
+    reffered_by = normalize_master_name(reffered_by)
     if not group_name:
         return group_name, crp_of_group, reffered_by
 
-    cursor.execute('''
-        SELECT id, group_name, COALESCE(crp_name, '') AS crp_name, COALESCE(reffered_by, '') AS reffered_by
-        FROM client_group_master
-        WHERE lower(trim(group_name)) = lower(trim(?))
-        LIMIT 1
-    ''', (group_name,))
-    row = cursor.fetchone()
+    row = find_master_by_name(cursor, 'client_group_master', 'group_name', group_name)
     if row:
-        parent_id = row['id'] if isinstance(row, sqlite3.Row) else row[0]
-        parent_group = (row['group_name'] if isinstance(row, sqlite3.Row) else row[1]) or group_name
-        parent_crp = (row['crp_name'] if isinstance(row, sqlite3.Row) else row[2]) or ''
-        parent_referred = (row['reffered_by'] if isinstance(row, sqlite3.Row) else row[3]) or ''
+        parent_id = row.get('id')
+        parent_group = normalize_master_name(row.get('group_name')) or group_name
+        parent_crp = normalize_master_name(row.get('crp_name'))
+        parent_referred = normalize_master_name(row.get('reffered_by'))
 
         updated_crp = parent_crp or crp_of_group
         updated_referred = parent_referred or reffered_by
@@ -445,7 +593,7 @@ def resolve_client_group_parent(cursor, client_group, crp_of_group='', reffered_
                 WHERE id = ?
             ''', (updated_crp, updated_referred, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), parent_id))
 
-        return parent_group.strip(), updated_crp.strip(), updated_referred.strip()
+        return parent_group, updated_crp, updated_referred
 
     cursor.execute('''
         INSERT INTO client_group_master (group_name, crp_name, reffered_by, updated_at)
@@ -1414,8 +1562,36 @@ def to_float(value):
     except (ValueError, TypeError):
         return None
 
+def normalize_ref_no(value):
+    return re.sub(r'\s+', ' ', str(value or '').strip()).lower()
+
+def find_active_billing_ref(cursor, ref_no, exclude_id=None):
+    ref_key = normalize_ref_no(ref_no)
+    if not ref_key:
+        return None
+
+    cursor.execute('''
+        SELECT id, ref_no
+        FROM billing_report
+        WHERE ref_no IS NOT NULL
+          AND trim(ref_no) != ''
+          AND deleted_at IS NULL
+        ORDER BY id
+    ''')
+    for row in cursor.fetchall():
+        row_dict = sqlite_record_to_dict(row)
+        if exclude_id is not None and str(row_dict.get('id')) == str(exclude_id):
+            continue
+        if normalize_ref_no(row_dict.get('ref_no')) == ref_key:
+            return row_dict
+    return None
+
 def insert_billing_row(cursor, firm_name, bill_date_obj, ref_no, party_name, amount, due_date_obj=None, overdue_days=None, import_batch_id=''):
     if not firm_name or not bill_date_obj or not ref_no or not party_name or amount is None:
+        return False
+
+    ref_no = re.sub(r'\s+', ' ', str(ref_no).strip())
+    if find_active_billing_ref(cursor, ref_no):
         return False
 
     ensure_firm_master(cursor, firm_name)
@@ -1431,7 +1607,7 @@ def insert_billing_row(cursor, firm_name, bill_date_obj, ref_no, party_name, amo
         firm_name,
         get_firm_short_name(cursor, firm_name),
         bill_date_obj.strftime('%Y-%m-%d'),
-        str(ref_no).strip(),
+        ref_no,
         str(party_name).strip(),
         amount,
         due_date_obj.strftime('%Y-%m-%d'),
@@ -2076,12 +2252,31 @@ def process_data_file(data_file, manual_firm_name='', source_filename=''):
     try:
         imported_count = 0
         imported_rows = []
+        duplicate_ref_count = 0
+        duplicate_ref_samples = []
         firm_name = manual_firm_name.strip() or "No Data Found"
+
+        def note_duplicate_ref(ref_no):
+            nonlocal duplicate_ref_count
+            duplicate_ref = find_active_billing_ref(cursor, ref_no)
+            if not duplicate_ref:
+                return
+            duplicate_ref_count += 1
+            sample_ref = duplicate_ref.get('ref_no') or str(ref_no or '').strip()
+            if sample_ref and sample_ref not in duplicate_ref_samples and len(duplicate_ref_samples) < 10:
+                duplicate_ref_samples.append(sample_ref)
+
         if data_file.endswith('.csv'):
             with open(data_file, 'r', encoding='utf-8', errors='ignore') as f:
                 reader = list(csv.reader(f))
                 if not reader:
-                    return {'imported_count': 0, 'batch_id': batch_id, 'missing_client_count': 0}
+                    return {
+                        'imported_count': 0,
+                        'batch_id': batch_id,
+                        'missing_client_count': 0,
+                        'duplicate_ref_count': 0,
+                        'duplicate_ref_samples': [],
+                    }
                 firm_name = manual_firm_name.strip() or first_nonblank(reader[0]) or firm_name
                 rows_data = reader[1:]
                 for row in rows_data:
@@ -2098,6 +2293,8 @@ def process_data_file(data_file, manual_firm_name='', source_filename=''):
                                 'party_name': str(row[2]).strip(),
                                 'amount': amount,
                             })
+                        else:
+                            note_duplicate_ref(row[1])
                     except Exception:
                         continue
         else:
@@ -2127,6 +2324,8 @@ def process_data_file(data_file, manual_firm_name='', source_filename=''):
                                     'party_name': str(party_name).strip(),
                                     'amount': amount,
                                 })
+                            else:
+                                note_duplicate_ref(ref_no)
                         except Exception:
                             continue
                 else:
@@ -2150,6 +2349,8 @@ def process_data_file(data_file, manual_firm_name='', source_filename=''):
                                         'party_name': str(party_name).strip(),
                                         'amount': amount,
                                     })
+                                else:
+                                    note_duplicate_ref(ref_no)
                             except Exception:
                                 continue
                     else:
@@ -2168,6 +2369,8 @@ def process_data_file(data_file, manual_firm_name='', source_filename=''):
                                         'party_name': str(row[2]).strip(),
                                         'amount': amount,
                                     })
+                                else:
+                                    note_duplicate_ref(row[1])
                             except Exception:
                                 continue
         missing_client_count = save_import_client_errors(cursor, batch_id, imported_rows)
@@ -2178,10 +2381,18 @@ def process_data_file(data_file, manual_firm_name='', source_filename=''):
             'imported_count': imported_count,
             'batch_id': batch_id,
             'missing_client_count': missing_client_count,
+            'duplicate_ref_count': duplicate_ref_count,
+            'duplicate_ref_samples': duplicate_ref_samples,
         }
     except Exception as e:
         print(f"Error processing file: {e}")
-        return {'imported_count': 0, 'batch_id': batch_id, 'missing_client_count': 0}
+        return {
+            'imported_count': 0,
+            'batch_id': batch_id,
+            'missing_client_count': 0,
+            'duplicate_ref_count': 0,
+            'duplicate_ref_samples': [],
+        }
     finally:
         conn.close()
 
@@ -2359,6 +2570,7 @@ def init_db():
     for column_name, column_type in required_group_columns.items():
         if column_name not in existing_group_columns:
             cursor.execute(f'ALTER TABLE client_group_master ADD COLUMN {column_name} {column_type}')
+    dedupe_master_records(cursor)
     ensure_client_group_master_seed(cursor)
     ensure_crp_master_seed(cursor)
     sync_client_master_from_group_master(cursor)
@@ -4693,7 +4905,7 @@ def write_combined_summary_sheet(writer, data):
 @app.route('/report/update', methods=['POST'])
 def update_report_row():
     row_id = request.form.get('row_id')
-    ref_no = request.form.get('ref_no', '').strip()
+    ref_no = re.sub(r'\s+', ' ', request.form.get('ref_no', '').strip())
     party_name = request.form.get('party_name', '').strip()
     client_group = request.form.get('client_group', '').strip()
     add_to_master = request.form.get('add_to_master') == 'yes'
@@ -4714,6 +4926,12 @@ def update_report_row():
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+
+    duplicate_ref = find_active_billing_ref(cursor, ref_no, exclude_id=row_id)
+    if duplicate_ref:
+        conn.close()
+        flash(f"Unable to update row. Ref. No. {duplicate_ref.get('ref_no')} already exists.")
+        return redirect(url_for('report'))
 
     short_name = get_firm_short_name(cursor, firm_name) if firm_name else None
 
@@ -4844,7 +5062,7 @@ def control_panel_bulk_delete_report_post():
 
 @app.route('/report/add', methods=['POST'])
 def add_report_row():
-    ref_no = request.form.get('ref_no', '').strip()
+    ref_no = re.sub(r'\s+', ' ', request.form.get('ref_no', '').strip())
     party_name = request.form.get('party_name', '').strip()
     client_group = request.form.get('client_group', '').strip()
     add_to_master = request.form.get('add_to_master') == 'yes'
@@ -4865,6 +5083,11 @@ def add_report_row():
     conn = connect_debtor_db()
     cursor = conn.cursor()
     try:
+        duplicate_ref = find_active_billing_ref(cursor, ref_no)
+        if duplicate_ref:
+            flash(f"Unable to add row. Ref. No. {duplicate_ref.get('ref_no')} already exists.")
+            return redirect(url_for('report'))
+
         cursor.execute('''
             SELECT client_group
             FROM client_master
@@ -5106,7 +5329,9 @@ def client_master_view():
     conn = connect_debtor_db()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    dedupe_master_records(cursor)
     ensure_client_group_master_seed(cursor)
+    ensure_crp_master_seed(cursor)
     sync_client_master_from_group_master(cursor)
     conn.commit()
     cursor.execute('SELECT * FROM client_master')
@@ -5156,6 +5381,7 @@ def client_group_master_view():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    dedupe_master_records(cursor)
     ensure_client_group_master_seed(cursor)
     ensure_crp_master_seed(cursor)
     conn.commit()
@@ -5283,6 +5509,7 @@ def download_client_group_master_excel():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    dedupe_master_records(cursor)
     ensure_client_group_master_seed(cursor)
     ensure_crp_master_seed(cursor)
     conn.commit()
@@ -5327,9 +5554,9 @@ def download_client_group_master_excel():
 
 @app.route('/client-group-master/add', methods=['POST'])
 def add_client_group():
-    group_name = request.form.get('group_name', '').strip()
-    crp_name = request.form.get('crp_name', '').strip()
-    reffered_by = request.form.get('reffered_by', '').strip()
+    group_name = normalize_master_name(request.form.get('group_name'))
+    crp_name = normalize_master_name(request.form.get('crp_name'))
+    reffered_by = normalize_master_name(request.form.get('reffered_by'))
 
     if not group_name:
         flash('Group name is required.')
@@ -5338,6 +5565,22 @@ def add_client_group():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
+        existing_group = find_master_by_name(cursor, 'client_group_master', 'group_name', group_name)
+        if existing_group:
+            cursor.execute('''
+                UPDATE client_group_master
+                SET crp_name = ?, reffered_by = ?, updated_at = ?
+                WHERE id = ?
+            ''', (
+                crp_name or existing_group.get('crp_name') or '',
+                reffered_by or existing_group.get('reffered_by') or '',
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                existing_group.get('id'),
+            ))
+            conn.commit()
+            flash('Client group already exists. Existing group was updated.')
+            return redirect(url_for('client_group_master_view'))
+
         cursor.execute('''
             INSERT INTO client_group_master (group_name, crp_name, reffered_by, updated_at)
             VALUES (?, ?, ?, ?)
@@ -5353,9 +5596,9 @@ def add_client_group():
 @app.route('/client-group-master/update', methods=['POST'])
 def update_client_group():
     group_id = request.form.get('group_id')
-    group_name = request.form.get('group_name', '').strip()
-    crp_name = request.form.get('crp_name', '').strip()
-    reffered_by = request.form.get('reffered_by', '').strip()
+    group_name = normalize_master_name(request.form.get('group_name'))
+    crp_name = normalize_master_name(request.form.get('crp_name'))
+    reffered_by = normalize_master_name(request.form.get('reffered_by'))
 
     if not group_id or not group_name:
         flash('Group name is required.')
@@ -5372,6 +5615,33 @@ def update_client_group():
 
     old_group_name = old_row[0]
     try:
+        duplicate_group = find_master_by_name(cursor, 'client_group_master', 'group_name', group_name, exclude_id=group_id)
+        if duplicate_group:
+            canonical_group = duplicate_group.get('group_name')
+            update_normalized_references(cursor, 'client_master', 'client_group', old_group_name, canonical_group)
+            update_normalized_references(cursor, 'billing_report', 'group_override', old_group_name, canonical_group)
+            update_normalized_references(cursor, 'receipt_register', 'client_group', old_group_name, canonical_group)
+            update_normalized_references(cursor, 'receipt_adjustment_register', 'client_group', old_group_name, canonical_group)
+            cursor.execute('''
+                UPDATE client_master
+                SET crp_of_group = ?, reffered_by = ?
+                WHERE lower(trim(client_group)) = lower(trim(?))
+            ''', (crp_name, reffered_by, canonical_group))
+            cursor.execute('''
+                UPDATE client_group_master
+                SET crp_name = ?, reffered_by = ?, updated_at = ?
+                WHERE id = ?
+            ''', (
+                crp_name or duplicate_group.get('crp_name') or '',
+                reffered_by or duplicate_group.get('reffered_by') or '',
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                duplicate_group.get('id'),
+            ))
+            cursor.execute('DELETE FROM client_group_master WHERE id = ?', (group_id,))
+            conn.commit()
+            flash('Client group already existed. Records were merged into the existing group.')
+            return redirect(url_for('client_group_master_view'))
+
         cursor.execute('''
             UPDATE client_group_master
             SET group_name = ?, crp_name = ?, reffered_by = ?, updated_at = ?
@@ -5383,11 +5653,15 @@ def update_client_group():
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             group_id,
         ))
+        update_normalized_references(cursor, 'client_master', 'client_group', old_group_name, group_name)
+        update_normalized_references(cursor, 'billing_report', 'group_override', old_group_name, group_name)
+        update_normalized_references(cursor, 'receipt_register', 'client_group', old_group_name, group_name)
+        update_normalized_references(cursor, 'receipt_adjustment_register', 'client_group', old_group_name, group_name)
         cursor.execute('''
             UPDATE client_master
-            SET client_group = ?, crp_of_group = ?, reffered_by = ?
+            SET crp_of_group = ?, reffered_by = ?
             WHERE lower(trim(client_group)) = lower(trim(?))
-        ''', (group_name, crp_name, reffered_by, old_group_name))
+        ''', (crp_name, reffered_by, group_name))
         conn.commit()
         flash('Client group updated successfully.')
     except sqlite3.IntegrityError:
@@ -5431,6 +5705,7 @@ def crp_master_view():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    dedupe_master_records(cursor)
     ensure_client_group_master_seed(cursor)
     ensure_crp_master_seed(cursor)
     conn.commit()
@@ -5542,6 +5817,7 @@ def download_crp_master_excel():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    dedupe_master_records(cursor)
     ensure_client_group_master_seed(cursor)
     ensure_crp_master_seed(cursor)
     conn.commit()
@@ -5582,7 +5858,7 @@ def download_crp_master_excel():
 
 @app.route('/crp-master/add', methods=['POST'])
 def add_crp():
-    crp_name = request.form.get('crp_name', '').strip()
+    crp_name = normalize_master_name(request.form.get('crp_name'))
     if not crp_name:
         flash('CRP name is required.')
         return redirect(url_for('crp_master_view'))
@@ -5590,6 +5866,11 @@ def add_crp():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
+        existing_crp = find_master_by_name(cursor, 'crp_master', 'crp_name', crp_name)
+        if existing_crp:
+            flash('CRP already exists.')
+            return redirect(url_for('crp_master_view'))
+
         cursor.execute(
             'INSERT INTO crp_master (crp_name, updated_at) VALUES (?, ?)',
             (crp_name, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -5605,7 +5886,7 @@ def add_crp():
 @app.route('/crp-master/update', methods=['POST'])
 def update_crp():
     crp_id = request.form.get('crp_id')
-    crp_name = request.form.get('crp_name', '').strip()
+    crp_name = normalize_master_name(request.form.get('crp_name'))
     if not crp_id or not crp_name:
         flash('CRP name is required.')
         return redirect(url_for('crp_master_view'))
@@ -5621,17 +5902,29 @@ def update_crp():
 
     old_crp_name = old_row[0]
     try:
+        duplicate_crp = find_master_by_name(cursor, 'crp_master', 'crp_name', crp_name, exclude_id=crp_id)
+        if duplicate_crp:
+            canonical_crp = duplicate_crp.get('crp_name')
+            update_normalized_references(cursor, 'client_group_master', 'crp_name', old_crp_name, canonical_crp)
+            update_normalized_references(cursor, 'client_master', 'crp_of_group', old_crp_name, canonical_crp)
+            update_normalized_references(cursor, 'receipt_register', 'crp_of_group', old_crp_name, canonical_crp)
+            update_normalized_references(cursor, 'receipt_adjustment_register', 'crp_of_group', old_crp_name, canonical_crp)
+            cursor.execute('DELETE FROM crp_master WHERE id = ?', (crp_id,))
+            conn.commit()
+            flash('CRP already existed. Records were merged into the existing CRP.')
+            return redirect(url_for('crp_master_view'))
+
         cursor.execute(
             'UPDATE crp_master SET crp_name = ?, updated_at = ? WHERE id = ?',
             (crp_name, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), crp_id)
         )
+        update_normalized_references(cursor, 'client_group_master', 'crp_name', old_crp_name, crp_name)
+        update_normalized_references(cursor, 'client_master', 'crp_of_group', old_crp_name, crp_name)
+        update_normalized_references(cursor, 'receipt_register', 'crp_of_group', old_crp_name, crp_name)
+        update_normalized_references(cursor, 'receipt_adjustment_register', 'crp_of_group', old_crp_name, crp_name)
         cursor.execute(
-            'UPDATE client_group_master SET crp_name = ?, updated_at = ? WHERE lower(trim(crp_name)) = lower(trim(?))',
-            (crp_name, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), old_crp_name)
-        )
-        cursor.execute(
-            'UPDATE client_master SET crp_of_group = ? WHERE lower(trim(crp_of_group)) = lower(trim(?))',
-            (crp_name, old_crp_name)
+            'UPDATE client_group_master SET updated_at = ? WHERE lower(trim(crp_name)) = lower(trim(?))',
+            (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), crp_name)
         )
         conn.commit()
         flash('CRP updated successfully.')
@@ -6012,15 +6305,15 @@ def add_executive_partner():
 
 @app.route('/client-master/add', methods=['POST'])
 def add_client():
-    client_name = request.form.get('client_name', '').strip()
+    client_name = normalize_master_name(request.form.get('client_name'))
     phone = request.form.get('phone', '').strip()
     email = request.form.get('email', '').strip()
     gstin = request.form.get('gstin', '').strip()
-    client_group = request.form.get('client_group', '').strip()
-    crp_of_group = request.form.get('crp_of_group', '').strip()
-    reffered_by = request.form.get('reffered_by', '').strip()
-    whatapp_group = request.form.get('whatapp_group', '').strip()
-    client_category = request.form.get('client_category', '').strip()
+    client_group = normalize_master_name(request.form.get('client_group'))
+    crp_of_group = normalize_master_name(request.form.get('crp_of_group'))
+    reffered_by = normalize_master_name(request.form.get('reffered_by'))
+    whatapp_group = normalize_master_name(request.form.get('whatapp_group'))
+    client_category = normalize_master_name(request.form.get('client_category'))
     
     if client_name:
         conn = connect_debtor_db()
@@ -6032,10 +6325,35 @@ def add_client():
                 crp_of_group,
                 reffered_by
             )
+            existing_client = find_master_by_name(cursor, 'client_master', 'client_name', client_name)
+            if existing_client:
+                cursor.execute('''
+                    UPDATE client_master
+                    SET phone = ?, email = ?, gstin = ?, client_group = ?,
+                        crp_of_group = ?, reffered_by = ?, whatapp_group = ?, client_category = ?
+                    WHERE id = ?
+                ''', (
+                    phone or existing_client.get('phone') or '',
+                    email or existing_client.get('email') or '',
+                    gstin or existing_client.get('gstin') or '',
+                    client_group or existing_client.get('client_group') or '',
+                    crp_of_group or existing_client.get('crp_of_group') or '',
+                    reffered_by or existing_client.get('reffered_by') or '',
+                    whatapp_group or existing_client.get('whatapp_group') or '',
+                    client_category or existing_client.get('client_category') or '',
+                    existing_client.get('id'),
+                ))
+                conn.commit()
+                flash("Client already exists. Existing client was updated.")
+                return redirect(url_for('client_master_view'))
+
             cursor.execute('INSERT INTO client_master (client_name, phone, email, gstin, client_group, crp_of_group, reffered_by, whatapp_group, client_category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
                            (client_name, phone, email, gstin, client_group, crp_of_group, reffered_by, whatapp_group, client_category))
             conn.commit()
             flash("Client added successfully!")
+        except sqlite3.IntegrityError:
+            conn.rollback()
+            flash("Client already exists.")
         except sqlite3.OperationalError as exc:
             conn.rollback()
             if 'database is locked' in str(exc).lower():
@@ -6049,15 +6367,15 @@ def add_client():
 @app.route('/client-master/update', methods=['POST'])
 def update_client():
     client_id = request.form.get('client_id')
-    client_name = request.form.get('client_name', '').strip()
+    client_name = normalize_master_name(request.form.get('client_name'))
     phone = request.form.get('phone', '').strip()
     email = request.form.get('email', '').strip()
     gstin = request.form.get('gstin', '').strip()
-    client_group = request.form.get('client_group', '').strip()
-    crp_of_group = request.form.get('crp_of_group', '').strip()
-    reffered_by = request.form.get('reffered_by', '').strip()
-    whatapp_group = request.form.get('whatapp_group', '').strip()
-    client_category = request.form.get('client_category', '').strip()
+    client_group = normalize_master_name(request.form.get('client_group'))
+    crp_of_group = normalize_master_name(request.form.get('crp_of_group'))
+    reffered_by = normalize_master_name(request.form.get('reffered_by'))
+    whatapp_group = normalize_master_name(request.form.get('whatapp_group'))
+    client_category = normalize_master_name(request.form.get('client_category'))
 
     if not client_id or not client_name:
         flash("Client name is required.")
@@ -6071,6 +6389,30 @@ def update_client():
         crp_of_group,
         reffered_by
     )
+    duplicate_client = find_master_by_name(cursor, 'client_master', 'client_name', client_name, exclude_id=client_id)
+    if duplicate_client:
+        cursor.execute('''
+            UPDATE client_master
+            SET phone = ?, email = ?, gstin = ?, client_group = ?,
+                crp_of_group = ?, reffered_by = ?, whatapp_group = ?, client_category = ?
+            WHERE id = ?
+        ''', (
+            phone or duplicate_client.get('phone') or '',
+            email or duplicate_client.get('email') or '',
+            gstin or duplicate_client.get('gstin') or '',
+            client_group or duplicate_client.get('client_group') or '',
+            crp_of_group or duplicate_client.get('crp_of_group') or '',
+            reffered_by or duplicate_client.get('reffered_by') or '',
+            whatapp_group or duplicate_client.get('whatapp_group') or '',
+            client_category or duplicate_client.get('client_category') or '',
+            duplicate_client.get('id'),
+        ))
+        cursor.execute('DELETE FROM client_master WHERE id = ?', (client_id,))
+        conn.commit()
+        conn.close()
+        flash("Client already existed. Records were merged into the existing client.")
+        return redirect(url_for('client_master_view'))
+
     cursor.execute('''
         UPDATE client_master
         SET client_name = ?, phone = ?, email = ?, gstin = ?, client_group = ?,
@@ -6203,11 +6545,22 @@ def upload_file():
         import_result = process_data_file(target_path, manual_firm_name, file.filename)
         imported_count = import_result.get('imported_count', 0)
         missing_client_count = import_result.get('missing_client_count', 0)
+        duplicate_ref_count = import_result.get('duplicate_ref_count', 0)
+        duplicate_ref_samples = import_result.get('duplicate_ref_samples') or []
         batch_id = import_result.get('batch_id', '')
+        message_parts = [f"Import successful: {imported_count} rows imported."]
+        if duplicate_ref_count:
+            sample_text = ', '.join(duplicate_ref_samples)
+            more_text = '...' if duplicate_ref_count > len(duplicate_ref_samples) else ''
+            message_parts.append(
+                f"{duplicate_ref_count} duplicate Ref. No. row(s) skipped"
+                + (f": {sample_text}{more_text}" if sample_text else ".")
+            )
         if missing_client_count:
-            flash(f"Import successful: {imported_count} rows imported. {missing_client_count} imported party name(s) are not in Client Master. Check Missing Clients Report for current Main Report status.")
+            message_parts.append(f"{missing_client_count} imported party name(s) are not in Client Master. Check Missing Clients Report for current Main Report status.")
         else:
-            flash(f"Import successful: {imported_count} rows imported. No new client name missing in Client Master.")
+            message_parts.append("No new client name missing in Client Master.")
+        flash(' '.join(message_parts))
         if batch_id:
             separator = '&' if '?' in return_to else '?'
             followup_prompt = '&followup_prompt=1' if imported_count > 0 else ''
@@ -6247,7 +6600,7 @@ def client_master_upload():
                     actual_col = col_map.get(normalize_header(alias))
                     if actual_col:
                         val = row_data[actual_col]
-                        return str(val).strip() if pd.notna(val) else ""
+                        return normalize_master_name(val) if pd.notna(val) else ""
                 return ""
 
             imported_count = 0
@@ -6273,6 +6626,28 @@ def client_master_upload():
                 )
                 
                 if client_id:
+                    duplicate_client = find_master_by_name(cursor, 'client_master', 'client_name', client_name, exclude_id=client_id)
+                    if duplicate_client:
+                        cursor.execute('''
+                            UPDATE client_master
+                            SET phone=?, email=?, gstin=?, client_group=?,
+                                crp_of_group=?, reffered_by=?, whatapp_group=?, client_category=?
+                            WHERE id=?
+                        ''', (
+                            phone or duplicate_client.get('phone') or '',
+                            email or duplicate_client.get('email') or '',
+                            gstin or duplicate_client.get('gstin') or '',
+                            client_group or duplicate_client.get('client_group') or '',
+                            crp_of_group or duplicate_client.get('crp_of_group') or '',
+                            reffered_by or duplicate_client.get('reffered_by') or '',
+                            whatapp_group or duplicate_client.get('whatapp_group') or '',
+                            client_category or duplicate_client.get('client_category') or '',
+                            duplicate_client.get('id'),
+                        ))
+                        cursor.execute('DELETE FROM client_master WHERE id=?', (client_id,))
+                        imported_count += 1
+                        continue
+
                     # Update existing client if ID is present
                     cursor.execute('''
                         UPDATE client_master 
@@ -6282,9 +6657,26 @@ def client_master_upload():
                     ''', (client_name, phone, email, gstin, client_group, crp_of_group, reffered_by, whatapp_group, client_category, client_id))
                     imported_count += 1
                 else:
-                    # Insert as new if client name doesn't exist
-                    cursor.execute('SELECT COUNT(*) FROM client_master WHERE client_name = ?', (client_name,))
-                    if cursor.fetchone()[0] == 0:
+                    existing_client = find_master_by_name(cursor, 'client_master', 'client_name', client_name)
+                    if existing_client:
+                        cursor.execute('''
+                            UPDATE client_master
+                            SET phone=?, email=?, gstin=?, client_group=?,
+                                crp_of_group=?, reffered_by=?, whatapp_group=?, client_category=?
+                            WHERE id=?
+                        ''', (
+                            phone or existing_client.get('phone') or '',
+                            email or existing_client.get('email') or '',
+                            gstin or existing_client.get('gstin') or '',
+                            client_group or existing_client.get('client_group') or '',
+                            crp_of_group or existing_client.get('crp_of_group') or '',
+                            reffered_by or existing_client.get('reffered_by') or '',
+                            whatapp_group or existing_client.get('whatapp_group') or '',
+                            client_category or existing_client.get('client_category') or '',
+                            existing_client.get('id'),
+                        ))
+                        imported_count += 1
+                    else:
                         cursor.execute('INSERT INTO client_master (client_name, phone, email, gstin, client_group, crp_of_group, reffered_by, whatapp_group, client_category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
                                        (client_name, phone, email, gstin, client_group, crp_of_group, reffered_by, whatapp_group, client_category))
                         imported_count += 1
