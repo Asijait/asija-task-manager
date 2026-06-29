@@ -2,6 +2,10 @@ try:
     from . import db_compat as sqlite3
 except ImportError:
     import db_compat as sqlite3
+try:
+    import main_db_compat as main_db
+except ImportError:
+    main_db = None
 import csv
 import os
 import shutil
@@ -474,9 +478,13 @@ def sync_client_master_from_group_master(cursor):
     return updated_count
 
 def get_debtor_users():
+    if main_db is None:
+        return [], 'Main app database connector is not available.'
+
+    conn = None
     try:
-        conn = sqlite3.connect(MAIN_DB_PATH)
-        conn.row_factory = sqlite3.Row
+        conn = main_db.connect(MAIN_DB_PATH, timeout=DB_BUSY_TIMEOUT_MS / 1000)
+        conn.row_factory = main_db.Row
         users = conn.execute('''
             SELECT u.id, u.email,
                    CASE WHEN up.user_id IS NULL THEN 0 ELSE 1 END AS has_debtor_report
@@ -484,12 +492,14 @@ def get_debtor_users():
             LEFT JOIN user_permissions up
               ON up.user_id = u.id
              AND up.permission_key = 'daily_debtor_report'
-            ORDER BY u.email COLLATE NOCASE
+            ORDER BY lower(u.email)
         ''').fetchall()
-        conn.close()
-        return [dict(user) for user in users]
-    except sqlite3.Error:
-        return []
+        return [dict(user) for user in users], ''
+    except (main_db.Error, sqlite3.Error) as exc:
+        return [], f'Unable to load users from main app database: {exc}'
+    finally:
+        if conn is not None:
+            conn.close()
 
 def get_all_debtor_nav_access():
     try:
@@ -5813,6 +5823,10 @@ def delete_firm():
 
 @app.route('/control-panel')
 def control_panel():
+    if str(session.get('user_email', '')).lower() != 'arif.siddiqui@asija.in':
+        flash('Only Arif can open the debtor control panel.')
+        return redirect(url_for('dashboard'))
+
     os.makedirs(BACKUP_DIR, exist_ok=True)
     backups = read_backup_log()
     report_update_dates = get_manual_report_update_dates()
@@ -5850,7 +5864,11 @@ def control_panel_report_update():
 
 @app.route('/control-panel/navbar-access')
 def debtor_navbar_access():
-    users = get_debtor_users()
+    if str(session.get('user_email', '')).lower() != 'arif.siddiqui@asija.in':
+        flash('Only Arif can manage debtor navbar access.')
+        return redirect(url_for('dashboard'))
+
+    users, users_error = get_debtor_users()
     saved_access = get_all_debtor_nav_access()
     for user in users:
         email = str(user.get('email') or '').lower()
@@ -5859,13 +5877,25 @@ def debtor_navbar_access():
     return render_template(
         'navbar_access.html',
         users=users,
+        users_error=users_error,
         access_items=DEBTOR_NAV_ACCESS_ITEMS,
         active_page='control_panel'
     )
 
 @app.route('/control-panel/navbar-access/update', methods=['POST'])
 def update_debtor_navbar_access():
-    users = get_debtor_users()
+    if str(session.get('user_email', '')).lower() != 'arif.siddiqui@asija.in':
+        flash('Only Arif can manage debtor navbar access.')
+        return redirect(url_for('dashboard'))
+
+    users, users_error = get_debtor_users()
+    if users_error:
+        flash(users_error)
+        return redirect(url_for('debtor_navbar_access'))
+    if not users:
+        flash('No users found in the main app database. Access settings were not changed.')
+        return redirect(url_for('debtor_navbar_access'))
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     ensure_debtor_nav_access_table(cursor)

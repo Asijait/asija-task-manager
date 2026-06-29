@@ -43,6 +43,19 @@
                             </tr>
                         </thead>
                         <tbody>
+                            {% if users_error %}
+                                <tr>
+                                    <td colspan="5" class="access-empty-state">
+                                        {{ users_error }}
+                                    </td>
+                                </tr>
+                            {% elif not users %}
+                                <tr>
+                                    <td colspan="5" class="access-empty-state">
+                                        No users found in the main app database. Create users in User Accounts, then assign Debtor Report permission.
+                                    </td>
+                                </tr>
+                            {% endif %}
                             {% for user in users %}
                                 {% for item in access_items %}
                                     {% set has_view = item.view_key and item.view_key in user.access_keys %}
