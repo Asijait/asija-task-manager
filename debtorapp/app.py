@@ -1085,6 +1085,12 @@ def parse_input_date(value):
             continue
     return None
 
+def calculate_overdue_days(due_date_value):
+    due_date = parse_input_date(due_date_value)
+    if not due_date:
+        return 0
+    return (datetime.now().date() - due_date.date()).days
+
 def format_financial_year(value):
     bill_date = parse_input_date(value)
     if not bill_date:
@@ -1596,8 +1602,7 @@ def insert_billing_row(cursor, firm_name, bill_date_obj, ref_no, party_name, amo
 
     ensure_firm_master(cursor, firm_name)
     due_date_obj = bill_date_obj + timedelta(days=30)
-    if overdue_days is None:
-        overdue_days = (datetime.now() - bill_date_obj).days
+    overdue_days = calculate_overdue_days(due_date_obj)
 
     cursor.execute('''
         INSERT INTO billing_report 
@@ -2191,8 +2196,6 @@ def find_report_header(df):
         party_idx = next((index for index, label in enumerate(combined) if 'party' in label and 'name' in label), None)
         amount_idx = next((index for index, label in enumerate(combined) if label in ('amount', 'pendingamount') or ('pending' in label and 'amount' in label)), None)
         due_idx = next((index for index, label in enumerate(combined) if label in ('dueon', 'duedate')), None)
-        overdue_idx = next((index for index, label in enumerate(combined) if 'overdue' in label), None)
-
         if date_idx is not None and ref_idx is not None and party_idx is not None and amount_idx is not None:
             return {
                 'row_index': row_index,
@@ -2201,7 +2204,6 @@ def find_report_header(df):
                 'party_idx': party_idx,
                 'amount_idx': amount_idx,
                 'due_idx': due_idx,
-                'overdue_idx': overdue_idx,
             }
     return None
 
@@ -2315,8 +2317,7 @@ def process_data_file(data_file, manual_firm_name='', source_filename=''):
                             party_name = row.iloc[header['party_idx']]
                             amount = to_float(row.iloc[header['amount_idx']])
                             due_date_obj = parse_input_date(row.iloc[header['due_idx']]) if header['due_idx'] is not None else None
-                            overdue_days = to_float(row.iloc[header['overdue_idx']]) if header['overdue_idx'] is not None else None
-                            if insert_billing_row(cursor, firm_name, bill_date_obj, ref_no, party_name, amount, due_date_obj, overdue_days, batch_id):
+                            if insert_billing_row(cursor, firm_name, bill_date_obj, ref_no, party_name, amount, due_date_obj, import_batch_id=batch_id):
                                 imported_count += 1
                                 imported_rows.append({
                                     'firm_name': firm_name,
@@ -2685,6 +2686,7 @@ def get_report_rows(cursor):
             row['due_date_display'] = format_display_date(row['due_date'])
         else:
             row['due_date_display'] = format_display_date(row.get('due_date'))
+        row['overdue_days'] = calculate_overdue_days(row.get('due_date'))
         row['financial_year'] = format_financial_year(row.get('bill_date'))
 
     rows.sort(key=lambda row: (
@@ -3654,7 +3656,7 @@ def get_missing_report_clients(cursor):
     ''')
     rows = []
     for row in cursor.fetchall():
-        row_dict = dict(row)
+        row_dict = sqlite_record_to_dict(row)
         refs = [
             ref.strip()
             for ref in str(row_dict.get('sample_ref_nos') or '').split(',')
@@ -3677,17 +3679,19 @@ def get_client_master_dropdown_options(cursor):
     options = {}
     for label, column_name in group_master_columns.items():
         cursor.execute(f'''
-            SELECT DISTINCT {column_name} AS option_value
+            SELECT {column_name} AS option_value
             FROM client_group_master
             WHERE {column_name} IS NOT NULL AND trim({column_name}) != ''
+            GROUP BY {column_name}
             ORDER BY lower({column_name})
         ''')
         options[label] = [row['option_value'] for row in cursor.fetchall()]
     for label, column_name in client_master_columns.items():
         cursor.execute(f'''
-            SELECT DISTINCT {column_name} AS option_value
+            SELECT {column_name} AS option_value
             FROM client_master
             WHERE {column_name} IS NOT NULL AND trim({column_name}) != ''
+            GROUP BY {column_name}
             ORDER BY lower({column_name})
         ''')
         options[label] = [row['option_value'] for row in cursor.fetchall()]
@@ -4936,7 +4940,7 @@ def update_report_row():
     short_name = get_firm_short_name(cursor, firm_name) if firm_name else None
 
     due_date_obj = bill_date_obj + timedelta(days=30)
-    overdue_days = (datetime.now() - bill_date_obj).days
+    overdue_days = calculate_overdue_days(due_date_obj)
 
     cursor.execute('''
         SELECT client_group

@@ -10,27 +10,47 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     const showFormButton = document.getElementById('showClientFormBtn');
-    const hideFormButton = document.getElementById('hideClientFormBtn');
-    const formSection = document.getElementById('clientFormSection');
+    const addModal = document.getElementById('clientAddModal');
+    const addCloseButton = document.getElementById('clientAddClose');
+    const addCancelButton = document.getElementById('clientAddCancel');
 
-    if (showFormButton && formSection) {
+    function openClientAddModal() {
+        if (!addModal) return;
+        addModal.classList.add('is-open');
+        addModal.setAttribute('aria-hidden', 'false');
+        const firstInput = document.getElementById('addClientName') || addModal.querySelector('input, select, button');
+        if (firstInput) firstInput.focus();
+    }
+
+    function closeClientAddModal() {
+        if (!addModal) return;
+        addModal.classList.remove('is-open');
+        addModal.setAttribute('aria-hidden', 'true');
+    }
+
+    if (showFormButton) {
         showFormButton.addEventListener('click', () => {
-            formSection.hidden = false;
-            const firstInput = formSection.querySelector('input');
-            if (firstInput) firstInput.focus();
+            openClientAddModal();
         });
     }
 
-    if (hideFormButton && formSection) {
-        hideFormButton.addEventListener('click', () => {
-            formSection.hidden = true;
+    if (addCloseButton) addCloseButton.addEventListener('click', closeClientAddModal);
+    if (addCancelButton) addCancelButton.addEventListener('click', closeClientAddModal);
+    if (addModal) {
+        addModal.addEventListener('click', event => {
+            if (event.target === addModal) closeClientAddModal();
         });
     }
 
     const groupSelect = document.getElementById('clientGroupSelect');
     const groupInput = document.getElementById('clientGroupInput');
     const groupOptions = document.getElementById('clientGroupOptions');
+    const crpSelect = document.getElementById('clientCrpSelect');
     const crpInput = document.getElementById('clientCrpInput');
+    const crpOptions = document.getElementById('clientCrpOptions');
+    const categorySelect = document.getElementById('clientCategorySelect');
+    const categoryInput = document.getElementById('clientCategoryInput');
+    const categoryOptions = document.getElementById('clientCategoryOptions');
     const referredInput = document.getElementById('clientReferredInput');
     const groupCrpData = document.getElementById('groupCrpData');
     const groupMasterData = document.getElementById('groupMasterData');
@@ -81,7 +101,7 @@ document.addEventListener('DOMContentLoaded', function() {
         lockParentField(referredField, parentReferred, 'Referred By');
     }
 
-    function setupSearchableGroupSelect(select, input, options, onSelect) {
+    function setupSearchableSelect(select, input, options, onSelect) {
         if (!select || !input || !options) return;
 
         function filterOptions() {
@@ -92,23 +112,80 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         function openOptions() {
+            if (input.readOnly) return;
             options.classList.add('is-open');
             filterOptions();
         }
 
         function closeOptions() {
             options.classList.remove('is-open');
+            markActiveOption(-1);
+        }
+
+        let activeOptionIndex = -1;
+
+        function visibleOptionButtons() {
+            return Array.from(options.querySelectorAll('.searchable-option'))
+                .filter(option => option.style.display !== 'none');
+        }
+
+        function markActiveOption(index) {
+            const visibleOptions = visibleOptionButtons();
+            options.querySelectorAll('.searchable-option').forEach(option => {
+                option.classList.remove('is-active');
+            });
+            if (!visibleOptions.length || index < 0) {
+                activeOptionIndex = -1;
+                return;
+            }
+
+            activeOptionIndex = Math.max(0, Math.min(index, visibleOptions.length - 1));
+            if (activeOptionIndex >= 0) {
+                visibleOptions[activeOptionIndex].classList.add('is-active');
+                visibleOptions[activeOptionIndex].scrollIntoView({ block: 'nearest' });
+            }
+        }
+
+        function selectOption(option, keepFocus) {
+            input.value = option.dataset.value || option.textContent.trim();
+            if (onSelect) onSelect();
+            closeOptions();
+            if (keepFocus) input.focus();
         }
 
         input.addEventListener('focus', openOptions);
         input.addEventListener('click', openOptions);
-        input.addEventListener('input', openOptions);
+        input.addEventListener('input', () => {
+            activeOptionIndex = -1;
+            openOptions();
+        });
+        input.addEventListener('keydown', event => {
+            if (!['ArrowDown', 'ArrowUp', 'Enter', 'Tab'].includes(event.key)) return;
+            if (input.readOnly) return;
+            if (!options.classList.contains('is-open')) openOptions();
+            const visibleOptions = visibleOptionButtons();
+            if (!visibleOptions.length) return;
+
+            if (event.key === 'ArrowDown' && event.altKey) {
+                event.preventDefault();
+                markActiveOption(activeOptionIndex >= 0 ? activeOptionIndex : 0);
+            } else if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                markActiveOption(activeOptionIndex + 1);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                markActiveOption(activeOptionIndex <= 0 ? visibleOptions.length - 1 : activeOptionIndex - 1);
+            } else if (event.key === 'Enter' && activeOptionIndex >= 0) {
+                event.preventDefault();
+                selectOption(visibleOptions[activeOptionIndex], true);
+            } else if (event.key === 'Tab' && activeOptionIndex >= 0) {
+                selectOption(visibleOptions[activeOptionIndex], false);
+            }
+        });
 
         options.querySelectorAll('.searchable-option').forEach(option => {
             option.addEventListener('click', () => {
-                input.value = option.dataset.value || option.textContent.trim();
-                if (onSelect) onSelect();
-                closeOptions();
+                selectOption(option, true);
             });
         });
 
@@ -117,9 +194,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    setupSearchableGroupSelect(groupSelect, groupInput, groupOptions, () => {
+    setupSearchableSelect(groupSelect, groupInput, groupOptions, () => {
         syncParentFieldsFromGroup(groupInput, crpInput, referredInput);
     });
+    setupSearchableSelect(crpSelect, crpInput, crpOptions);
+    setupSearchableSelect(categorySelect, categoryInput, categoryOptions);
 
     if (groupInput) {
         groupInput.addEventListener('input', () => {
@@ -130,6 +209,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const modal = document.getElementById('clientEditModal');
     const closeButton = document.getElementById('clientEditClose');
     const cancelButton = document.getElementById('clientEditCancel');
+    const choiceModal = document.getElementById('clientChoiceModal');
+    const choiceName = document.getElementById('clientChoiceName');
+    const choiceClose = document.getElementById('clientChoiceClose');
+    const choiceView = document.getElementById('clientChoiceView');
+    const choiceEdit = document.getElementById('clientChoiceEdit');
+    const viewModal = document.getElementById('clientViewModal');
+    const viewClose = document.getElementById('clientViewClose');
+    const viewOk = document.getElementById('clientViewOk');
+    const viewGrid = document.getElementById('clientViewGrid');
+    let selectedClientRow = null;
 
     function setValue(id, value) {
         const input = document.getElementById(id);
@@ -163,6 +252,56 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.setAttribute('aria-hidden', 'true');
     }
 
+    function closeChoiceModal() {
+        if (!choiceModal) return;
+        choiceModal.classList.remove('is-open');
+        choiceModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openChoiceModal(row) {
+        selectedClientRow = row;
+        if (!choiceModal) return;
+        if (choiceName) choiceName.textContent = row.dataset.clientName || 'Selected client';
+        choiceModal.classList.add('is-open');
+        choiceModal.setAttribute('aria-hidden', 'false');
+        choiceView?.focus();
+    }
+
+    function closeViewModal() {
+        if (!viewModal) return;
+        viewModal.classList.remove('is-open');
+        viewModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openViewModal(row) {
+        if (!viewModal || !viewGrid) return;
+        const fields = [
+            ['Client Name', row.dataset.clientName],
+            ['Group', row.dataset.clientGroup],
+            ['CRP', row.dataset.crpOfGroup],
+            ['Category', row.dataset.clientCategory],
+            ['Referred By', row.dataset.refferedBy],
+            ['WhatsApp Group', row.dataset.whatappGroup],
+            ['Phone', row.dataset.phone],
+            ['Email', row.dataset.email],
+            ['GSTIN', row.dataset.gstin]
+        ];
+
+        viewGrid.innerHTML = '';
+        fields.forEach(([label, value]) => {
+            const term = document.createElement('dt');
+            const detail = document.createElement('dd');
+            term.textContent = label;
+            detail.textContent = value || '-';
+            viewGrid.appendChild(term);
+            viewGrid.appendChild(detail);
+        });
+
+        viewModal.classList.add('is-open');
+        viewModal.setAttribute('aria-hidden', 'false');
+        viewOk?.focus();
+    }
+
     document.querySelectorAll('.client-edit-btn').forEach(button => {
         button.addEventListener('click', () => {
             const row = button.closest('tr');
@@ -172,21 +311,53 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (closeButton) closeButton.addEventListener('click', closeModal);
     if (cancelButton) cancelButton.addEventListener('click', closeModal);
+    if (choiceClose) choiceClose.addEventListener('click', closeChoiceModal);
+    if (choiceView) {
+        choiceView.addEventListener('click', () => {
+            if (selectedClientRow) openViewModal(selectedClientRow);
+            closeChoiceModal();
+        });
+    }
+    if (choiceEdit) {
+        choiceEdit.addEventListener('click', () => {
+            if (selectedClientRow && modal) openModal(selectedClientRow);
+            closeChoiceModal();
+        });
+    }
+    if (viewClose) viewClose.addEventListener('click', closeViewModal);
+    if (viewOk) viewOk.addEventListener('click', closeViewModal);
     if (modal) {
         modal.addEventListener('click', event => {
             if (event.target === modal) closeModal();
         });
     }
+    if (choiceModal) {
+        choiceModal.addEventListener('click', event => {
+            if (event.target === choiceModal) closeChoiceModal();
+        });
+    }
+    if (viewModal) {
+        viewModal.addEventListener('click', event => {
+            if (event.target === viewModal) closeViewModal();
+        });
+    }
 
     const editClientGroup = document.getElementById('editClientGroup');
+    const editClientCategory = document.getElementById('editClientCategory');
     const editCrpOfGroup = document.getElementById('editCrpOfGroup');
     const editRefferedBy = document.getElementById('editRefferedBy');
     const editClientGroupSelect = document.getElementById('editClientGroupSelect');
     const editClientGroupOptions = document.getElementById('editClientGroupOptions');
+    const editCrpSelect = document.getElementById('editCrpSelect');
+    const editCrpOptions = document.getElementById('editCrpOptions');
+    const editClientCategorySelect = document.getElementById('editClientCategorySelect');
+    const editClientCategoryOptions = document.getElementById('editClientCategoryOptions');
 
-    setupSearchableGroupSelect(editClientGroupSelect, editClientGroup, editClientGroupOptions, () => {
+    setupSearchableSelect(editClientGroupSelect, editClientGroup, editClientGroupOptions, () => {
         syncParentFieldsFromGroup(editClientGroup, editCrpOfGroup, editRefferedBy);
     });
+    setupSearchableSelect(editCrpSelect, editCrpOfGroup, editCrpOptions);
+    setupSearchableSelect(editClientCategorySelect, editClientCategory, editClientCategoryOptions);
 
     if (editClientGroup) {
         editClientGroup.addEventListener('input', () => {
@@ -194,8 +365,36 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    function setupArrowFieldNavigation(container) {
+        if (!container) return;
+        container.addEventListener('keydown', event => {
+            if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+            if (event.target.closest('.searchable-select')) return;
+
+            const focusables = Array.from(container.querySelectorAll('input, select, button'))
+                .filter(element => !element.disabled && element.offsetParent !== null);
+            const currentIndex = focusables.indexOf(event.target);
+            if (currentIndex === -1) return;
+
+            event.preventDefault();
+            const nextIndex = event.key === 'ArrowDown'
+                ? Math.min(currentIndex + 1, focusables.length - 1)
+                : Math.max(currentIndex - 1, 0);
+            focusables[nextIndex]?.focus();
+        });
+    }
+
+    setupArrowFieldNavigation(addModal);
+    setupArrowFieldNavigation(modal);
+    setupArrowFieldNavigation(choiceModal);
+    setupArrowFieldNavigation(viewModal);
+
     document.addEventListener('keydown', event => {
-        if (event.key === 'Escape') closeModal();
+        if (event.key !== 'Escape') return;
+        closeClientAddModal();
+        closeChoiceModal();
+        closeViewModal();
+        closeModal();
     });
 
     const clientTable = document.getElementById('clientTable');
@@ -214,6 +413,11 @@ document.addEventListener('DOMContentLoaded', function() {
         clientNameIndex.set(key, {
             id: row.dataset.clientId || '',
             name: row.dataset.clientName || ''
+        });
+        row.tabIndex = 0;
+        row.addEventListener('dblclick', () => openChoiceModal(row));
+        row.addEventListener('keydown', event => {
+            if (event.key === 'Enter') openChoiceModal(row);
         });
     });
 
@@ -275,7 +479,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     );
 
-    const filterableColumns = [1, 2, 3, 4, 5];
+    const filterableColumns = [0, 1, 2, 3, 4];
     const activeFilters = {};
     const quickSearch = document.getElementById('clientQuickSearch');
 

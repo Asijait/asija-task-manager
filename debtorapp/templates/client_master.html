@@ -6,7 +6,7 @@
     <title>Client Master</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='client_master.css') }}?v=client-topbar-20260615">
+    <link rel="stylesheet" href="{{ url_for('static', filename='client_master.css') }}?v=client-modal-20260708">
 </head>
 <body>
     {% set active_page = 'client_master' %}
@@ -44,73 +44,15 @@
                 <input type="search" id="clientQuickSearch" placeholder="Search clients">
             </div>
 
-            {% if can_edit_client_master %}
-            <section class="client-form-section" id="clientFormSection" hidden>
-                <div class="client-form-header">
-                    <h2>Add Client</h2>
-                    <button type="button" class="client-form-close" id="hideClientFormBtn">x</button>
-                </div>
-                <form action="{{ debtor_url('/client-master/add') }}" method="POST" class="client-form" id="clientAddForm">
-                    <div class="form-group">
-                        <input type="text" name="client_name" id="addClientName" placeholder="Client Name" required autocomplete="off">
-                        <div class="duplicate-client-warning" id="addClientNameWarning" hidden></div>
-                    </div>
-                    <div class="form-group">
-                        <div class="searchable-select" id="clientGroupSelect">
-                            <input type="text" name="client_group" id="clientGroupInput" placeholder="Client Group" autocomplete="off">
-                            <div class="searchable-options" id="clientGroupOptions">
-                            {% for group in group_options %}
-                                <button type="button" class="searchable-option" data-value="{{ group }}">{{ group }}</button>
-                            {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <select name="client_category">
-                            <option value="">Select Category</option>
-                            <option value="Private">Private</option>
-                            <option value="Government">Government</option>
-                            <option value="Bank">Bank</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <input type="text" name="crp_of_group" id="clientCrpInput" placeholder="CRP of Group" list="crpOptions">
-                    </div>
-                    <div class="form-group">
-                        <input type="text" name="reffered_by" id="clientReferredInput" placeholder="Referred By">
-                    </div>
-                    <div class="form-group">
-                        <input type="text" name="whatapp_group" placeholder="WhatsApp Group">
-                    </div>
-                    <div class="form-group">
-                        <input type="text" name="phone" placeholder="Phone">
-                    </div>
-                    <div class="form-group">
-                        <input type="email" name="email" placeholder="Email">
-                    </div>
-                    <div class="form-group">
-                        <input type="text" name="gstin" placeholder="GSTIN">
-                    </div>
-                    <button type="submit" class="submit-btn" id="addClientSubmit">Add Client</button>
-                </form>
-            </section>
-            {% endif %}
-
             <main>
                 <table id="clientTable">
                     <thead>
                         <tr>
-                            <th>ID</th>
-                            <th>Client Name</th>
+                            <th>Client Name (Double click for edit or view)</th>
                             <th>Group</th>
-                            <th>Category</th>
                             <th>CRP</th>
+                            <th>Category</th>
                             <th>Referred By</th>
-                            <th>WhatsApp</th>
-                            <th>Phone</th>
-                            <th>Email</th>
-                            <th>GSTIN</th>
-                            {% if can_edit_client_master %}<th>Edit</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -127,17 +69,11 @@
                             data-email="{{ client.email or '' }}"
                             data-gstin="{{ client.gstin or '' }}"
                         >
-                            <td>{{ client.id }}</td>
                             <td>{{ client.client_name }}</td>
                             <td>{{ client.client_group }}</td>
-                            <td>{{ client.client_category }}</td>
                             <td>{{ client.crp_of_group }}</td>
+                            <td>{{ client.client_category }}</td>
                             <td>{{ client.reffered_by }}</td>
-                            <td>{{ client.whatapp_group }}</td>
-                            <td>{{ client.phone }}</td>
-                            <td>{{ client.email }}</td>
-                            <td>{{ client.gstin }}</td>
-                            {% if can_edit_client_master %}<td><button type="button" class="client-edit-btn" title="Edit client" aria-label="Edit client">✎</button></td>{% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -147,6 +83,109 @@
     </div>
 
     {% if can_edit_client_master %}
+    <div class="client-modal" id="clientAddModal" aria-hidden="true">
+        <div class="client-modal-panel client-add-panel" role="dialog" aria-modal="true" aria-labelledby="clientAddTitle">
+            <form action="{{ debtor_url('/client-master/add') }}" method="POST" class="client-form" id="clientAddForm">
+                <div class="client-modal-header">
+                    <h2 id="clientAddTitle">Add Client</h2>
+                </div>
+                <div class="client-modal-grid compact-client-grid">
+                    <label class="wide-field">
+                        Client Name
+                        <input type="text" name="client_name" id="addClientName" required autocomplete="off">
+                        <span class="duplicate-client-warning" id="addClientNameWarning" hidden></span>
+                    </label>
+                    <label>
+                        Client Group
+                        <div class="searchable-select" id="clientGroupSelect">
+                            <input type="text" name="client_group" id="clientGroupInput" autocomplete="off">
+                            <div class="searchable-options" id="clientGroupOptions">
+                            {% for group in group_options %}
+                                <button type="button" class="searchable-option" data-value="{{ group }}">{{ group }}</button>
+                            {% endfor %}
+                            </div>
+                        </div>
+                    </label>
+                    <label>
+                        CRP of Group
+                        <div class="searchable-select" id="clientCrpSelect">
+                            <input type="text" name="crp_of_group" id="clientCrpInput" autocomplete="off">
+                            <div class="searchable-options" id="clientCrpOptions">
+                            {% for crp in crp_options %}
+                                <button type="button" class="searchable-option" data-value="{{ crp }}">{{ crp }}</button>
+                            {% endfor %}
+                            </div>
+                        </div>
+                    </label>
+                    <label>
+                        Client Category
+                        <div class="searchable-select" id="clientCategorySelect">
+                            <input type="text" name="client_category" id="clientCategoryInput" autocomplete="off">
+                            <div class="searchable-options" id="clientCategoryOptions">
+                                <button type="button" class="searchable-option" data-value="Private">Private</button>
+                                <button type="button" class="searchable-option" data-value="Government">Government</button>
+                                <button type="button" class="searchable-option" data-value="Bank">Bank</button>
+                            </div>
+                        </div>
+                    </label>
+                    <label>
+                        Referred By
+                        <input type="text" name="reffered_by" id="clientReferredInput">
+                    </label>
+                    <label>
+                        WhatsApp Group
+                        <input type="text" name="whatapp_group">
+                    </label>
+                    <label>
+                        Phone
+                        <input type="text" name="phone">
+                    </label>
+                    <label>
+                        Email
+                        <input type="email" name="email">
+                    </label>
+                    <label>
+                        GSTIN
+                        <input type="text" name="gstin">
+                    </label>
+                </div>
+                <div class="client-modal-actions">
+                    <button type="button" class="secondary-btn" id="clientAddCancel">Cancel</button>
+                    <button type="submit" class="secondary-btn primary-btn" id="addClientSubmit">Save Client</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="client-modal choice-modal" id="clientChoiceModal" aria-hidden="true">
+        <div class="client-choice-panel" role="dialog" aria-modal="true" aria-labelledby="clientChoiceTitle">
+            <div class="client-modal-header">
+                <h2 id="clientChoiceTitle">Client Record</h2>
+                <button type="button" class="client-modal-close" id="clientChoiceClose" aria-label="Close">x</button>
+            </div>
+            <div class="client-choice-body">
+                <p id="clientChoiceName"></p>
+                <div class="client-choice-actions">
+                    <button type="button" class="secondary-btn" id="clientChoiceView">View</button>
+                    <button type="button" class="secondary-btn primary-btn" id="clientChoiceEdit">Edit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="client-modal" id="clientViewModal" aria-hidden="true">
+        <div class="client-modal-panel client-view-panel" role="dialog" aria-modal="true" aria-labelledby="clientViewTitle">
+            <div class="client-modal-header">
+                <h2 id="clientViewTitle">View Client</h2>
+                <button type="button" class="client-modal-close" id="clientViewClose" aria-label="Close">x</button>
+            </div>
+            <dl class="client-view-grid" id="clientViewGrid"></dl>
+            <div class="client-modal-actions">
+                <button type="button" class="secondary-btn primary-btn" id="clientViewOk">OK</button>
+            </div>
+        </div>
+    </div>
+
     <div class="client-modal" id="clientEditModal" aria-hidden="true">
         <div class="client-modal-panel" role="dialog" aria-modal="true" aria-labelledby="clientEditTitle">
             <form action="{{ debtor_url('/client-master/update') }}" method="POST" id="clientEditForm">
@@ -174,16 +213,25 @@
                     </label>
                     <label>
                         Client Category
-                        <select name="client_category" id="editClientCategory">
-                            <option value="">Select Category</option>
-                            <option value="Private">Private</option>
-                            <option value="Government">Government</option>
-                            <option value="Bank">Bank</option>
-                        </select>
+                        <div class="searchable-select" id="editClientCategorySelect">
+                            <input type="text" name="client_category" id="editClientCategory" autocomplete="off">
+                            <div class="searchable-options" id="editClientCategoryOptions">
+                                <button type="button" class="searchable-option" data-value="Private">Private</button>
+                                <button type="button" class="searchable-option" data-value="Government">Government</button>
+                                <button type="button" class="searchable-option" data-value="Bank">Bank</button>
+                            </div>
+                        </div>
                     </label>
                     <label>
                         CRP of Group
-                        <input type="text" name="crp_of_group" id="editCrpOfGroup" list="crpOptions">
+                        <div class="searchable-select" id="editCrpSelect">
+                            <input type="text" name="crp_of_group" id="editCrpOfGroup" autocomplete="off">
+                            <div class="searchable-options" id="editCrpOptions">
+                            {% for crp in crp_options %}
+                                <button type="button" class="searchable-option" data-value="{{ crp }}">{{ crp }}</button>
+                            {% endfor %}
+                            </div>
+                        </div>
                     </label>
                     <label>
                         Referred By

@@ -224,7 +224,7 @@ body.dashboard-page {
 }
 
 .top-ageing-panel canvas {
-    max-height: 110px;
+    max-height: 165px;
 }
 
 .firm-summary-card,
@@ -270,7 +270,7 @@ body.dashboard-page {
 
 .panel {
     min-width: 0;
-    padding: 12px;
+    padding: 15px;
 }
 
 .panel-wide {
