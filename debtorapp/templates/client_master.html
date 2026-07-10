@@ -97,13 +97,16 @@
                     </label>
                     <label>
                         Client Group
-                        <div class="searchable-select" id="clientGroupSelect">
-                            <input type="text" name="client_group" id="clientGroupInput" autocomplete="off">
-                            <div class="searchable-options" id="clientGroupOptions">
-                            {% for group in group_options %}
-                                <button type="button" class="searchable-option" data-value="{{ group }}">{{ group }}</button>
-                            {% endfor %}
+                        <div class="group-input-wrap">
+                            <div class="searchable-select" id="clientGroupSelect">
+                                <input type="text" name="client_group" id="clientGroupInput" autocomplete="off">
+                                <div class="searchable-options" id="clientGroupOptions">
+                                {% for group in group_options %}
+                                    <button type="button" class="searchable-option" data-value="{{ group }}">{{ group }}</button>
+                                {% endfor %}
+                                </div>
                             </div>
+                            <button type="button" class="group-plus-btn" data-group-source="add" title="Create client group" aria-label="Create client group">+</button>
                         </div>
                     </label>
                     <label>
@@ -173,6 +176,44 @@
         </div>
     </div>
 
+    <div class="client-modal" id="quickGroupModal" aria-hidden="true">
+        <div class="client-modal-panel quick-group-panel" role="dialog" aria-modal="true" aria-labelledby="quickGroupTitle">
+            <form action="{{ debtor_url('/client-master/group/add') }}" method="POST" id="quickGroupForm">
+                <div class="client-modal-header">
+                    <h2 id="quickGroupTitle">Create Client Group</h2>
+                    <button type="button" class="client-modal-close" id="quickGroupClose" aria-label="Close">x</button>
+                </div>
+                <input type="hidden" name="return_modal" id="quickGroupReturnModal" value="add">
+                <input type="hidden" name="return_client_id" id="quickGroupReturnClientId" value="">
+                <div class="quick-group-grid">
+                    <label>
+                        Group Name
+                        <input type="text" name="group_name" id="quickGroupName" required autocomplete="off">
+                    </label>
+                    <label>
+                        CRP Name
+                        <div class="searchable-select" id="quickGroupCrpSelect">
+                            <input type="text" name="crp_name" id="quickGroupCrp" autocomplete="off">
+                            <div class="searchable-options" id="quickGroupCrpOptions">
+                            {% for crp in crp_options %}
+                                <button type="button" class="searchable-option" data-value="{{ crp }}">{{ crp }}</button>
+                            {% endfor %}
+                            </div>
+                        </div>
+                    </label>
+                    <label>
+                        Referred By
+                        <input type="text" name="reffered_by" id="quickGroupReferredBy">
+                    </label>
+                    <div class="quick-group-actions">
+                        <button type="button" class="secondary-btn" id="quickGroupCancel">Cancel</button>
+                        <button type="submit" class="secondary-btn primary-btn">Save</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="client-modal" id="clientViewModal" aria-hidden="true">
         <div class="client-modal-panel client-view-panel" role="dialog" aria-modal="true" aria-labelledby="clientViewTitle">
             <div class="client-modal-header">
@@ -202,13 +243,16 @@
                     </label>
                     <label>
                         Client Group
-                        <div class="searchable-select" id="editClientGroupSelect">
-                            <input type="text" name="client_group" id="editClientGroup" autocomplete="off">
-                            <div class="searchable-options" id="editClientGroupOptions">
-                            {% for group in group_options %}
-                                <button type="button" class="searchable-option" data-value="{{ group }}">{{ group }}</button>
-                            {% endfor %}
+                        <div class="group-input-wrap">
+                            <div class="searchable-select" id="editClientGroupSelect">
+                                <input type="text" name="client_group" id="editClientGroup" autocomplete="off">
+                                <div class="searchable-options" id="editClientGroupOptions">
+                                {% for group in group_options %}
+                                    <button type="button" class="searchable-option" data-value="{{ group }}">{{ group }}</button>
+                                {% endfor %}
+                                </div>
                             </div>
+                            <button type="button" class="group-plus-btn" data-group-source="edit" title="Create client group" aria-label="Create client group">+</button>
                         </div>
                     </label>
                     <label>

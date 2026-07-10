@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='client_master.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='client_group_master.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='client_group_master.css') }}?v=group-actions-20260710">
 </head>
 <body>
     {% set active_page = 'client_group_master' %}
@@ -43,7 +43,15 @@
                 {% if can_edit_client_group_master %}
                 <form action="{{ debtor_url('/client-group-master/add') }}" method="POST" id="groupAddForm"></form>
                 {% endif %}
-                <table id="clientTable">
+                <table id="clientTable" class="group-master-table">
+                    <colgroup>
+                        <col class="group-col-id">
+                        <col class="group-col-name">
+                        <col class="group-col-crp">
+                        <col class="group-col-referred">
+                        <col class="group-col-clients">
+                        {% if can_edit_client_group_master %}<col class="group-col-action">{% endif %}
+                    </colgroup>
                     <thead>
                         <tr>
                             <th>ID</th>

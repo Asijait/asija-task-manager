@@ -13,11 +13,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const addModal = document.getElementById('clientAddModal');
     const addCloseButton = document.getElementById('clientAddClose');
     const addCancelButton = document.getElementById('clientAddCancel');
+    const quickGroupModal = document.getElementById('quickGroupModal');
+    const quickGroupClose = document.getElementById('quickGroupClose');
+    const quickGroupCancel = document.getElementById('quickGroupCancel');
+    const quickGroupName = document.getElementById('quickGroupName');
+    const quickGroupReturnModal = document.getElementById('quickGroupReturnModal');
+    const quickGroupReturnClientId = document.getElementById('quickGroupReturnClientId');
+    const quickGroupCrpSelect = document.getElementById('quickGroupCrpSelect');
+    const quickGroupCrp = document.getElementById('quickGroupCrp');
+    const quickGroupCrpOptions = document.getElementById('quickGroupCrpOptions');
+    let quickGroupSource = 'add';
+
+    function syncBodyScrollLock() {
+        const hasOpenModal = Boolean(document.querySelector('.client-modal.is-open'));
+        document.body.classList.toggle('modal-scroll-locked', hasOpenModal);
+    }
 
     function openClientAddModal() {
         if (!addModal) return;
         addModal.classList.add('is-open');
         addModal.setAttribute('aria-hidden', 'false');
+        syncBodyScrollLock();
         const firstInput = document.getElementById('addClientName') || addModal.querySelector('input, select, button');
         if (firstInput) firstInput.focus();
     }
@@ -26,6 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!addModal) return;
         addModal.classList.remove('is-open');
         addModal.setAttribute('aria-hidden', 'true');
+        syncBodyScrollLock();
     }
 
     if (showFormButton) {
@@ -39,6 +56,47 @@ document.addEventListener('DOMContentLoaded', function() {
     if (addModal) {
         addModal.addEventListener('click', event => {
             if (event.target === addModal) closeClientAddModal();
+        });
+    }
+
+    function closeQuickGroupModal() {
+        if (!quickGroupModal) return;
+        quickGroupModal.classList.remove('is-open');
+        quickGroupModal.setAttribute('aria-hidden', 'true');
+        syncBodyScrollLock();
+    }
+
+    function openQuickGroupModal(source) {
+        if (!quickGroupModal) return;
+        quickGroupSource = source || 'add';
+        const sourceInput = quickGroupSource === 'edit'
+            ? document.getElementById('editClientGroup')
+            : document.getElementById('clientGroupInput');
+        if (quickGroupReturnModal) quickGroupReturnModal.value = quickGroupSource;
+        if (quickGroupReturnClientId) {
+            quickGroupReturnClientId.value = quickGroupSource === 'edit'
+                ? (document.getElementById('editClientId')?.value || '')
+                : '';
+        }
+        if (quickGroupName && sourceInput && sourceInput.value.trim()) {
+            quickGroupName.value = sourceInput.value.trim();
+        }
+        quickGroupModal.classList.add('is-open');
+        quickGroupModal.setAttribute('aria-hidden', 'false');
+        syncBodyScrollLock();
+        quickGroupName?.focus();
+    }
+
+    document.querySelectorAll('.group-plus-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            openQuickGroupModal(button.dataset.groupSource || 'add');
+        });
+    });
+    if (quickGroupClose) quickGroupClose.addEventListener('click', closeQuickGroupModal);
+    if (quickGroupCancel) quickGroupCancel.addEventListener('click', closeQuickGroupModal);
+    if (quickGroupModal) {
+        quickGroupModal.addEventListener('click', event => {
+            if (event.target === quickGroupModal) closeQuickGroupModal();
         });
     }
 
@@ -199,6 +257,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     setupSearchableSelect(crpSelect, crpInput, crpOptions);
     setupSearchableSelect(categorySelect, categoryInput, categoryOptions);
+    setupSearchableSelect(quickGroupCrpSelect, quickGroupCrp, quickGroupCrpOptions);
 
     if (groupInput) {
         groupInput.addEventListener('input', () => {
@@ -244,18 +303,21 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('editClientName')?.dispatchEvent(new Event('blur'));
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
+        syncBodyScrollLock();
     }
 
     function closeModal() {
         if (!modal) return;
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
+        syncBodyScrollLock();
     }
 
     function closeChoiceModal() {
         if (!choiceModal) return;
         choiceModal.classList.remove('is-open');
         choiceModal.setAttribute('aria-hidden', 'true');
+        syncBodyScrollLock();
     }
 
     function openChoiceModal(row) {
@@ -264,6 +326,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (choiceName) choiceName.textContent = row.dataset.clientName || 'Selected client';
         choiceModal.classList.add('is-open');
         choiceModal.setAttribute('aria-hidden', 'false');
+        syncBodyScrollLock();
         choiceView?.focus();
     }
 
@@ -271,6 +334,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!viewModal) return;
         viewModal.classList.remove('is-open');
         viewModal.setAttribute('aria-hidden', 'true');
+        syncBodyScrollLock();
     }
 
     function openViewModal(row) {
@@ -299,6 +363,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         viewModal.classList.add('is-open');
         viewModal.setAttribute('aria-hidden', 'false');
+        syncBodyScrollLock();
         viewOk?.focus();
     }
 
@@ -392,6 +457,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', event => {
         if (event.key !== 'Escape') return;
         closeClientAddModal();
+        closeQuickGroupModal();
         closeChoiceModal();
         closeViewModal();
         closeModal();
@@ -399,6 +465,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const clientTable = document.getElementById('clientTable');
     if (!clientTable) return;
+
+    const returnParams = new URLSearchParams(window.location.search);
+    const createdGroupName = returnParams.get('created_group') || '';
+    const returnModal = returnParams.get('client_modal') || '';
+    const returnClientId = returnParams.get('client_id') || '';
+    if (createdGroupName) {
+        if (returnModal === 'edit' && modal && returnClientId) {
+            const escapedClientId = window.CSS && CSS.escape
+                ? CSS.escape(returnClientId)
+                : returnClientId.replace(/"/g, '\\"');
+            const editRow = clientTable.querySelector(`tbody tr[data-client-id="${escapedClientId}"]`);
+            if (editRow) openModal(editRow);
+            setValue('editClientGroup', createdGroupName);
+            syncParentFieldsFromGroup(
+                document.getElementById('editClientGroup'),
+                document.getElementById('editCrpOfGroup'),
+                document.getElementById('editRefferedBy')
+            );
+        } else {
+            openClientAddModal();
+            if (groupInput) {
+                groupInput.value = createdGroupName;
+                syncParentFieldsFromGroup(groupInput, crpInput, referredInput);
+            }
+        }
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
 
     const clientRows = Array.from(clientTable.querySelectorAll('tbody tr'));
     const clientNameIndex = new Map();

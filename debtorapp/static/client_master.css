@@ -338,6 +338,10 @@ td input[form^="firmUpdate"] {
     display: flex;
 }
 
+body.modal-scroll-locked {
+    overflow: hidden;
+}
+
 .client-modal-panel {
     width: min(780px, 96vw);
     max-height: 92vh;
@@ -417,6 +421,75 @@ td input[form^="firmUpdate"] {
     grid-column: 1 / -1;
 }
 
+.group-input-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 30px;
+    gap: 6px;
+    align-items: start;
+}
+
+.group-plus-btn {
+    width: 30px;
+    height: 34px;
+    border: 1px solid #174a73;
+    border-radius: 4px;
+    background: #174a73;
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.group-plus-btn:hover {
+    background: #2c3e50;
+}
+
+.quick-group-panel {
+    width: min(860px, 96vw);
+    min-height: 0;
+    overflow: visible;
+}
+
+.quick-group-panel .searchable-options {
+    max-height: 300px;
+    z-index: 420;
+}
+
+.quick-group-grid {
+    display: grid;
+    grid-template-columns: minmax(190px, 1.25fr) minmax(170px, 1fr) minmax(170px, 1fr) auto;
+    gap: 10px;
+    align-items: end;
+    padding: 14px 16px 16px;
+}
+
+.quick-group-grid label {
+    display: grid;
+    gap: 5px;
+    color: #2c3e50;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.quick-group-grid input {
+    width: 100%;
+    padding: 8px 9px;
+    border: 1px solid #bdc3c7;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 13px;
+}
+
+.quick-group-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+    padding-bottom: 1px;
+}
+
 .choice-modal {
     z-index: 320;
 }
@@ -483,6 +556,14 @@ td input[form^="firmUpdate"] {
 @media (max-width: 720px) {
     .client-modal-grid {
         grid-template-columns: 1fr;
+    }
+
+    .quick-group-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .quick-group-actions {
+        justify-content: flex-end;
     }
 
     .client-layout,

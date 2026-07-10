@@ -106,6 +106,55 @@
     margin: 0;
 }
 
+.group-master-card .group-master-table {
+    width: 100%;
+    min-width: 0;
+    table-layout: auto !important;
+}
+
+.group-master-card #clientTable th:nth-child(n+6),
+.group-master-card #clientTable td:nth-child(n+6) {
+    display: table-cell !important;
+}
+
+.group-master-card .group-master-table th,
+.group-master-card .group-master-table td {
+    white-space: nowrap;
+}
+
+.group-master-card .group-master-table .group-col-id {
+    width: 1%;
+}
+
+.group-master-card .group-master-table .group-col-name {
+    width: auto;
+}
+
+.group-master-card .group-master-table .group-col-crp,
+.group-master-card .group-master-table .group-col-referred {
+    width: 22%;
+}
+
+.group-master-card .group-master-table .group-col-clients {
+    width: 70px;
+}
+
+.group-master-card .group-master-table .group-col-action {
+    width: 116px;
+}
+
+.group-master-card .group-master-table th:first-child,
+.group-master-card .group-master-table td:first-child {
+    width: 1%;
+    min-width: 34px;
+}
+
+.group-master-card .group-master-table th:last-child,
+.group-master-card .group-master-table td:last-child {
+    width: 116px;
+    min-width: 116px;
+}
+
 .group-master-table-scroll thead th {
     position: sticky;
     top: 0;

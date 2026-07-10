@@ -710,7 +710,7 @@ def get_debtor_access_key_for_path(path):
         return ''
     if path in ('/client-master', '/download/client-list'):
         return 'client_master_view'
-    if path in ('/client-master/add', '/client-master/update', '/client-master/upload', '/download/client-template'):
+    if path in ('/client-master/add', '/client-master/update', '/client-master/upload', '/client-master/group/add', '/download/client-template'):
         return 'client_master_edit'
     if path == '/client-group-master' or path == '/download/client-group-master-excel' or (path.startswith('/client-group-master/') and (path.endswith('/clients') or path.endswith('/clients-data') or path.endswith('/clients-excel'))):
         return 'client_group_master_view'
@@ -2248,7 +2248,7 @@ def find_sales_register_header(df, source_filename=''):
 
 def process_data_file(data_file, manual_firm_name='', source_filename=''):
     """Parses a file and appends rows to the database."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = connect_debtor_db()
     cursor = conn.cursor()
     batch_id = datetime.now().strftime('%Y%m%d%H%M%S%f')
     try:
@@ -2847,7 +2847,7 @@ def report():
     )
 
 def build_dashboard_context():
-    conn = sqlite3.connect(DB_PATH)
+    conn = connect_debtor_db()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     rows = get_report_rows(cursor)
@@ -2953,7 +2953,7 @@ def dashboard():
     return render_template('dashboard.html', **build_dashboard_context())
 
 def overdue_report_rows():
-    conn = sqlite3.connect(DB_PATH)
+    conn = connect_debtor_db()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     rows = get_report_rows(cursor)
@@ -4928,7 +4928,7 @@ def update_report_row():
         flash('Unable to update row. Please check the amount.')
         return redirect(url_for('report'))
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = connect_debtor_db()
     cursor = conn.cursor()
 
     duplicate_ref = find_active_billing_ref(cursor, ref_no, exclude_id=row_id)
@@ -5566,7 +5566,7 @@ def add_client_group():
         flash('Group name is required.')
         return redirect(url_for('client_group_master_view'))
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = connect_debtor_db()
     cursor = conn.cursor()
     try:
         existing_group = find_master_by_name(cursor, 'client_group_master', 'group_name', group_name)
@@ -5596,6 +5596,53 @@ def add_client_group():
     finally:
         conn.close()
     return redirect(url_for('client_group_master_view'))
+
+@app.route('/client-master/group/add', methods=['POST'])
+def add_client_group_from_client_master():
+    group_name = normalize_master_name(request.form.get('group_name'))
+    crp_name = normalize_master_name(request.form.get('crp_name'))
+    reffered_by = normalize_master_name(request.form.get('reffered_by'))
+    return_modal = request.form.get('return_modal', 'add').strip() or 'add'
+    return_client_id = request.form.get('return_client_id', '').strip()
+
+    if not group_name:
+        flash('Group name is required.')
+        return redirect(url_for('client_master_view'))
+
+    conn = connect_debtor_db()
+    cursor = conn.cursor()
+    try:
+        existing_group = find_master_by_name(cursor, 'client_group_master', 'group_name', group_name)
+        if existing_group:
+            cursor.execute('''
+                UPDATE client_group_master
+                SET crp_name = ?, reffered_by = ?, updated_at = ?
+                WHERE id = ?
+            ''', (
+                crp_name or existing_group.get('crp_name') or '',
+                reffered_by or existing_group.get('reffered_by') or '',
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                existing_group.get('id'),
+            ))
+            flash('Client group already exists. Existing group was updated.')
+        else:
+            cursor.execute('''
+                INSERT INTO client_group_master (group_name, crp_name, reffered_by, updated_at)
+                VALUES (?, ?, ?, ?)
+            ''', (group_name, crp_name, reffered_by, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+            flash('Client group added successfully.')
+        conn.commit()
+    except sqlite3.IntegrityError:
+        flash('Client group already exists.')
+    finally:
+        conn.close()
+
+    return redirect(url_for(
+        'client_master_view',
+        created_group=group_name,
+        client_modal='edit' if return_modal == 'edit' else 'add',
+        client_id=return_client_id,
+    ))
 
 @app.route('/client-group-master/update', methods=['POST'])
 def update_client_group():
