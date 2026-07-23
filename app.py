@@ -42,6 +42,7 @@ PAGE_PERMISSIONS = [
     {'key': 'today_work', 'label': "Today's Work", 'path': '/today-work'},
     {'key': 'daily_debtor_report', 'label': 'Debtor Report', 'path': '/daily-debtor-report'},
     {'key': 'client_analytic', 'label': 'Client Analytic', 'path': '/client-analytic'},
+    {'key': 'work_report', 'label': 'Work Report', 'path': '/work-report'},
     {'key': 'report_section', 'label': 'Report Section', 'path': '/report-section'},
     {'key': 'work_master', 'label': 'Task Master', 'path': '/work-master'},
     {'key': 'pending_approvals', 'label': 'Pending Approvals', 'path': '/pending-approvals'},
@@ -356,9 +357,24 @@ def init_db():
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL
+        password TEXT NOT NULL,
+        alias_name TEXT
     )
     ''')
+    try:
+        c.execute("PRAGMA table_info(users)")
+        user_columns = [col[1] for col in c.fetchall()]
+        if 'alias_name' not in user_columns:
+            c.execute('ALTER TABLE users ADD COLUMN alias_name TEXT')
+        c.execute('SELECT id, email, alias_name FROM users')
+        for user_row in c.fetchall():
+            if not str(user_row['alias_name'] or '').strip():
+                default_alias = str(user_row['email']).split('@', 1)[0]
+                c.execute('UPDATE users SET alias_name = ? WHERE id = ?', (default_alias, user_row['id']))
+        conn.commit()
+    except Exception as e:
+        print(f"Migration note (users.alias_name): {e}")
+        conn.rollback()
     
     # 2. Create assignee_master FIRST (referenced by others)
     c.execute('''
@@ -539,6 +555,18 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id),
         UNIQUE(user_id, permission_key)
+    )
+    ''')
+
+    c.execute('''
+    CREATE TABLE IF NOT EXISTS work_report_visibility (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        viewer_user_id INTEGER NOT NULL,
+        visible_user_id INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(viewer_user_id) REFERENCES users(id),
+        FOREIGN KEY(visible_user_id) REFERENCES users(id),
+        UNIQUE(viewer_user_id, visible_user_id)
     )
     ''')
 
@@ -735,6 +763,51 @@ def get_navigation_context():
         'user_permissions': permissions,
         'can_approve_requests': has_user_permission('approve_requests')
     }
+
+def get_work_report_allottees():
+    """Provide User Account aliases to the mounted Work Report module."""
+    conn = get_db_connection()
+    try:
+        rows = conn.execute('SELECT email, alias_name FROM users ORDER BY email ASC').fetchall()
+        result = []
+        seen = set()
+        for row in rows:
+            email = str(row['email'] or '').strip()
+            fallback = email.split('@', 1)[0]
+            name = str(row['alias_name'] or '').strip() or fallback
+            if name and name.lower() not in seen:
+                result.append({'name': name, 'email': email})
+                seen.add(name.lower())
+        return result
+    finally:
+        conn.close()
+
+def get_work_report_current_user():
+    user_id = session.get('user_id')
+    if not user_id:
+        return None
+    conn = get_db_connection()
+    try:
+        row = conn.execute('SELECT email, alias_name FROM users WHERE id = ?', (user_id,)).fetchone()
+        if not row:
+            return None
+        email = str(row['email'] or '').strip()
+        name = str(row['alias_name'] or '').strip() or email.split('@', 1)[0]
+        visible_rows = conn.execute('''
+            SELECT u.email, u.alias_name
+            FROM work_report_visibility wrv
+            JOIN users u ON u.id = wrv.visible_user_id
+            WHERE wrv.viewer_user_id = ?
+        ''', (user_id,)).fetchall()
+        visible_names = [name]
+        for visible in visible_rows:
+            visible_email = str(visible['email'] or '').strip()
+            visible_name = str(visible['alias_name'] or '').strip() or visible_email.split('@', 1)[0]
+            if visible_name and visible_name.lower() not in {item.lower() for item in visible_names}:
+                visible_names.append(visible_name)
+        return {'id': user_id, 'name': name, 'email': email, 'visible_names': visible_names}
+    finally:
+        conn.close()
 
 def links_url_for(endpoint, **values):
     if endpoint == 'static':
@@ -1194,8 +1267,14 @@ def restore_points():
 def get_users_list():
     """Get list of users for linking with assignees"""
     conn = get_db_connection()
-    users = conn.execute('SELECT id, email FROM users ORDER BY email ASC').fetchall()
+    users = conn.execute('SELECT id, email, alias_name FROM users ORDER BY email ASC').fetchall()
     roles = conn.execute('SELECT user_id, assignee_id, access_level FROM user_roles').fetchall()
+    visibility_rows = conn.execute('''
+        SELECT wrv.viewer_user_id, u.email, u.alias_name
+        FROM work_report_visibility wrv
+        JOIN users u ON u.id = wrv.visible_user_id
+        ORDER BY LOWER(COALESCE(u.alias_name, u.email))
+    ''').fetchall()
     conn.close()
 
     roles_dict = {}
@@ -1205,9 +1284,17 @@ def get_users_list():
             'access_level': role['access_level'] or 'edit'
         })
 
+    visibility_dict = {}
+    for item in visibility_rows:
+        email = str(item['email'] or '').strip()
+        display_name = str(item['alias_name'] or '').strip() or email.split('@', 1)[0]
+        visibility_dict.setdefault(item['viewer_user_id'], []).append(display_name)
+
     return jsonify([{
         'id': user['id'],
         'email': user['email'],
+        'alias_name': user['alias_name'] or user['email'].split('@', 1)[0],
+        'visible_work_report_users': visibility_dict.get(user['id'], []),
         'department_access': roles_dict.get(user['id'], [])
     } for user in users])
 
@@ -1217,17 +1304,22 @@ def get_users_list():
 def create_user_account():
     data = request.json or {}
     email = data.get('email', '').strip().lower()
+    alias_name = data.get('alias_name', '').strip()
     password = data.get('password', '')
     department_access = data.get('department_access', [])
 
     if not email or not password:
         return jsonify({'success': False, 'error': 'Email and password are required'}), 400
+    email_prefix = email.split('@', 1)[0]
+    alias_name = alias_name or email_prefix
+    if email_prefix.lower() not in alias_name.lower():
+        return jsonify({'success': False, 'error': f"Alias must contain '{email_prefix}'"}), 400
 
     conn = get_db_connection()
     try:
         cursor = conn.execute(
-            'INSERT INTO users (email, password) VALUES (?, ?)',
-            (email, generate_password_hash(password))
+            'INSERT INTO users (email, password, alias_name) VALUES (?, ?, ?)',
+            (email, generate_password_hash(password), alias_name)
         )
         user_id = cursor.lastrowid
         save_user_department_access(conn, user_id, department_access)
@@ -1246,11 +1338,16 @@ def create_user_account():
 def update_user_account(user_id):
     data = request.json or {}
     email = data.get('email', '').strip().lower()
+    alias_name = data.get('alias_name', '').strip()
     password = data.get('password', '')
     department_access = data.get('department_access')
 
     if not email:
         return jsonify({'success': False, 'error': 'Email is required'}), 400
+    email_prefix = email.split('@', 1)[0]
+    alias_name = alias_name or email_prefix
+    if email_prefix.lower() not in alias_name.lower():
+        return jsonify({'success': False, 'error': f"Alias must contain '{email_prefix}'"}), 400
 
     conn = get_db_connection()
     try:
@@ -1260,11 +1357,11 @@ def update_user_account(user_id):
 
         if password:
             conn.execute(
-                'UPDATE users SET email = ?, password = ? WHERE id = ?',
-                (email, generate_password_hash(password), user_id)
+                'UPDATE users SET email = ?, password = ?, alias_name = ? WHERE id = ?',
+                (email, generate_password_hash(password), alias_name, user_id)
             )
         else:
-            conn.execute('UPDATE users SET email = ? WHERE id = ?', (email, user_id))
+            conn.execute('UPDATE users SET email = ?, alias_name = ? WHERE id = ?', (email, alias_name, user_id))
         if department_access is not None:
             save_user_department_access(conn, user_id, department_access)
         conn.commit()
@@ -1277,6 +1374,46 @@ def update_user_account(user_id):
         return jsonify({'success': False, 'error': 'User email already exists'}), 400
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/users/bulk-delete', methods=['POST'])
+@login_required
+@permission_required('user_management')
+def bulk_delete_user_accounts():
+    data = request.get_json(silent=True) or {}
+    raw_ids = data.get('user_ids', [])
+    try:
+        user_ids = sorted({int(user_id) for user_id in raw_ids})
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Invalid user selection'}), 400
+    if not user_ids:
+        return jsonify({'success': False, 'error': 'Select at least one user'}), 400
+
+    protected_emails = {email.lower() for email in ADMIN_EMAILS}
+    conn = get_db_connection()
+    try:
+        placeholders = ','.join('?' for _ in user_ids)
+        users = conn.execute(
+            f'SELECT id, email FROM users WHERE id IN ({placeholders})', user_ids
+        ).fetchall()
+        if len(users) != len(user_ids):
+            return jsonify({'success': False, 'error': 'One or more users no longer exist'}), 400
+        protected = [user['email'] for user in users if user['email'].lower() in protected_emails or user['id'] == session.get('user_id')]
+        if protected:
+            return jsonify({'success': False, 'error': 'Admin/current user cannot be bulk deleted'}), 400
+
+        for user_id in user_ids:
+            conn.execute('UPDATE work_master SET assigned_user_id = NULL WHERE assigned_user_id = ?', (user_id,))
+            conn.execute('DELETE FROM user_roles WHERE user_id = ?', (user_id,))
+            conn.execute('DELETE FROM user_permissions WHERE user_id = ?', (user_id,))
+            conn.execute('DELETE FROM work_report_visibility WHERE viewer_user_id = ? OR visible_user_id = ?', (user_id, user_id))
+            conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.commit()
+        return jsonify({'success': True, 'deleted_count': len(user_ids)})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'success': False, 'error': f'No users were deleted: {e}'}), 500
     finally:
         conn.close()
 
@@ -1298,6 +1435,7 @@ def delete_user_account(user_id):
         conn.execute('UPDATE work_master SET assigned_user_id = NULL WHERE assigned_user_id = ?', (user_id,))
         conn.execute('DELETE FROM user_roles WHERE user_id = ?', (user_id,))
         conn.execute('DELETE FROM user_permissions WHERE user_id = ?', (user_id,))
+        conn.execute('DELETE FROM work_report_visibility WHERE viewer_user_id = ? OR visible_user_id = ?', (user_id, user_id))
         conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
         conn.commit()
         return jsonify({'success': True})
@@ -1979,9 +2117,34 @@ def get_deleted_works():
               AND wm.deleted_hidden_at IS NULL
             ORDER BY wm.deleted_at DESC, wm.id DESC
         ''').fetchall()
-        return jsonify([dict(row) for row in rows])
+        records = [{**dict(row), 'source': 'task_master'} for row in rows]
     finally:
         conn.close()
+
+    try:
+        from workreport import app as work_report_module
+        with work_report_module.db() as work_db:
+            work_rows = work_db.execute('''
+                SELECT id, work_name, status, allotted_to, section, target_date,
+                       deleted_by_alias, deleted_at
+                FROM work_items
+                WHERE deleted_at IS NOT NULL
+                ORDER BY deleted_at DESC, id DESC
+            ''').fetchall()
+        for row in work_rows:
+            item = work_report_module.clean_row(row)
+            records.append({
+                **item,
+                'source': 'work_report',
+                'assignee_name': 'Work Report',
+                'assigned_user_email': item.get('allotted_to') or 'Unassigned',
+                'deleted_by_email': item.get('deleted_by_alias') or 'Unknown',
+                'schedule_text': f"Target: {item.get('target_date') or 'No date'} | Status: {item.get('status') or ''}",
+            })
+        records.sort(key=lambda item: str(item.get('deleted_at') or ''), reverse=True)
+    except Exception as exc:
+        print(f'Work Report deleted records unavailable: {exc}')
+    return jsonify(records)
 
 @app.route('/api/deleted-works/<int:work_id>/restore', methods=['POST'])
 @login_required
@@ -2039,6 +2202,35 @@ def hide_deleted_work(work_id):
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
         conn.close()
+
+@app.route('/api/deleted-work-report/<int:work_id>/restore', methods=['POST'])
+@login_required
+@permission_required('deleted_records')
+def restore_deleted_work_report(work_id):
+    from workreport import app as work_report_module
+    with work_report_module.db() as conn:
+        result = conn.execute('''
+            UPDATE work_items
+            SET deleted_at = NULL, deleted_by_alias = NULL, updated_at = NOW()
+            WHERE id = %s AND deleted_at IS NOT NULL
+        ''', [work_id])
+    if not result.rowcount:
+        return jsonify({'success': False, 'error': 'Deleted Work Report record not found'}), 404
+    return jsonify({'success': True})
+
+@app.route('/api/deleted-work-report/<int:work_id>/final-delete', methods=['DELETE'])
+@login_required
+@permission_required('deleted_records')
+def final_delete_work_report(work_id):
+    from workreport import app as work_report_module
+    with work_report_module.db() as conn:
+        result = conn.execute(
+            'DELETE FROM work_items WHERE id = %s AND deleted_at IS NOT NULL',
+            [work_id],
+        )
+    if not result.rowcount:
+        return jsonify({'success': False, 'error': 'Deleted Work Report record not found'}), 404
+    return jsonify({'success': True})
 
 # Assign To Master API
 @app.route('/api/assignees', methods=['GET'])
@@ -2127,9 +2319,10 @@ def delete_assignee(a_id):
 def get_user_roles():
     """Get users and their assigned roles"""
     conn = get_db_connection()
-    users = conn.execute('SELECT id, email FROM users').fetchall()
+    users = conn.execute('SELECT id, email, alias_name FROM users').fetchall()
     roles = conn.execute('SELECT user_id, assignee_id, access_level FROM user_roles').fetchall()
     permissions = conn.execute('SELECT user_id, permission_key FROM user_permissions').fetchall()
+    visibility = conn.execute('SELECT viewer_user_id, visible_user_id FROM work_report_visibility').fetchall()
     conn.close()
     
     roles_dict = {}
@@ -2146,13 +2339,19 @@ def get_user_roles():
         if p['user_id'] not in permissions_dict:
             permissions_dict[p['user_id']] = []
         permissions_dict[p['user_id']].append(p['permission_key'])
+
+    visibility_dict = {}
+    for item in visibility:
+        visibility_dict.setdefault(item['viewer_user_id'], []).append(item['visible_user_id'])
         
     return jsonify([{
         'id': u['id'],
         'email': u['email'],
+        'alias_name': u['alias_name'] or u['email'].split('@', 1)[0],
         'assigned_ids': [role['assignee_id'] for role in roles_dict.get(u['id'], [])],
         'department_access': roles_dict.get(u['id'], []),
-        'permissions': permissions_dict.get(u['id'], [])
+        'permissions': permissions_dict.get(u['id'], []),
+        'work_report_visible_user_ids': visibility_dict.get(u['id'], [])
     } for u in users])
 
 @app.route('/api/user-roles', methods=['POST'])
@@ -2165,6 +2364,7 @@ def save_user_roles():
     assignee_ids = data.get('assignee_ids', [])
     department_access = data.get('department_access', [])
     permissions = data.get('permissions', [])
+    work_report_visible_user_ids = data.get('work_report_visible_user_ids', [])
     allowed_permissions = {p['key'] for p in PAGE_PERMISSIONS + SPECIAL_PERMISSIONS}
     
     conn = get_db_connection()
@@ -2192,6 +2392,14 @@ def save_user_roles():
                 conn.execute(
                     'INSERT INTO user_permissions (user_id, permission_key) VALUES (?, ?)',
                     (user_id, permission_key)
+                )
+        conn.execute('DELETE FROM work_report_visibility WHERE viewer_user_id = ?', (user_id,))
+        valid_user_ids = {row['id'] for row in conn.execute('SELECT id FROM users').fetchall()}
+        for visible_user_id in {int(value) for value in work_report_visible_user_ids}:
+            if visible_user_id in valid_user_ids and visible_user_id != int(user_id):
+                conn.execute(
+                    'INSERT INTO work_report_visibility (viewer_user_id, visible_user_id) VALUES (?, ?)',
+                    (user_id, visible_user_id)
                 )
         conn.commit()
         return jsonify({'success': True})
@@ -2810,8 +3018,37 @@ def mount_client_analytic():
         '/client-analytic': client_app,
     })
 
+def mount_work_report():
+    from workreport import app as work_report_module
+
+    work_report_app = work_report_module.app
+    work_report_app.secret_key = app.secret_key
+    work_report_app.config['ALLOTTEE_PROVIDER'] = get_work_report_allottees
+    work_report_app.config['CURRENT_USER_PROVIDER'] = get_work_report_current_user
+    try:
+        work_report_module.ensure_database()
+        work_report_module.init_db()
+        work_report_module.import_default_data_if_empty()
+    except Exception as exc:
+        print(f"Work Report database init skipped: {exc}")
+
+    @work_report_app.before_request
+    def require_work_report_access():
+        if request.endpoint == 'static':
+            return None
+        if not session.get('user_id'):
+            return redirect('/login')
+        if not has_user_permission('work_report'):
+            return redirect('/')
+        return None
+
+    app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
+        '/work-report': work_report_app,
+    })
+
 mount_daily_debtor_report()
 mount_client_analytic()
+mount_work_report()
 
 if __name__ == '__main__':
     try:

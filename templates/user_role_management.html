@@ -163,6 +163,7 @@
             }
 
             const permissionSet = new Set(user.permissions || []);
+            const workReportVisibleSet = new Set(user.work_report_visible_user_ids || []);
             const accessMap = {};
             (user.department_access || []).forEach(item => {
                 accessMap[item.assignee_id] = item.access_level || 'edit';
@@ -173,6 +174,7 @@
                 <div class="tabs">
                     <button type="button" class="tab-btn active" data-tab="department" onclick="switchTab('department')"><span class="tab-icon">◆</span>Department / Person</button>
                     <button type="button" class="tab-btn" data-tab="pages" onclick="switchTab('pages')"><span class="tab-icon">▤</span>Page Access</button>
+                    <button type="button" class="tab-btn" data-tab="work-report" onclick="switchTab('work-report')"><span class="tab-icon">&#128065;</span>Work Report Visibility</button>
                     <button type="button" class="tab-btn" data-tab="approval" onclick="switchTab('approval')"><span class="tab-icon">₹</span>Approval</button>
                 </div>
 
@@ -217,6 +219,20 @@
                             <label class="check-option">
                                 <input type="checkbox" data-kind="permission" value="${p.key}" ${permissionSet.has(p.key) ? 'checked' : ''}>
                                 <span>${escapeHtml(p.label)}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </section>
+                </div>
+
+                <div id="tab-work-report" class="tab-panel">
+                <section class="power-section">
+                    <div class="section-title">Can also see Work Report of</div>
+                    <div class="section-content checkbox-grid">
+                        ${allUsers.filter(item => item.id !== user.id).map(item => `
+                            <label class="check-option">
+                                <input type="checkbox" data-kind="work-report-visible" value="${item.id}" ${workReportVisibleSet.has(item.id) ? 'checked' : ''}>
+                                <span>${escapeHtml(item.alias_name || item.email.split('@')[0])} <small>(${escapeHtml(item.email)})</small></span>
                             </label>
                         `).join('')}
                     </div>
@@ -282,6 +298,7 @@
                     access_level: input.value
                 }));
             const permissions = Array.from(document.querySelectorAll('input[data-kind="permission"]:checked')).map(cb => cb.value);
+            const workReportVisibleUserIds = Array.from(document.querySelectorAll('input[data-kind="work-report-visible"]:checked')).map(cb => Number(cb.value));
 
             try {
                 saveBtn.disabled = true;
@@ -290,7 +307,7 @@
                 const response = await fetch('/api/user-roles', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, department_access: departmentAccess, permissions })
+                    body: JSON.stringify({ user_id: userId, department_access: departmentAccess, permissions, work_report_visible_user_ids: workReportVisibleUserIds })
                 });
                 const result = await response.json();
                 if (!response.ok || !result.success) throw new Error(result.error || 'Failed to save powers');
@@ -299,6 +316,7 @@
                 user.department_access = departmentAccess;
                 user.assigned_ids = departmentAccess.map(item => item.assignee_id);
                 user.permissions = permissions;
+                user.work_report_visible_user_ids = workReportVisibleUserIds;
                 status.textContent = 'Saved';
                 if (typeof showNotification === 'function') showNotification('User powers updated', 'success');
             } catch (err) {

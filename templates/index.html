@@ -370,13 +370,8 @@
             <div class="panel-title">Choose Workspace</div>
 
             {% set is_arif = session.get('user_email', '')|lower == 'arif.siddiqui@asija.in' %}
-            {% if 'today_work' in user_permissions or 'daily_debtor_report' in user_permissions or 'client_analytic' in user_permissions %}
+            {% if 'daily_debtor_report' in user_permissions or 'client_analytic' in user_permissions or 'work_report' in user_permissions %}
             <div class="workspace-actions">
-                {% if 'today_work' in user_permissions %}
-                <a href="/today-work" class="workspace-btn">
-                    <span>Today's Work<small>Daily task tracking and work status</small></span>
-                </a>
-                {% endif %}
                 {% if 'daily_debtor_report' in user_permissions %}
                 <a href="/daily-debtor-report" class="workspace-btn">
                     <span>Debtor Status<small>Reports, receipts, and debtor register</small></span>
@@ -385,6 +380,11 @@
                 {% if 'client_analytic' in user_permissions %}
                 <a href="/client-analytic" class="workspace-btn">
                     <span>Client Analytic<small>Client-wise summaries and analytics workspace</small></span>
+                </a>
+                {% endif %}
+                {% if 'work_report' in user_permissions %}
+                <a href="/work-report/" class="workspace-btn">
+                    <span>Work Report<small>Work status, reminders, and due-date tracking</small></span>
                 </a>
                 {% endif %}
             </div>

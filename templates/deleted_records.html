@@ -43,7 +43,7 @@
     <main class="deleted-page">
         <div class="deleted-card">
             <h1>Deleted Records</h1>
-            <p class="muted">Deleted Task Master records are hidden from normal work screens but kept in the database.</p>
+            <p class="muted">Deleted Task Master and Work Report records are kept here for recall or final removal.</p>
             <div id="emptyState" class="empty-state" style="display:none;">No deleted records found.</div>
             <div id="tableWrap" class="table-wrap" style="display:none;">
                 <table class="deleted-table">
@@ -51,6 +51,7 @@
                         <tr>
                             <th>#</th>
                             <th>Task Name</th>
+                            <th>Source</th>
                             <th>Schedule</th>
                             <th>Department</th>
                             <th>User</th>
@@ -71,7 +72,7 @@
             const tableWrap = document.getElementById('tableWrap');
             const emptyState = document.getElementById('emptyState');
             const tbody = document.getElementById('deletedBody');
-            tbody.innerHTML = '<tr><td colspan="8">Loading...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9">Loading...</td></tr>';
             tableWrap.style.display = 'block';
             emptyState.style.display = 'none';
 
@@ -91,6 +92,7 @@
                             <span class="task-name">${escapeHtml(record.work_name || '')}</span>
                             <span class="subtext">Task ID: ${record.id}</span>
                         </td>
+                        <td>${record.source === 'work_report' ? 'Work Report' : 'Task Master'}</td>
                         <td>${escapeHtml(formatSchedule(record))}</td>
                         <td>${escapeHtml(record.assignee_name || 'N/A')}</td>
                         <td>${escapeHtml(record.assigned_user_email || 'Whole Department')}</td>
@@ -101,26 +103,28 @@
                         <td>${escapeHtml(record.deleted_at || '')}</td>
                         <td>
                             <div class="deleted-actions">
-                                <button class="action-btn restore-btn" onclick="restoreRecord(${record.id})">Restore</button>
-                                <button class="action-btn hide-btn" onclick="hideRecord(${record.id})">Permanent Delete</button>
+                                <button class="action-btn restore-btn" onclick="restoreRecord(${record.id}, '${record.source}')">${record.source === 'work_report' ? 'Recall' : 'Restore'}</button>
+                                <button class="action-btn hide-btn" onclick="hideRecord(${record.id}, '${record.source}')">${record.source === 'work_report' ? 'Final Delete' : 'Permanent Delete'}</button>
                             </div>
                         </td>
                     </tr>
                 `).join('');
             } catch (error) {
                 console.error(error);
-                tbody.innerHTML = '<tr><td colspan="8" style="color:#dc2626;">Unable to load deleted records.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="color:#dc2626;">Unable to load deleted records.</td></tr>';
             }
         }
 
         function formatSchedule(record) {
+            if (record.source === 'work_report') return record.schedule_text || '';
             const frequency = record.work_tat ? capitalize(record.work_tat) : '';
             return record.work_date ? `${frequency} from ${record.work_date}` : frequency;
         }
 
-        async function restoreRecord(workId) {
-            if (!confirm('Restore this task back to Task Master and normal work screens?')) return;
-            const response = await fetch(`/api/deleted-works/${workId}/restore`, { method: 'POST' });
+        async function restoreRecord(workId, source) {
+            if (!confirm(source === 'work_report' ? 'Recall this work back to Work Report?' : 'Restore this task back to Task Master and normal work screens?')) return;
+            const url = source === 'work_report' ? `/api/deleted-work-report/${workId}/restore` : `/api/deleted-works/${workId}/restore`;
+            const response = await fetch(url, { method: 'POST' });
             const result = await response.json();
             if (response.ok && result.success) {
                 loadDeletedRecords();
@@ -129,9 +133,13 @@
             }
         }
 
-        async function hideRecord(workId) {
-            if (!confirm('Permanent Delete will hide this record from this deleted-records page. It will still remain in the database. Continue?')) return;
-            const response = await fetch(`/api/deleted-works/${workId}/hide`, { method: 'POST' });
+        async function hideRecord(workId, source) {
+            const warning = source === 'work_report'
+                ? 'Final Delete will permanently remove this Work Report record. This cannot be undone. Continue?'
+                : 'Permanent Delete will hide this record from this deleted-records page. It will still remain in the database. Continue?';
+            if (!confirm(warning)) return;
+            const url = source === 'work_report' ? `/api/deleted-work-report/${workId}/final-delete` : `/api/deleted-works/${workId}/hide`;
+            const response = await fetch(url, { method: source === 'work_report' ? 'DELETE' : 'POST' });
             const result = await response.json();
             if (response.ok && result.success) {
                 loadDeletedRecords();
