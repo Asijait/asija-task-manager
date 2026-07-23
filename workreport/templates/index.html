@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WorkDesk — Status & Reminders</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/overrides.css') }}">
+</head>
+<body>
+  <nav class="top-nav" aria-label="Work reports">
+    <span class="top-nav-brand">WorkDesk</span>
+    <a class="nav-item top-nav-home" href="/" title="Back to Asija main page">Main Page</a>
+    <div class="top-nav-links">
+      <button class="nav-item active" data-scope="all">All Work</button>
+      <button class="nav-item" data-scope="pending">Pending</button>
+      <button class="nav-item" data-scope="overdue">Overdue <b id="nav-overdue">0</b></button>
+      <button class="nav-item" data-scope="today">Today's Work</button>
+      <button class="nav-item" data-scope="start_today">Work Start Today</button>
+      <button class="nav-item" data-scope="upcoming">Next 7 Days</button>
+    </div>
+    <button class="nav-item top-nav-report" type="button" onclick="openTodaysReport()">Today's Work Report</button>
+    <button class="nav-item top-nav-request" data-scope="new_requests">New Task Request <b id="nav-new-requests">0</b></button>
+    <span id="logged-in-user" class="top-nav-user">User</span>
+  </nav>
+
+  <main>
+    <section class="workspace">
+      <div class="toolbar">
+        <div class="report-heading"><h2 id="list-title">All work</h2><span>-</span><p class="muted">(<span id="result-count">0</span> records <span id="summary-line"></span>)</p></div>
+        <div class="tools"><button id="add-btn" class="primary">＋ Add new work</button><label class="search">⌕ <input id="search" placeholder="Search work, person, remark…"></label>
+          <select id="status-filter"><option value="all">All status</option><option>Not Started</option><option>WIP</option><option>On Hold</option><option>Done</option></select>
+          <select id="team-filter" title="Team Name"><option value="">My Work</option></select>
+          <button id="clear-filters-btn" class="filter-clear-btn" title="Column filters clear karein">Clear Filters</button>
+          <button id="export-btn" class="excel-btn" title="Current report Excel me export karein">XLS</button>
+        </div>
+      </div>
+      <div id="error" class="error hidden"></div>
+      <div class="table-scroll">
+        <table id="work-table">
+          <thead><tr>
+            <th data-key="excel_sl">SL</th><th data-key="work_name">Work Name</th><th data-key="allotted_to">Allotted To</th><th data-key="status">Status</th><th data-key="work_inflow">Work Inflow</th>
+            <th data-key="next_scheduled">Next Scheduled</th><th data-key="reschedule_scheduled">Rescheduled</th><th data-key="target_date">Target Date</th>
+            <th data-key="actual_completion_date">Completion Date</th><th data-key="remark">Remark</th><th data-key="section">Work Allotted By</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="work-list"><tr><td colspan="12" class="loading">Loading work…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="work-dialog">
+    <form id="work-form">
+      <div class="dialog-head"><div><p class="eyebrow">WORK DETAILS</p><h2 id="dialog-title">Add new work</h2></div><button type="button" class="close" id="close-dialog">×</button></div>
+      <input type="hidden" id="item-id">
+      <label class="full">Work name *<input id="work-name" required maxlength="500" placeholder="What needs to be done?"></label>
+      <div class="form-grid">
+        <label>Status<select id="item-status"><option>Not Started</option><option>WIP</option><option>On Hold</option><option>Done</option></select></label>
+        <label>Allotted to<input id="allotted-to" list="allottee-options" placeholder="Select user alias" autocomplete="off"><datalist id="allottee-options"></datalist><small id="allottee-load" class="allottee-load"></small></label>
+        <label>Work Allotted By<input id="section" placeholder="Logged-in user" readonly></label>
+        <label>Work inflow<input id="work-inflow" type="date"></label>
+        <label>Next scheduled<input id="next-scheduled" type="date"></label>
+        <label>Rescheduled<input id="reschedule-scheduled" type="date"></label>
+        <label>Target date<input id="target-date" type="date"></label>
+        <label>Completion date<input id="actual-completion-date" type="date"></label>
+        <label class="full">Remark<textarea id="remark" rows="3" placeholder="Notes, blockers or update…"></textarea></label>
+      </div>
+      <div class="dialog-actions"><button type="button" class="secondary" id="cancel-dialog">Cancel</button><button class="primary" type="submit">Save work</button></div>
+    </form>
+  </dialog>
+  <dialog id="today-report-dialog" class="today-report-dialog">
+    <div class="dialog-head"><div><p class="eyebrow">DAILY REPORT</p><h2 id="today-report-title">Today's Work Report</h2></div><button type="button" class="close" onclick="closeTodaysReport()">×</button></div>
+    <div id="today-report-content" class="today-report-content"></div>
+    <div class="dialog-actions"><button type="button" class="secondary" onclick="closeTodaysReport()">Close</button><button type="button" class="primary" onclick="copyTodaysReport()">Copy Report</button></div>
+  </dialog>
+  <div id="remark-popup" class="remark-popup" role="tooltip"></div>
+  <div id="column-filter-menu" class="column-filter-menu">
+    <input id="column-filter-search" class="filter-search" placeholder="Search values…">
+    <div class="filter-menu-actions"><button type="button" id="filter-select-all">Select All</button><button type="button" id="filter-clear">Clear</button></div>
+    <div id="column-filter-options" class="column-filter-options"></div>
+    <div class="filter-menu-footer"><button type="button" id="filter-cancel">Cancel</button><button type="button" id="filter-apply" class="filter-apply">Apply</button></div>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="{{ url_for('static', filename='js/app.js', v='20260723-start-carry-forward') }}"></script>
+</body>
+</html>

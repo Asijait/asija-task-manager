@@ -1,1 +1,2 @@
 CREATE DATABASE debtorapp;
+CREATE DATABASE workreport;

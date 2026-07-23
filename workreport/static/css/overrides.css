@@ -1,0 +1,110 @@
+#work-table .person-cell {
+  color: inherit;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+#work-table th[data-key] {
+  position: sticky;
+  padding-right: 25px;
+}
+
+.column-filter-toggle {
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.column-filter-toggle:hover,
+.column-filter-toggle.is-filtered {
+  border-color: #3498db;
+  background: #3498db;
+}
+
+.column-filter-menu {
+  display: none;
+  position: fixed;
+  z-index: 500;
+  width: 290px;
+  max-width: calc(100vw - 16px);
+  max-height: min(430px, calc(100vh - 70px));
+  padding: 8px;
+  overflow: hidden;
+  border: 1px solid #bdc3c7;
+  border-radius: 6px;
+  background: #fff;
+  color: #2c3e50;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  font-family: "Segoe UI", sans-serif;
+  font-size: 12px;
+}
+
+.column-filter-menu.show { display: block; }
+.column-filter-menu .filter-search { width: 100%; padding: 6px 8px; margin-bottom: 7px; }
+.filter-menu-actions,.filter-menu-footer { display: flex; justify-content: flex-end; gap: 6px; }
+.filter-menu-actions { justify-content: flex-start; margin-bottom: 6px; }
+.filter-menu-actions button,.filter-menu-footer button,.filter-clear-btn { padding: 5px 9px; border: 1px solid #bdc3c7; border-radius: 4px; background: #ecf0f1; color: #2c3e50; cursor: pointer; font-size: 11px; }
+.filter-apply { background: #34495e !important; color: #fff !important; }
+.column-filter-options { max-height: 255px; margin-bottom: 8px; padding: 3px; overflow-y: auto; border: 1px solid #d0d0d0; }
+.column-filter-option { display: flex; grid-template-columns: none; flex-direction: row; align-items: center; gap: 7px; padding: 4px 2px; color: #2c3e50; font-weight: 400; cursor: pointer; }
+.column-filter-option input { width: 14px; height: 14px; margin: 0; padding: 0; }
+.column-filter-option span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filter-clear-btn { white-space: nowrap; }
+.top-nav-user { flex:0 0 auto; padding:6px 9px; border-radius:4px; background:#2c3e50; color:#fff; font-size:12px; font-weight:600; white-space:nowrap; }
+.top-nav .top-nav-request { margin-left:auto; border:1px solid #5f7486; background:#263b4c; }
+.top-nav .top-nav-request.request-shake { animation:request-shake .55s ease-in-out; }
+.allottee-load { min-height:14px; color:#64748b; font-size:11px; font-weight:600; }
+@keyframes request-shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+.today-report-dialog { width:min(720px,calc(100vw - 30px)); padding:22px; }
+.today-report-content { display:grid; gap:14px; max-height:60vh; overflow:auto; }
+.today-report-section { border:1px solid #d5e0e7; border-radius:6px; overflow:hidden; }
+.today-report-section h3 { margin:0; padding:9px 12px; background:#34495e; color:#fff; font-size:14px; }
+.today-report-section ol { margin:0; padding:10px 12px 10px 34px; background:#fff; }
+.today-report-section li { padding:3px 0; color:#334155; font-size:13px; }
+.today-report-empty { margin:0; padding:12px; color:#64748b; background:#fff; font-size:13px; }
+
+/* Requested column sizing. */
+#work-table .person-cell,
+#work-table th:nth-child(3) {
+  width: 1%;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+#work-table .work-name-cell {
+  width: 36%;
+  min-width: 365px;
+}
+
+#work-table .remark-cell {
+  width: 162px;
+  min-width: 162px;
+  max-width: 162px;
+}
+
+.date-year,.date-month { margin: 1px 0; }
+.date-year > summary,.date-month > summary { padding: 4px 2px; cursor: pointer; font-weight: 600; list-style-position: inside; }
+.date-month { margin-left: 17px; }
+.date-leaf { margin-left: 36px; }
+.date-parent { width: 14px; height: 14px; padding: 0; vertical-align: middle; }
+
+@media (max-width: 760px) {
+  #work-table .work-name-cell { min-width: 280px; }
+}
+
+#work-table td,
+#work-table .person-cell {
+  font-size: 13px;
+}

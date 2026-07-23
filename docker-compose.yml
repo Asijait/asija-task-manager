@@ -4,6 +4,8 @@ services:
     container_name: asija-app-web
     env_file:
       - .env
+    environment:
+      WORKREPORT_DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/workreport
     ports:
       - "5001:5001"
     volumes:
@@ -11,6 +13,7 @@ services:
       - ./debtorapp/uploads:/app/debtorapp/uploads
       - ./logs:/app/logs
       - ./linksandothers:/app/linksandothers
+      - ./workreport:/app/workreport
     depends_on:
       db:
         condition: service_healthy

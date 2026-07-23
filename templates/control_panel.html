@@ -48,21 +48,13 @@
             padding-left: 20px;
             margin-top: -5px;
         }
-        .main-panel-area { flex: 1; padding: 30px; overflow-y: auto; }
+        .main-panel-area { flex: 1; padding: 0; overflow: hidden; background:#f4f9fd; }
         
-        .panel-card { background: #eaf5ff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-        .report-update-form { margin-top: 20px; padding: 18px; border: 1px solid #c9dce9; border-radius: 8px; background: #f8fbfd; max-width: 520px; }
-        .report-update-form h2 { margin: 0 0 14px; color: #174a73; font-size: 1.1rem; }
-        .report-update-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-        .report-update-form label { display: grid; gap: 6px; color: #123a5a; font-size: 0.9rem; font-weight: 600; }
-        .report-update-form input { width: 100%; padding: 9px 10px; border: 1px solid #b7c8d6; border-radius: 6px; box-sizing: border-box; font: inherit; }
-        .report-update-form button { margin-top: 14px; padding: 10px 16px; border: none; border-radius: 6px; background: #174a73; color: #fff; cursor: pointer; font-weight: 700; }
-        .report-update-form button:hover { background: #123a5a; }
+        .panel-placeholder { margin:30px; padding:25px; background:#eaf5ff; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,.05); }
+        .panel-frame { display:none; width:100%; height:calc(100vh - 68px); border:0; background:#eaf5ff; }
+        .panel-frame.visible { display:block; }
         h1 { color: #174a73; margin-top: 0; }
         p { color: #666; line-height: 1.6; }
-        @media (max-width: 720px) {
-            .report-update-grid { grid-template-columns: 1fr; }
-        }
     </style>
 </head>
 <body>
@@ -86,52 +78,32 @@
         <aside class="panel-sidebar">
             <div class="sidebar-title">System Tools</div>
             {% if 'user_management' in user_permissions %}
-                <button class="btn-sidebar" onclick="window.location.href='/user-management'">User Accounts</button>
+                <button class="btn-sidebar" onclick="openPanel('/user-management', this)">User Accounts</button>
             {% endif %}
             {% if 'user_power_management' in user_permissions %}
-                <button class="btn-sidebar" onclick="window.location.href='/user-role-management'">User Powers</button>
+                <button class="btn-sidebar" onclick="openPanel('/user-role-management', this)">User Powers</button>
             {% endif %}
             {% if 'deleted_records' in user_permissions %}
-                <button class="btn-sidebar" onclick="window.location.href='/deleted-records'">Deleted Records</button>
+                <button class="btn-sidebar" onclick="openPanel('/deleted-records', this)">Deleted Records</button>
             {% endif %}
             {% if 'request_logs' in user_permissions %}
-                <button class="btn-sidebar" onclick="window.location.href='/request-logs'">Request Logs</button>
+                <button class="btn-sidebar" onclick="openPanel('/request-logs', this)">Request Logs</button>
             {% endif %}
             {% if 'restore_points' in user_permissions %}
-                <button class="btn-sidebar" onclick="window.location.href='/restore-points'">Restore Points</button>
+                <button class="btn-sidebar" onclick="openPanel('/restore-points', this)">Restore Points</button>
             {% endif %}
             <button class="btn-sidebar" onclick="toggleAppMasters()">📂 App Masters</button>
             <div id="appMastersSubmenu" class="submenu">
                 {% if 'assign_to_master' in user_permissions %}
-                <button class="btn-sidebar" style="font-size: 0.9rem;" onclick="window.location.href='/assign-to-master'">Department Name</button>
+                <button class="btn-sidebar" style="font-size: 0.9rem;" onclick="openPanel('/assign-to-master', this)">Department Name</button>
                 {% endif %}
             </div>
             <button class="btn-sidebar" onclick="downloadBackup()">💾 Backup Software</button>
         </aside>
 
         <main class="main-panel-area">
-            <div class="panel-card">
-                <h1>Control Panel</h1>
-                <p>Welcome to the system administration area. Use the sidebar to access management tools, database maintenance, and project backup options.</p>
-                <form action="/control-panel/report-update" method="post" class="report-update-form">
-                    <h2>Report Update</h2>
-                    <div class="report-update-grid">
-                        <label>
-                            Report as on
-                            <input type="date" name="report_as_on_date" value="{{ report_update_dates.report_as_on_date }}" required>
-                        </label>
-                        <label>
-                            Last Bill update
-                            <input type="date" name="last_bill_update_date" value="{{ report_update_dates.last_bill_update_date }}" required>
-                        </label>
-                        <label>
-                            Last Receipt update
-                            <input type="date" name="last_receipt_update_date" value="{{ report_update_dates.last_receipt_update_date }}" required>
-                        </label>
-                    </div>
-                    <button type="submit">Save Report Update</button>
-                </form>
-            </div>
+            <div id="panelPlaceholder" class="panel-placeholder"></div>
+            <iframe id="panelFrame" class="panel-frame" title="Control Panel Tool"></iframe>
         </main>
     </div>
 
@@ -144,6 +116,34 @@
                 showNotification('Preparing project backup... Your download will start shortly.', 'info');
             }
         }
+
+        function openPanel(url, button) {
+            document.querySelectorAll('.panel-sidebar .btn-sidebar').forEach(item => item.classList.remove('active'));
+            button.classList.add('active');
+            document.getElementById('panelPlaceholder').style.display = 'none';
+            const frame = document.getElementById('panelFrame');
+            frame.classList.add('visible');
+            frame.src = url;
+        }
+
+        document.getElementById('panelFrame').addEventListener('load', function () {
+            try {
+                const frameDocument = this.contentDocument;
+                const childHeader = frameDocument.querySelector('.top-nav');
+                if (childHeader) childHeader.style.display = 'none';
+                const accountSidebar = frameDocument.querySelector('.account-sidebar');
+                if (accountSidebar) accountSidebar.style.top = '24px';
+                frameDocument.documentElement.style.height = '100%';
+                frameDocument.body.style.minHeight = '100%';
+            } catch (error) {
+                console.warn('Embedded panel styling skipped', error);
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', function () {
+            const firstTool = document.querySelector('.panel-sidebar .btn-sidebar[onclick^="openPanel"]');
+            if (firstTool) firstTool.click();
+        });
 
         function toggleAppMasters() {
             const submenu = document.getElementById('appMastersSubmenu');

@@ -6,7 +6,8 @@
     <title>User Accounts</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        .user-page { max-width: 1000px; margin: 0 auto; padding: 30px 20px; }
+        .user-page { width:100%; max-width:none; margin:0; padding:24px 38px 30px; display:block; }
+        .user-content { min-width:0; }
         .user-card { background: #eaf5ff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 18px; }
         .form-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
         .form-header h2 { margin: 0; }
@@ -16,10 +17,36 @@
         .user-form input:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
         .user-btn { border: none; border-radius: 5px; padding: 9px 12px; color: #123a5a; cursor: pointer; background: #9fd0ff; }
         .user-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-        .user-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        .user-table th, .user-table td { border-bottom: 1px solid #edf2f7; padding: 10px; text-align: left; }
-        .user-table th { color: #475569; font-size: 0.85rem; }
+        .user-table { width:100%; border-collapse:collapse; margin-top:12px; border:1px solid #b7c4cc; background:#fff; table-layout:auto; font-family:"Times New Roman",Times,serif; font-size:13px; }
+        .user-table th, .user-table td { border:1px solid #cfd8dc; padding:7px 9px; text-align:left; vertical-align:middle; }
+        .user-table th { background:#34495e; color:#fff; font-size:13px; font-weight:700; }
+        .user-table tbody tr:hover td { background:#f5f9fc; }
+        .email-select { display:flex; align-items:center; gap:9px; }
+        .email-select input { flex:0 0 auto; width:16px; height:16px; }
         .user-actions { display: flex; gap: 6px; }
+        .user-list-header { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
+        .user-list-title { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+        .user-list-note { color:#64748b; font-size:.82rem; font-weight:400; }
+        .visible-user-list { margin-top:3px; color:#64748b; font-size:.76rem; line-height:1.3; }
+        .user-list-buttons { display:flex; gap:8px; }
+        .bulk-delete-btn { background:#dc2626; color:#fff; }
+        .bulk-delete-btn:disabled { opacity:.45; }
+        .select-cell { width:38px; text-align:center !important; }
+        .select-cell input { width:16px; height:16px; }
+        .user-modal { display:none; position:fixed; inset:0; z-index:2100; background:rgba(15,23,42,.42); align-items:center; justify-content:center; padding:18px; }
+        .user-modal.open { display:flex; }
+        .user-modal-window { width:min(430px,94vw); background:#eaf5ff; border:1px solid #b9d7ef; border-radius:9px; box-shadow:0 22px 55px rgba(15,23,42,.25); overflow:hidden; }
+        .user-modal-head { display:flex; align-items:center; justify-content:space-between; padding:13px 16px; background:#f7fbff; border-bottom:1px solid #cfe3f5; }
+        .user-modal-head h2 { margin:0; color:#174a73; font-size:1.05rem; }
+        .modal-close { border:0; background:transparent; color:#475569; font-size:1.35rem; cursor:pointer; }
+        .modal-form { display:grid; gap:12px; padding:16px; }
+        .modal-form label { display:grid; gap:5px; color:#475569; font-size:.84rem; }
+        .modal-form input { width:100%; padding:9px; border:1px solid #cbd5e1; border-radius:5px; }
+        .alias-help { margin:0; color:#64748b; font-size:.75rem; }
+        .password-wrap { display:flex; }
+        .password-wrap input { border-radius:5px 0 0 5px; }
+        .password-eye { width:40px; border:1px solid #cbd5e1; border-left:0; border-radius:0 5px 5px 0; background:#fff; cursor:pointer; }
+        .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:3px; }
         .department-panel { grid-column: 1 / -1; border: 1px solid #cfe3f5; border-radius: 8px; background: #f7fbff; padding: 12px; }
         .department-panel h3 { margin: 0 0 10px; color: #174a73; font-size: 0.98rem; }
         .department-scroll { max-height: 260px; overflow: auto; border: 1px solid #dbeafe; border-radius: 6px; background: #fff; }
@@ -54,6 +81,7 @@
         .btn-delete:hover { background: #fef2f2; color: #7f1d1d; }
         .muted { color: #64748b; font-size: 0.85rem; }
         @media (max-width: 760px) {
+            .user-page { padding:18px 14px 20px; }
             .user-form { grid-template-columns: 1fr; }
             .form-header { align-items: flex-start; flex-direction: column; }
         }
@@ -73,48 +101,46 @@
     </header>
 
     <main class="user-page">
-        <div class="user-card">
-            <h1>User Accounts</h1>
-            <p class="muted">Only arif.siddiqui@asija.in can create, update, or delete user IDs and passwords.</p>
-        </div>
-
-        <div class="user-card">
-            <div class="form-header">
-                <h2 id="formTitle">Select New or Edit User</h2>
-                <button class="user-btn" type="button" onclick="newUser()">New</button>
+        <section class="user-content user-card">
+            <div class="user-list-header">
+                <div class="user-list-title">
+                    <h2>Existing Users</h2>
+                    <span class="user-list-note">Only arif.siddiqui@asija.in can create, update, or delete user IDs and passwords.</span>
+                </div>
+                <div class="user-list-buttons">
+                    <button id="bulkDeleteBtn" class="user-btn bulk-delete-btn" type="button" onclick="bulkDeleteUsers()" disabled>Delete Selected</button>
+                    <button class="user-btn" type="button" onclick="newUser()">New</button>
+                </div>
             </div>
-            <form id="userForm" class="user-form">
-                <input type="hidden" id="userId">
-                <div>
-                    <label>Email / User ID</label>
-                    <input type="email" id="userEmail" required placeholder="user@example.com" disabled>
-                </div>
-                <div>
-                    <label>Password</label>
-                    <input type="password" id="userPassword" placeholder="Leave blank to keep current password" disabled>
-                </div>
-                <div style="display:flex; gap:8px;">
-                    <button class="user-btn" type="submit" id="saveBtn" disabled>Save</button>
-                    <button class="user-btn" type="button" style="background:#64748b;" onclick="resetForm()">Clear</button>
-                </div>
-            </form>
-        </div>
-
-        <div class="user-card">
-            <h2>Existing Users</h2>
             <table class="user-table">
                 <thead>
                     <tr>
-                        <th>#</th>
-                        <th>Email / User ID</th>
+                        <th><span class="email-select"><input id="selectAllUsers" type="checkbox" title="Select all non-admin users"><span>Email / User ID</span></span></th>
+                        <th>Alias Name</th>
                         <th>Works Under Department</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="usersBody"></tbody>
             </table>
-        </div>
+        </section>
     </main>
+
+    <div id="userEditorModal" class="user-modal">
+        <div class="user-modal-window">
+            <div class="user-modal-head"><h2 id="formTitle">New User</h2><button type="button" class="modal-close" onclick="resetForm()">&times;</button></div>
+            <form id="userForm" class="modal-form">
+                <input type="hidden" id="userId">
+                <label>Email / User ID<input type="email" id="userEmail" required placeholder="user@example.com"></label>
+                <label>Alias Name<input type="text" id="userAlias" required placeholder="Alias name"></label>
+                <p class="alias-help">Email ke @ se pehle wala word alias mein rehna zaroori hai.</p>
+                <label>Password
+                    <span class="password-wrap"><input type="password" id="userPassword" placeholder="Password"><button class="password-eye" type="button" onclick="togglePassword()" title="Show or hide password">&#128065;</button></span>
+                </label>
+                <div class="modal-actions"><button class="user-btn" type="button" style="background:#64748b;color:#fff" onclick="resetForm()">Cancel</button><button class="user-btn" type="submit" id="saveBtn">Save</button></div>
+            </form>
+        </div>
+    </div>
 
     <div id="departmentModal" class="department-modal">
         <div class="department-window">
@@ -140,10 +166,17 @@
         let users = [];
         let assignees = [];
         let departmentEditUserId = null;
+        const protectedEmails = new Set(['arif.siddiqui@asija.in', 'admin@example.com']);
+        const currentUserEmail = {{ session.get('user_email', '')|lower|tojson }};
 
         document.addEventListener('DOMContentLoaded', () => {
             loadInitialData();
             document.getElementById('userForm').addEventListener('submit', saveUser);
+            document.getElementById('userEmail').addEventListener('input', syncAliasFromEmail);
+            document.getElementById('userAlias').addEventListener('input', () => {
+                document.getElementById('userAlias').dataset.manuallyEdited = 'true';
+            });
+            document.getElementById('selectAllUsers').addEventListener('change', toggleAllUsers);
         });
 
         async function loadInitialData() {
@@ -166,11 +199,15 @@
             const tbody = document.getElementById('usersBody');
             tbody.innerHTML = '';
 
-            users.forEach((user, index) => {
+            users.forEach((user) => {
+                const isProtected = protectedEmails.has(user.email.toLowerCase()) || user.email.toLowerCase() === currentUserEmail;
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td>${escapeHtml(user.email)}</td>
+                    <td><span class="email-select"><input class="user-select" type="checkbox" value="${user.id}" ${isProtected ? 'disabled title="Admin user is protected"' : ''} onchange="updateBulkDeleteState()"><span>${escapeHtml(user.email)}</span></span></td>
+                    <td>
+                        <div>${escapeHtml(user.alias_name || '')}</div>
+                        ${(user.visible_work_report_users || []).length ? `<div class="visible-user-list">(${user.visible_work_report_users.map(escapeHtml).join(', ')})</div>` : ''}
+                    </td>
                     <td><span class="dept-summary">${escapeHtml(formatDepartmentAccess(user.department_access || []))}</span></td>
                     <td>
                         <div class="user-actions">
@@ -188,6 +225,8 @@
                 `;
                 tbody.appendChild(row);
             });
+            document.getElementById('selectAllUsers').checked = false;
+            updateBulkDeleteState();
         }
 
         function formatDepartmentAccess(departmentAccess) {
@@ -196,18 +235,15 @@
             return departmentAccess.map(item => nameById[item.assignee_id] || 'Unknown').join(', ');
         }
 
-        function setFormActive(active) {
-            document.getElementById('userEmail').disabled = !active;
-            document.getElementById('userPassword').disabled = !active;
-            document.getElementById('saveBtn').disabled = !active;
-        }
-
         function newUser() {
             document.getElementById('userForm').reset();
             document.getElementById('userId').value = '';
-            document.getElementById('formTitle').innerText = 'Create User';
+            document.getElementById('userAlias').dataset.manuallyEdited = 'false';
+            document.getElementById('formTitle').innerText = 'New User';
             document.getElementById('saveBtn').innerText = 'Create';
-            setFormActive(true);
+            document.getElementById('userPassword').required = true;
+            document.getElementById('userPassword').placeholder = 'Password';
+            document.getElementById('userEditorModal').classList.add('open');
             document.getElementById('userEmail').focus();
         }
 
@@ -216,19 +252,61 @@
             if (!user) return;
             document.getElementById('userId').value = user.id;
             document.getElementById('userEmail').value = user.email;
+            document.getElementById('userAlias').value = user.alias_name || user.email.split('@')[0];
+            document.getElementById('userAlias').dataset.manuallyEdited = 'true';
             document.getElementById('userPassword').value = '';
             document.getElementById('formTitle').innerText = 'Update User';
             document.getElementById('saveBtn').innerText = 'Update';
-            setFormActive(true);
+            document.getElementById('userPassword').required = false;
+            document.getElementById('userPassword').placeholder = 'Leave blank to keep current password';
+            document.getElementById('userEditorModal').classList.add('open');
             document.getElementById('userEmail').focus();
         }
 
         function resetForm() {
             document.getElementById('userForm').reset();
             document.getElementById('userId').value = '';
-            document.getElementById('formTitle').innerText = 'Select New or Edit User';
+            document.getElementById('formTitle').innerText = 'New User';
             document.getElementById('saveBtn').innerText = 'Save';
-            setFormActive(false);
+            document.getElementById('userPassword').type = 'password';
+            document.getElementById('userEditorModal').classList.remove('open');
+        }
+
+        function syncAliasFromEmail() {
+            const email = document.getElementById('userEmail').value.trim();
+            const aliasInput = document.getElementById('userAlias');
+            if (aliasInput.dataset.manuallyEdited !== 'true') aliasInput.value = email.split('@')[0] || '';
+        }
+
+        function togglePassword() {
+            const input = document.getElementById('userPassword');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function toggleAllUsers(event) {
+            document.querySelectorAll('.user-select:not(:disabled)').forEach(input => input.checked = event.target.checked);
+            updateBulkDeleteState();
+        }
+
+        function selectedUserIds() {
+            return Array.from(document.querySelectorAll('.user-select:checked')).map(input => Number(input.value));
+        }
+
+        function updateBulkDeleteState() {
+            document.getElementById('bulkDeleteBtn').disabled = selectedUserIds().length === 0;
+        }
+
+        async function bulkDeleteUsers() {
+            const userIds = selectedUserIds();
+            if (!userIds.length || !confirm(`Delete ${userIds.length} selected user(s)? Admin users will remain protected.`)) return;
+            const response = await fetch('/api/users/bulk-delete', {
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_ids: userIds})
+            });
+            const result = await response.json();
+            if (response.ok && result.success) {
+                await loadUsers();
+                alert(`${result.deleted_count} user(s) deleted successfully.`);
+            } else alert('Error: ' + (result.error || 'Bulk delete failed'));
         }
 
         function renderDepartmentCheckboxes(container, departmentAccess, kind) {
@@ -295,6 +373,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     email: user.email,
+                    alias_name: user.alias_name,
                     password: '',
                     department_access: getSelectedDepartmentAccess('department-window-access')
                 })
@@ -315,8 +394,15 @@
             const userId = document.getElementById('userId').value;
             const payload = {
                 email: document.getElementById('userEmail').value.trim(),
+                alias_name: document.getElementById('userAlias').value.trim(),
                 password: document.getElementById('userPassword').value
             };
+
+            const emailPrefix = payload.email.split('@')[0];
+            if (!payload.alias_name.toLowerCase().includes(emailPrefix.toLowerCase())) {
+                alert(`Alias name mein '${emailPrefix}' word rehna zaroori hai.`);
+                return;
+            }
 
             if (!userId && !payload.password) {
                 alert('Password is required for a new user.');
