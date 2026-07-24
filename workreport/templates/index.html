@@ -5,23 +5,26 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>WorkDesk — Status & Reminders</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/overrides.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/overrides.css', v='20260724-mobile-menu') }}">
 </head>
 <body>
   <nav class="top-nav" aria-label="Work reports">
     <span class="top-nav-brand">WorkDesk</span>
-    <a class="nav-item top-nav-home" href="/" title="Back to Asija main page">Main Page</a>
-    <div class="top-nav-links">
-      <button class="nav-item active" data-scope="all">All Work</button>
-      <button class="nav-item" data-scope="pending">Pending</button>
-      <button class="nav-item" data-scope="overdue">Overdue <b id="nav-overdue">0</b></button>
-      <button class="nav-item" data-scope="today">Today's Work</button>
-      <button class="nav-item" data-scope="start_today">Work Start Today</button>
-      <button class="nav-item" data-scope="upcoming">Next 7 Days</button>
+    <div id="mobile-nav-panel" class="mobile-nav-panel">
+      <a class="nav-item top-nav-home" href="/" title="Back to Asija main page">Main Page</a>
+      <div class="top-nav-links">
+        <button class="nav-item active" data-scope="all">All Work</button>
+        <button class="nav-item" data-scope="pending">Pending</button>
+        <button class="nav-item" data-scope="overdue">Overdue <b id="nav-overdue">0</b></button>
+        <button class="nav-item" data-scope="today">Today's Work</button>
+        <button class="nav-item" data-scope="start_today">Work Start Today</button>
+        <button class="nav-item" data-scope="upcoming">Next 7 Days</button>
+      </div>
+      <button class="nav-item top-nav-report" type="button" onclick="openTodaysReport(); closeMobileMenu()">Today's Work Report</button>
+      <span id="logged-in-user" class="top-nav-user">User</span>
     </div>
-    <button class="nav-item top-nav-report" type="button" onclick="openTodaysReport()">Today's Work Report</button>
     <button class="nav-item top-nav-request" data-scope="new_requests">New Task Request <b id="nav-new-requests">0</b></button>
-    <span id="logged-in-user" class="top-nav-user">User</span>
+    <button id="mobile-menu-toggle" class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav-panel" aria-label="Open work menu">☰</button>
   </nav>
 
   <main>
@@ -73,6 +76,18 @@
     <div id="today-report-content" class="today-report-content"></div>
     <div class="dialog-actions"><button type="button" class="secondary" onclick="closeTodaysReport()">Close</button><button type="button" class="primary" onclick="copyTodaysReport()">Copy Report</button></div>
   </dialog>
+  <dialog id="mobile-details-dialog" class="mobile-details-dialog">
+    <div class="mobile-details-head">
+      <div><p class="eyebrow">WORK DETAILS</p><h2 id="mobile-details-title">Work details</h2></div>
+      <button type="button" class="close" onclick="closeMobileDetails()" aria-label="Close details">×</button>
+    </div>
+    <div id="mobile-details-content" class="mobile-details-content"></div>
+    <div class="mobile-details-actions">
+      <button type="button" class="secondary" onclick="closeMobileDetails()">Close</button>
+      <button type="button" class="complete-btn mobile-complete-action" onclick="completeFromMobileDetails()">Complete</button>
+      <button type="button" class="primary" onclick="editFromMobileDetails()">Edit</button>
+    </div>
+  </dialog>
   <div id="remark-popup" class="remark-popup" role="tooltip"></div>
   <div id="column-filter-menu" class="column-filter-menu">
     <input id="column-filter-search" class="filter-search" placeholder="Search values…">
@@ -81,6 +96,6 @@
     <div class="filter-menu-footer"><button type="button" id="filter-cancel">Cancel</button><button type="button" id="filter-apply" class="filter-apply">Apply</button></div>
   </div>
   <div id="toast" class="toast"></div>
-  <script src="{{ url_for('static', filename='js/app.js', v='20260723-start-carry-forward') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js', v='20260724-mobile-details') }}"></script>
 </body>
 </html>

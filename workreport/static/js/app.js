@@ -9,6 +9,7 @@ let lastNotificationCount = 0;
 let debounce;
 let activeColumnFilters = {};
 let openFilterKey = null;
+let mobileDetailsItemId = null;
 const titles = {all:'All work',pending:'Pending work',overdue:'Overdue work',today:"Today's work",start_today:'Work start today',upcoming:'Next 7 days',new_requests:'New task requests'};
 const DATE_FILTER_KEYS = new Set(['work_inflow','next_scheduled','reschedule_scheduled','target_date','actual_completion_date']);
 const APP_ROOT = window.location.pathname.startsWith('/work-report') ? '/work-report' : '';
@@ -25,6 +26,15 @@ const initials = (name) => name ? name.split(/\s+/).map(x=>x[0]).join('').slice(
 const slug = (v) => v.toLowerCase().replaceAll(' ','-');
 function notify(message){ const t=$('#toast'); t.textContent=message;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200); }
 function showError(message=''){ $('#error').textContent=message; $('#error').classList.toggle('hidden',!message); }
+function setMobileMenu(open){
+  const nav=$('.top-nav');
+  const toggle=$('#mobile-menu-toggle');
+  nav.classList.toggle('mobile-menu-open',open);
+  toggle.setAttribute('aria-expanded',String(open));
+  toggle.textContent=open?'×':'☰';
+  toggle.setAttribute('aria-label',open?'Close work menu':'Open work menu');
+}
+window.closeMobileMenu=()=>setMobileMenu(false);
 
 async function loadSummary(){
   const params=new URLSearchParams({team:$('#team-filter').value||''});
@@ -128,7 +138,7 @@ function render(){
       <td class="date-cell">${fmt(item.actual_completion_date)}</td>
       <td class="remark-cell" onclick="showRemark(event,${item.id})" onmouseleave="hideRemark()">${esc(item.remark||'')}</td>
       <td class="section-cell">${esc(item.section||'')}</td>
-      <td><span class="row-actions">${item.status!=='Done'?`<button class="icon-btn complete-btn" title="Mark complete" onclick="completeItem(${item.id})">✓</button>`:''}<button class="icon-btn" title="Edit" onclick="editItem(${item.id})">✎</button><button class="icon-btn delete-btn" title="Delete" onclick="deleteItem(${item.id})">⌫</button></span></td>
+      <td class="actions-cell"><span class="row-actions">${item.status!=='Done'?`<button class="icon-btn complete-btn" title="Mark complete" onclick="completeItem(${item.id})">✓</button>`:''}<button class="icon-btn" title="Edit" onclick="editItem(${item.id})">✎</button><button class="icon-btn delete-btn" title="Delete" onclick="deleteItem(${item.id})">⌫</button></span><button type="button" class="mobile-details-btn" onclick="openMobileDetails(${item.id})">Details</button></td>
     </tr>`;
   }).join('');
   applyColumnFilters();
@@ -247,6 +257,41 @@ window.showRemark=(event,id)=>{
   popup.style.top=`${Math.min(rect.top,window.innerHeight-popup.offsetHeight-8)}px`;
 };
 window.hideRemark=()=>$('#remark-popup').classList.remove('show');
+function mobileDetailField(label,value,wide=false){
+  return `<div class="mobile-detail-field${wide?' mobile-detail-wide':''}"><span>${esc(label)}</span><strong>${esc(value||'—')}</strong></div>`;
+}
+window.openMobileDetails=id=>{
+  const item=items.find(entry=>entry.id===id);
+  if(!item)return;
+  mobileDetailsItemId=id;
+  $('#mobile-details-title').textContent=item.work_name||'Work details';
+  $('#mobile-details-content').innerHTML=
+    mobileDetailField('Status',item.status)+
+    mobileDetailField('Target date',fmt(item.target_date))+
+    mobileDetailField('Allotted to',item.allotted_to)+
+    mobileDetailField('Work allotted by',item.section)+
+    mobileDetailField('Work inflow',fmt(item.work_inflow))+
+    mobileDetailField('Next scheduled',fmt(item.next_scheduled))+
+    mobileDetailField('Rescheduled',fmt(item.reschedule_scheduled))+
+    mobileDetailField('Completion date',fmt(item.actual_completion_date))+
+    mobileDetailField('Remark',item.remark,true);
+  $('.mobile-complete-action').classList.toggle('hidden',item.status==='Done');
+  $('#mobile-details-dialog').showModal();
+};
+window.closeMobileDetails=()=>{
+  $('#mobile-details-dialog').close();
+  mobileDetailsItemId=null;
+};
+window.editFromMobileDetails=()=>{
+  const id=mobileDetailsItemId;
+  closeMobileDetails();
+  if(id)editItem(id);
+};
+window.completeFromMobileDetails=async()=>{
+  const id=mobileDetailsItemId;
+  closeMobileDetails();
+  if(id)await completeItem(id);
+};
 window.completeItem=async id=>{try{await api(`/api/work/${id}/complete`,{method:'PATCH'});notify('Work completed');await Promise.all([loadWork(),loadSummary()]);}catch(e){showError(e.message)}};
 window.deleteItem=async id=>{if(!confirm('Is work item ko Deleted Records me move karna hai?'))return;try{await api(`/api/work/${id}`,{method:'DELETE'});notify('Work moved to Deleted Records');await Promise.all([loadWork(),loadSummary()]);}catch(e){showError(e.message)}};
 
@@ -254,7 +299,8 @@ $('#work-form').addEventListener('submit',async e=>{e.preventDefault();const id=
   const data={work_name:$('#work-name').value,status:$('#item-status').value,allotted_to:$('#allotted-to').value,section:$('#section').value,work_inflow:$('#work-inflow').value,next_scheduled:$('#next-scheduled').value,reschedule_scheduled:$('#reschedule-scheduled').value,target_date:$('#target-date').value,actual_completion_date:$('#actual-completion-date').value,remark:$('#remark').value};
   try{await api(id?`/api/work/${id}`:'/api/work',{method:id?'PUT':'POST',body:JSON.stringify(data)});$('#work-dialog').close();notify(id?'Work updated':'Work added');await Promise.all([loadWork(),loadSummary(),loadNotificationCount(),loadAllottees()]);}catch(err){alert(err.message)}
 });
-$$('[data-scope]').forEach(b=>b.addEventListener('click',()=>chooseScope(b.dataset.scope)));
+$$('[data-scope]').forEach(b=>b.addEventListener('click',()=>{setMobileMenu(false);chooseScope(b.dataset.scope)}));
+$('#mobile-menu-toggle').addEventListener('click',()=>setMobileMenu(!$('.top-nav').classList.contains('mobile-menu-open')));
 $('#allotted-to').addEventListener('input',updateAllotteeLoad);$('#allotted-to').addEventListener('change',updateAllotteeLoad);
 $('#status-filter').addEventListener('change',loadWork);$('#team-filter').addEventListener('change',()=>Promise.all([loadWork(),loadSummary()]));$('#search').addEventListener('input',()=>{clearTimeout(debounce);debounce=setTimeout(loadWork,300)});
 $('#clear-filters-btn').addEventListener('click',()=>{activeColumnFilters={};applyColumnFilters();});
