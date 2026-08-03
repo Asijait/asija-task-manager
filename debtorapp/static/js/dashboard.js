@@ -53,7 +53,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const left = options && options.compact ? 8 : 92;
+        const left = options && options.left
+            ? Number(options.left)
+            : (options && options.compact ? 8 : 92);
         const right = 82;
         const top = 12;
         const rowGap = 8;
@@ -139,7 +141,7 @@ document.addEventListener('DOMContentLoaded', function() {
         drawBarChart('followupChart', data.followup || []);
         drawDonut('categoryChart', data.category || []);
         drawBarChart('epChart', data.ep || []);
-        drawBarChart('fyChart', data.fy || [], { compact: true });
+        drawBarChart('fyChart', data.fy || [], { left: 150 });
     }
 
     render();

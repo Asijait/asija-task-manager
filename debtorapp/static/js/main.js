@@ -1450,7 +1450,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         function updateReceiptPostingLabels() {
             const mode = receiptMode?.value || 'Cash';
-            const isAdjustment = mode === 'Bad Debt' || mode === 'Discount';
+            const isAdjustment = mode === 'Bad Debt' || mode === 'Discount' || mode === 'Credit Note';
             if (receiptAmountHeader) {
                 receiptAmountHeader.textContent = isAdjustment ? 'Adjustment Amount' : 'Actual Received Amt';
             }

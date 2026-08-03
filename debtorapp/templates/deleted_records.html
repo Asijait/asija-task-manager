@@ -34,7 +34,7 @@
                             <th>Type</th>
                             <th>Record</th>
                             <th>Details</th>
-                            <th>Recall</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -46,14 +46,24 @@
                             <td>{{ row.record_name }}</td>
                             <td>{{ row.details }}</td>
                             <td>
-                                <form action="{{ debtor_url('/deleted-records/restore') }}" method="POST" onsubmit="return confirm('Recall this record?');">
-                                    {% if row.delete_log_id %}
-                                    <input type="hidden" name="delete_log_id" value="{{ row.delete_log_id }}">
-                                    {% else %}
-                                    <input type="hidden" name="legacy_billing_id" value="{{ row.legacy_billing_id }}">
-                                    {% endif %}
-                                    <button type="submit" class="secondary-btn primary-btn">Recall</button>
-                                </form>
+                                <div style="display:flex; gap:6px; align-items:center;">
+                                    <form action="{{ debtor_url('/deleted-records/restore') }}" method="POST" onsubmit="return confirm('Recall this record?');">
+                                        {% if row.delete_log_id %}
+                                        <input type="hidden" name="delete_log_id" value="{{ row.delete_log_id }}">
+                                        {% else %}
+                                        <input type="hidden" name="legacy_billing_id" value="{{ row.legacy_billing_id }}">
+                                        {% endif %}
+                                        <button type="submit" class="secondary-btn primary-btn">Recall</button>
+                                    </form>
+                                    <form action="{{ debtor_url('/deleted-records/permanent-delete') }}" method="POST" onsubmit="return confirm('Permanently delete this record from the database? This cannot be undone.');">
+                                        {% if row.delete_log_id %}
+                                        <input type="hidden" name="delete_log_id" value="{{ row.delete_log_id }}">
+                                        {% else %}
+                                        <input type="hidden" name="legacy_billing_id" value="{{ row.legacy_billing_id }}">
+                                        {% endif %}
+                                        <button type="submit" class="secondary-btn danger-btn">Permanent Delete</button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% else %}

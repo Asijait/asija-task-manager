@@ -88,7 +88,7 @@
                     <h2>Followup Wise</h2>
                     <span>Top owners</span>
                 </div>
-                <canvas id="followupChart" height="185"></canvas>
+                <canvas id="followupChart" height="230"></canvas>
             </article>
 
             <article class="panel">
@@ -96,7 +96,7 @@
                     <h2>Category Wise</h2>
                     <span>Client categories</span>
                 </div>
-                <canvas id="categoryChart" height="185"></canvas>
+                <canvas id="categoryChart" height="230"></canvas>
             </article>
 
             <article class="panel">
@@ -104,7 +104,7 @@
                     <h2>EP Wise</h2>
                     <span>Executive partner exposure</span>
                 </div>
-                <canvas id="epChart" height="185"></canvas>
+                <canvas id="epChart" height="230"></canvas>
             </article>
 
             <article class="panel">
@@ -112,7 +112,7 @@
                     <h2>Financial Year</h2>
                     <span>Period spread</span>
                 </div>
-                <canvas id="fyChart" height="185"></canvas>
+                <canvas id="fyChart" height="230"></canvas>
             </article>
         </section>
 
@@ -180,6 +180,6 @@
 
     <script id="dashboardData" type="application/json">{{ chart_data | tojson }}</script>
     <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=20260803-2"></script>
 </body>
 </html>

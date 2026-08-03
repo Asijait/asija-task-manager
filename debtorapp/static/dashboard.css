@@ -188,6 +188,10 @@ body.dashboard-page {
     margin-bottom: 12px;
 }
 
+.dashboard-grid > .panel {
+    min-height: 285px;
+}
+
 .firm-summary-panel {
     margin-bottom: 0;
     padding: 4px;

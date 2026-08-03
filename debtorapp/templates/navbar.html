@@ -22,14 +22,14 @@
                 <a href="{{ debtor_url('/receipt-register') }}" class="{{ 'active' if active_page == 'receipt_register' else '' }}">Receipt Register</a>
                 <button type="button" class="nav-import-btn weekly-report-btn">Weekly Recovery Report</button>
                 <a href="{{ debtor_url('/cheque-bounce') }}" class="{{ 'active' if active_page == 'cheque_bounce' else '' }}">Cheque Bounce</a>
-                <a href="{{ debtor_url('/adjustment-register') }}" class="{{ 'active' if active_page == 'adjustment_register' else '' }}">Bad Debt / Discount</a>
+                <a href="{{ debtor_url('/adjustment-register') }}" class="{{ 'active' if active_page == 'adjustment_register' else '' }}">Bad Debt / Discount / Credit Note</a>
             </div>
         </div>
         {% if 'import_tally_debtors' in debtor_nav_access or 'import_tally_receipts_view' in debtor_nav_access or 'import_tally_receipts' in debtor_nav_access or 'download_report_excel' in debtor_nav_access %}
         <div class="nav-dropdown">
             <button type="button" class="nav-dropdown-btn {{ 'active' if active_page in ['import_tally_receipts', 'import_errors'] else '' }}" aria-expanded="false">Import / Export</button>
             <div class="nav-dropdown-menu">
-                {% if active_page in ['dashboard', 'report', 'receipts', 'import_errors'] and 'import_tally_debtors' in debtor_nav_access %}
+                {% if 'import_tally_debtors' in debtor_nav_access %}
                 <form action="{{ debtor_url('/upload') }}" method="post" enctype="multipart/form-data" class="nav-import-form import-data-form">
                     <input type="hidden" name="firm_name" class="import-firm-name">
                     <input type="hidden" name="return_to" value="{{ debtor_url(request.full_path) }}">
@@ -101,11 +101,11 @@
     <a href="{{ debtor_url('/receipt-register') }}" class="sidebar-btn {{ 'active' if active_page == 'receipt_register' else '' }}">Receipt Register</a>
     <button type="button" class="sidebar-btn sidebar-action weekly-report-btn">Weekly Recovery Report</button>
     <a href="{{ debtor_url('/cheque-bounce') }}" class="sidebar-btn {{ 'active' if active_page == 'cheque_bounce' else '' }}">Cheque Bounce</a>
-    <a href="{{ debtor_url('/adjustment-register') }}" class="sidebar-btn {{ 'active' if active_page == 'adjustment_register' else '' }}">Bad Debt / Discount</a>
+    <a href="{{ debtor_url('/adjustment-register') }}" class="sidebar-btn {{ 'active' if active_page == 'adjustment_register' else '' }}">Bad Debt / Discount / Credit Note</a>
 
     {% if 'import_tally_debtors' in debtor_nav_access or 'import_tally_receipts_view' in debtor_nav_access or 'import_tally_receipts' in debtor_nav_access or 'download_report_excel' in debtor_nav_access %}
     <div class="sidebar-section-title">Import / Export</div>
-    {% if active_page in ['dashboard', 'report', 'receipts', 'import_errors'] and 'import_tally_debtors' in debtor_nav_access %}
+    {% if 'import_tally_debtors' in debtor_nav_access %}
     <form action="{{ debtor_url('/upload') }}" method="post" enctype="multipart/form-data" id="uploadForm" class="import-data-form">
         <input type="hidden" name="firm_name" class="import-firm-name">
         <input type="hidden" name="return_to" value="{{ debtor_url(request.full_path) }}">
@@ -160,7 +160,7 @@
     {% endif %}
 </aside>
 
-{% if active_page in ['dashboard', 'report', 'receipts'] and 'import_tally_debtors' in debtor_nav_access %}
+{% if 'import_tally_debtors' in debtor_nav_access %}
 <div class="import-dialog" id="importDialog" aria-hidden="true">
     <div class="import-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="importDialogTitle">
         <div class="import-dialog-header">
@@ -213,3 +213,23 @@
         </form>
     </div>
 </div>
+
+{% set navbar_flash_messages = get_flashed_messages(with_categories=true) %}
+{% if navbar_flash_messages %}
+<style>
+    .flash-message {
+        display: none !important;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const messages = {{ navbar_flash_messages | map(attribute=1) | list | tojson }};
+        messages.forEach(function (message) {
+            window.alert(message);
+        });
+        document.querySelectorAll('.flash-message').forEach(function (messageBox) {
+            messageBox.remove();
+        });
+    });
+</script>
+{% endif %}

@@ -572,20 +572,13 @@ def init_db():
 
     c.execute('SELECT id, email FROM users')
     for user_id, email in c.fetchall():
-        c.execute('SELECT COUNT(*) FROM user_permissions WHERE user_id = ?', (user_id,))
-        if c.fetchone()[0] == 0:
-            default_permissions = [p['key'] for p in PAGE_PERMISSIONS] + [p['key'] for p in SPECIAL_PERMISSIONS]
-            if str(email).lower() not in ADMIN_EMAILS:
-                default_permissions = LEGACY_USER_PERMISSIONS
-            for permission_key in default_permissions:
+        # New normal users intentionally start with no page permissions.
+        if str(email).lower() in ADMIN_EMAILS:
+            for permission_key in [p['key'] for p in PAGE_PERMISSIONS] + [p['key'] for p in SPECIAL_PERMISSIONS]:
                 c.execute(
                     'INSERT OR IGNORE INTO user_permissions (user_id, permission_key) VALUES (?, ?)',
                     (user_id, permission_key)
                 )
-        c.execute(
-            'INSERT OR IGNORE INTO user_permissions (user_id, permission_key) VALUES (?, ?)',
-            (user_id, 'daily_debtor_report')
-        )
         if str(email).lower() == 'arif.siddiqui@asija.in':
             c.execute(
                 'INSERT OR IGNORE INTO user_permissions (user_id, permission_key) VALUES (?, ?)',

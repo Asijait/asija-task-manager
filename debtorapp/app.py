@@ -128,10 +128,20 @@ def debtor_report_template_helpers():
     user_email = str(session.get('user_email', '')).lower()
     is_arif = user_email == 'arif.siddiqui@asija.in'
     debtor_nav_access = get_debtor_nav_access_for_user(user_email)
+    firm_options = []
+    try:
+        conn = connect_debtor_db()
+        firm_options = conn.execute(
+            'SELECT firm_name, short_name FROM firm_master ORDER BY firm_name'
+        ).fetchall()
+        conn.close()
+    except sqlite3.Error:
+        firm_options = []
     return {
         'debtor_url': debtor_url,
         'is_arif_user': is_arif,
         'debtor_nav_access': debtor_nav_access,
+        'firm_options': firm_options,
         'report_as_on_label': get_report_as_on_label(),
         'report_as_on_lines': get_report_as_on_lines(),
     }
@@ -213,7 +223,10 @@ def log_deleted_record(cursor, source_table, source_pk, display_type, display_la
     ))
 
 def insert_deleted_payload(cursor, table_name, payload):
-    allowed_tables = {'billing_report', 'client_group_master', 'crp_master', 'firm_master', 'receipt_register'}
+    allowed_tables = {
+        'billing_report', 'client_group_master', 'crp_master', 'firm_master',
+        'receipt_register', 'receipt_adjustment_register'
+    }
     if table_name not in allowed_tables:
         raise ValueError('Recall is not available for this record type.')
 
@@ -3308,6 +3321,49 @@ def adjustment_register():
 
     return render_template('adjustment_register.html', rows=rows, active_page='adjustment_register')
 
+@app.route('/adjustment-register/delete', methods=['POST'])
+def delete_adjustment_register_record():
+    adjustment_id = (request.form.get('adjustment_id') or '').strip()
+    if not adjustment_id:
+        flash('Adjustment record not selected.')
+        return redirect(debtor_url('/adjustment-register'))
+
+    conn = connect_debtor_db()
+    try:
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM receipt_adjustment_register WHERE id = ?', (adjustment_id,))
+        adjustment = cursor.fetchone()
+        if not adjustment:
+            flash('Adjustment record not found.')
+            return redirect(debtor_url('/adjustment-register'))
+
+        adjustment_dict = sqlite_record_to_dict(adjustment)
+        log_deleted_record(
+            cursor,
+            'receipt_adjustment_register',
+            adjustment_dict.get('id'),
+            'Adjustment Register',
+            adjustment_dict.get('ref_no') or f"Adjustment #{adjustment_dict.get('id')}",
+            adjustment_dict,
+            ' | '.join(part for part in [
+                adjustment_dict.get('party_name') or '',
+                adjustment_dict.get('adjustment_type') or '',
+                adjustment_dict.get('adjustment_date') or '',
+                f"Rs {format_indian_currency(adjustment_dict.get('adjustment_amount') or 0)}",
+            ] if part),
+        )
+        cursor.execute('DELETE FROM receipt_adjustment_register WHERE id = ?', (adjustment_dict.get('id'),))
+        conn.commit()
+        flash('Adjustment record deleted successfully.')
+    except sqlite3.Error as exc:
+        conn.rollback()
+        app.logger.exception('Unable to delete adjustment register record')
+        flash(f'Adjustment record could not be deleted: {exc}')
+    finally:
+        conn.close()
+
+    return redirect(debtor_url('/adjustment-register'))
+
 @app.route('/receipt-register/weekly-report')
 def receipt_register_weekly_report():
     start_date_obj = parse_input_date(request.args.get('start_date', '').strip())
@@ -3899,9 +3955,9 @@ def post_receipts():
     receipt_mode = (payload.get('receipt_mode') or '').strip()
     receipt_date_obj = parse_input_date(payload.get('receipt_date') or '')
     receipt_rows = payload.get('rows') or []
-    is_adjustment = receipt_mode in {'Bad Debt', 'Discount'}
+    is_adjustment = receipt_mode in {'Bad Debt', 'Discount', 'Credit Note'}
 
-    if receipt_mode not in {'Cash', 'Bank', 'Online', 'UPI', 'Bad Debt', 'Discount'}:
+    if receipt_mode not in {'Cash', 'Bank', 'Online', 'UPI', 'Bad Debt', 'Discount', 'Credit Note'}:
         return jsonify({'success': False, 'message': 'Please select a valid receipt mode.'}), 400
     if not receipt_date_obj:
         return jsonify({'success': False, 'message': 'Please select a valid date.'}), 400
@@ -6314,6 +6370,55 @@ def restore_deleted_report_record():
             flash(f'Unable to recall this record: {exc}')
         finally:
             conn.close()
+    return redirect(url_for('debtor_deleted_records'))
+
+@app.route('/deleted-records/permanent-delete', methods=['POST'])
+@app.route('/control-panel/deleted-records/permanent-delete', methods=['POST'])
+def permanently_delete_report_record():
+    if str(session.get('user_email', '')).lower() != 'arif.siddiqui@asija.in':
+        flash('Only Arif can permanently delete debtor records.')
+        return redirect(url_for('debtor_deleted_records'))
+
+    delete_log_id = (request.form.get('delete_log_id') or '').strip()
+    legacy_billing_id = (request.form.get('legacy_billing_id') or '').strip()
+    if not delete_log_id and not legacy_billing_id:
+        flash('Deleted record not selected.')
+        return redirect(url_for('debtor_deleted_records'))
+
+    conn = connect_debtor_db()
+    try:
+        cursor = conn.cursor()
+        if delete_log_id:
+            ensure_deleted_records_log_table(cursor)
+            cursor.execute(
+                "SELECT source_table, source_pk FROM deleted_records_log WHERE id = ? AND COALESCE(restore_status, 'deleted') = 'deleted'",
+                (delete_log_id,)
+            )
+            log_row = cursor.fetchone()
+            if not log_row:
+                flash('Deleted record not found.')
+                return redirect(url_for('debtor_deleted_records'))
+
+            source_table = log_row['source_table']
+            source_pk = log_row['source_pk']
+            if source_table == 'billing_report' and source_pk:
+                cursor.execute('DELETE FROM billing_report WHERE id = ? AND deleted_at IS NOT NULL', (source_pk,))
+            cursor.execute('DELETE FROM deleted_records_log WHERE id = ?', (delete_log_id,))
+        else:
+            cursor.execute('DELETE FROM billing_report WHERE id = ? AND deleted_at IS NOT NULL', (legacy_billing_id,))
+            if cursor.rowcount == 0:
+                flash('Deleted billing record not found.')
+                return redirect(url_for('debtor_deleted_records'))
+
+        conn.commit()
+        flash('Record permanently deleted from the database.')
+    except sqlite3.Error as exc:
+        conn.rollback()
+        app.logger.exception('Unable to permanently delete debtor record')
+        flash(f'Record could not be permanently deleted: {exc}')
+    finally:
+        conn.close()
+
     return redirect(url_for('debtor_deleted_records'))
 
 @app.route('/control-panel/backup', methods=['POST'])

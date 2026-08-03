@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bad Debt / Discount Register</title>
+    <title>Bad Debt / Discount / Credit Note Register</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='adjustment_register.css') }}">
@@ -22,7 +22,7 @@
             {% endwith %}
 
             <div class="adjustment-heading">
-                <h1>Bad Debt / Discount Register</h1>
+                <h1>Bad Debt / Discount / Credit Note Register</h1>
                 <a href="{{ debtor_url('/receipts') }}" class="secondary-btn primary-btn">Post New Entry</a>
             </div>
 
@@ -48,6 +48,7 @@
                             <th>Category</th>
                             <th>F.Y.</th>
                             <th>Posted At</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -55,7 +56,7 @@
                         <tr>
                             <td>{{ row.adjustment_date_display }}</td>
                             <td>
-                                <span class="adjustment-type {{ 'bad-debt' if row.adjustment_type == 'Bad Debt' else 'discount' }}">{{ row.adjustment_type }}</span>
+                                <span class="adjustment-type {{ 'bad-debt' if row.adjustment_type == 'Bad Debt' else ('credit-note' if row.adjustment_type == 'Credit Note' else 'discount') }}">{{ row.adjustment_type }}</span>
                             </td>
                             <td>{{ row.short_name }}</td>
                             <td>{{ row.bill_date_display }}</td>
@@ -73,10 +74,16 @@
                             <td>{{ row.client_category }}</td>
                             <td>{{ row.financial_year }}</td>
                             <td>{{ row.posted_at }}</td>
+                            <td>
+                                <form action="{{ debtor_url('/adjustment-register/delete') }}" method="POST" onsubmit="return confirm('Delete this adjustment entry?');">
+                                    <input type="hidden" name="adjustment_id" value="{{ row.id }}">
+                                    <button type="submit" class="secondary-btn danger-btn adjustment-delete-btn">Delete</button>
+                                </form>
+                            </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="18" class="empty-adjustment-register">No bad debt or discount entries posted yet.</td>
+                            <td colspan="19" class="empty-adjustment-register">No bad debt, discount or credit note entries posted yet.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
