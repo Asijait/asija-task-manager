@@ -266,6 +266,12 @@ def restore_deleted_log_record(cursor, delete_log_id):
 
     if source_table == 'billing_report':
         row_id = payload.get('id') or (log_row['source_pk'] if isinstance(log_row, sqlite3.Row) else log_row[2])
+        duplicate_ref = find_active_billing_ref(cursor, payload.get('ref_no'), exclude_id=row_id)
+        if duplicate_ref:
+            raise ValueError(
+                f"Ref. No. {duplicate_ref.get('ref_no')} already exists in the main report. "
+                "Delete the existing record before recalling this one."
+            )
         cursor.execute('SELECT id FROM billing_report WHERE id = ?', (row_id,))
         if cursor.fetchone():
             cursor.execute('''
@@ -1595,6 +1601,7 @@ def find_active_billing_ref(cursor, ref_no, exclude_id=None):
         WHERE ref_no IS NOT NULL
           AND trim(ref_no) != ''
           AND deleted_at IS NULL
+          AND COALESCE(receipt_status, 'open') != 'full_paid'
         ORDER BY id
     ''')
     for row in cursor.fetchall():
@@ -6354,6 +6361,23 @@ def restore_deleted_report_record():
                 recalled, message = restore_deleted_log_record(cursor, delete_log_id)
                 flash(message)
             else:
+                cursor.execute(
+                    'SELECT id, ref_no FROM billing_report WHERE id = ? AND deleted_at IS NOT NULL',
+                    (legacy_billing_id,)
+                )
+                deleted_bill = cursor.fetchone()
+                if not deleted_bill:
+                    raise ValueError('Deleted record not found.')
+                duplicate_ref = find_active_billing_ref(
+                    cursor,
+                    deleted_bill['ref_no'],
+                    exclude_id=deleted_bill['id']
+                )
+                if duplicate_ref:
+                    raise ValueError(
+                        f"Ref. No. {duplicate_ref.get('ref_no')} already exists in the main report. "
+                        "Delete the existing record before recalling this one."
+                    )
                 cursor.execute(
                     '''
                     UPDATE billing_report
