@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TallyConnect</title>
+    <link rel="stylesheet" href="{{ url_for('tally_connect.static', filename='tally_connect.css') }}">
+</head>
+<body>
+    <header class="app-header">
+        <div>
+            <p class="eyebrow">Debtor Portal</p>
+            <h1>TallyConnect</h1>
+        </div>
+        <a class="back-link" href="{{ debtor_url('/report') }}">Back to Debtor Report</a>
+    </header>
+
+    <main class="workspace">
+        <aside class="report-panel" aria-label="Available reports">
+            <h2>Reports</h2>
+            <button class="report-btn active" type="button" data-report="sales">
+                <span>Sales Register</span><small>Combined Excel</small>
+            </button>
+            <button class="report-btn" type="button" data-report="debtor">
+                <span>Debtor Report</span><small>Bill-wise Excel</small>
+            </button>
+            <button class="report-btn" type="button" data-report="cost-centre">
+                <span>Cost Centre</span><small>Breakup Excel</small>
+            </button>
+            <button class="report-btn" type="button" data-report="debug-xml">
+                <span>Debug XML</span><small>Diagnostic ZIP</small>
+            </button>
+        </aside>
+
+        <section class="content-card">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Live connection</p>
+                    <h2>Tally companies</h2>
+                </div>
+                <button class="secondary-btn" id="refreshCompanies" type="button">Refresh companies</button>
+            </div>
+
+            <div class="company-list" id="companyList">
+                <div class="empty-state">Click ?Refresh companies? to connect to Tally Prime.</div>
+            </div>
+
+            <div class="selection-actions">
+                <button class="text-btn" id="selectAll" type="button">Select all</button>
+                <button class="text-btn" id="clearAll" type="button">Clear</button>
+                <span id="selectionCount">0 selected</span>
+            </div>
+
+            <fieldset class="period">
+                <legend>Period</legend>
+                <label>From<input id="fromDate" type="date" value="{{ default_from }}"></label>
+                <label>To<input id="toDate" type="date" value="{{ default_to }}"></label>
+            </fieldset>
+
+            <div class="status" id="status" role="status" aria-live="polite">
+                Ready. Refresh companies to begin.
+            </div>
+            <div class="progress" id="progress" hidden><span></span></div>
+
+            <button class="primary-btn" id="generateReport" type="button">
+                Download Sales Register
+            </button>
+        </section>
+    </main>
+    <script src="{{ url_for('tally_connect.static', filename='tally_connect.js') }}"></script>
+</body>
+</html>

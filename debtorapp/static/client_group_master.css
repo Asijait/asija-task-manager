@@ -11,7 +11,7 @@
 }
 
 .group-master-card {
-    width: min(50%, 980px);
+    width: min(70%, 1180px);
     margin-left: 0;
     margin-right: auto;
 }
@@ -66,6 +66,23 @@
     padding: 7px 13px;
 }
 
+.group-bulk-update-form {
+    display: inline-flex;
+    margin: 0;
+}
+
+.group-bulk-update-btn {
+    min-height: 32px;
+    padding: 7px 13px;
+    border-color: #b7791f;
+    background: #fff7df;
+    color: #805b10;
+}
+
+.group-bulk-update-btn:hover {
+    background: #f9e9b6;
+}
+
 .excel-icon-btn {
     display: inline-flex;
     align-items: center;
@@ -112,8 +129,8 @@
     table-layout: auto !important;
 }
 
-.group-master-card #clientTable th:nth-child(n+6),
-.group-master-card #clientTable td:nth-child(n+6) {
+.group-master-card #clientTable th:nth-child(n+7),
+.group-master-card #clientTable td:nth-child(n+7) {
     display: table-cell !important;
 }
 
@@ -123,7 +140,7 @@
 }
 
 .group-master-card .group-master-table .group-col-id {
-    width: 1%;
+    width: 1px;
 }
 
 .group-master-card .group-master-table .group-col-name {
@@ -132,7 +149,11 @@
 
 .group-master-card .group-master-table .group-col-crp,
 .group-master-card .group-master-table .group-col-referred {
-    width: 22%;
+    width: 18%;
+}
+
+.group-master-card .group-master-table .group-col-induction-date {
+    width: 145px;
 }
 
 .group-master-card .group-master-table .group-col-clients {
@@ -143,10 +164,12 @@
     width: 116px;
 }
 
-.group-master-card .group-master-table th:first-child,
-.group-master-card .group-master-table td:first-child {
-    width: 1%;
-    min-width: 34px;
+#clientTable.group-master-table th:nth-child(1),
+#clientTable.group-master-table td:nth-child(1) {
+    width: 1px !important;
+    min-width: 0;
+    max-width: none;
+    white-space: nowrap;
 }
 
 .group-master-card .group-master-table th:last-child,

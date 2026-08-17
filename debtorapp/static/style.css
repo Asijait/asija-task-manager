@@ -1,5 +1,15 @@
 body { font-family: 'Segoe UI', sans-serif; background: #174a73; margin: 0; padding: 0; min-height: 100vh; }
 
+body.filter-menu-open {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+body.filter-menu-open .table-scroll {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
 .secondary-btn {
     padding: 7px 14px;
     background-color: #ecf0f1;
@@ -597,6 +607,7 @@ thead th {
     border-radius: 6px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.2);
     z-index: 500;
+    overscroll-behavior: contain;
 }
 .filter-menu.is-open {
     display: block;
@@ -644,6 +655,7 @@ thead th {
 .filter-options {
     max-height: 220px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     border: 1px solid #d0d0d0;
     padding: 4px 3px;
 }

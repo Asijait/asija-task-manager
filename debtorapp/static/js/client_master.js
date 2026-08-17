@@ -291,6 +291,7 @@ document.addEventListener('DOMContentLoaded', function() {
         setValue('editClientCategory', row.dataset.clientCategory);
         setValue('editCrpOfGroup', row.dataset.crpOfGroup);
         setValue('editRefferedBy', row.dataset.refferedBy);
+        setValue('editGroupInductionDate', row.dataset.groupInductionDate);
         setValue('editWhatappGroup', row.dataset.whatappGroup);
         setValue('editPhone', row.dataset.phone);
         setValue('editEmail', row.dataset.email);

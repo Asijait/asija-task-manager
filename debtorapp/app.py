@@ -27,6 +27,12 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 app = Flask(__name__)
 app.secret_key = "dev-secret-key"
 
+try:
+    from .TallyConnect.web import tally_connect_bp
+except ImportError:
+    from TallyConnect.web import tally_connect_bp
+app.register_blueprint(tally_connect_bp)
+
 # Add the Indian currency formatting function
 def format_indian_currency(amount, decimals=True):
     if amount is None:
@@ -1060,6 +1066,11 @@ def format_display_date(value):
         except ValueError:
             continue
     return value
+
+@app.template_filter('display_date_full')
+def format_display_date_full(value):
+    date_obj = parse_input_date(value)
+    return date_obj.strftime('%d-%m-%Y') if date_obj else ''
 
 def format_display_datetime(value):
     if not value:
@@ -2467,6 +2478,7 @@ def init_db():
             group_name TEXT NOT NULL UNIQUE COLLATE NOCASE,
             crp_name TEXT,
             reffered_by TEXT,
+            group_induction_date TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT
         )
@@ -2585,6 +2597,7 @@ def init_db():
     required_group_columns = {
         'crp_name': 'TEXT',
         'reffered_by': 'TEXT',
+        'group_induction_date': 'TEXT',
         'created_at': 'TEXT',
         'updated_at': 'TEXT',
     }
@@ -3962,9 +3975,9 @@ def post_receipts():
     receipt_mode = (payload.get('receipt_mode') or '').strip()
     receipt_date_obj = parse_input_date(payload.get('receipt_date') or '')
     receipt_rows = payload.get('rows') or []
-    is_adjustment = receipt_mode in {'Bad Debt', 'Discount', 'Credit Note'}
+    is_adjustment = receipt_mode in {'Bad Debt', 'Discount', 'Credit Note', 'TDS & Others'}
 
-    if receipt_mode not in {'Cash', 'Bank', 'Online', 'UPI', 'Bad Debt', 'Discount', 'Credit Note'}:
+    if receipt_mode not in {'Cash', 'Bank', 'Online', 'UPI', 'Bad Debt', 'Discount', 'Credit Note', 'TDS & Others'}:
         return jsonify({'success': False, 'message': 'Please select a valid receipt mode.'}), 400
     if not receipt_date_obj:
         return jsonify({'success': False, 'message': 'Please select a valid date.'}), 400
@@ -5586,6 +5599,7 @@ def download_client_group_master_excel():
             client_group_master.group_name,
             COALESCE(client_group_master.crp_name, '') AS crp_name,
             COALESCE(client_group_master.reffered_by, '') AS reffered_by,
+            COALESCE(client_group_master.group_induction_date, '') AS group_induction_date,
             (
                 SELECT COUNT(*)
                 FROM client_master
@@ -5604,6 +5618,7 @@ def download_client_group_master_excel():
             'Group Name': group['group_name'],
             'CRP Name': group['crp_name'],
             'Referred By': group['reffered_by'],
+            'Group Induction Date': parse_excel_date(group['group_induction_date']),
             'Clients': group['client_count'],
         })
 
@@ -5611,6 +5626,7 @@ def download_client_group_master_excel():
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         pd.DataFrame(export_rows).to_excel(writer, index=False, sheet_name='Client Groups')
         apply_workbook_formatting(writer)
+        apply_excel_date_columns(writer, headers=('Group Induction Date',))
     output.seek(0)
     return send_file(
         output,
@@ -5619,14 +5635,158 @@ def download_client_group_master_excel():
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
+@app.route('/client-group-master/bulk-update', methods=['POST'])
+def bulk_update_client_groups():
+    if str(session.get('user_email', '')).strip().lower() != 'arif.siddiqui@asija.in':
+        flash('Only Arif can bulk update Client Group Master.', 'error')
+        return redirect(url_for('client_group_master_view'))
+
+    upload = request.files.get('file')
+    if not upload or not upload.filename:
+        flash('Please select the Client Group Master Excel file.', 'error')
+        return redirect(url_for('client_group_master_view'))
+    if not upload.filename.lower().endswith('.xlsx'):
+        flash('Bulk Update accepts only .xlsx files.', 'error')
+        return redirect(url_for('client_group_master_view'))
+
+    def clean_excel_value(value):
+        if value is None or pd.isna(value):
+            return ''
+        return str(value).strip()
+
+    def normalized_header(value):
+        return ''.join(char for char in str(value).strip().lower() if char.isalnum())
+
+    try:
+        dataframe = pd.read_excel(upload)
+    except Exception as exc:
+        flash(f'Unable to read Excel file: {exc}', 'error')
+        return redirect(url_for('client_group_master_view'))
+
+    if len(dataframe.index) > 10000:
+        flash('Bulk Update supports a maximum of 10,000 rows at a time.', 'error')
+        return redirect(url_for('client_group_master_view'))
+
+    column_map = {normalized_header(column): column for column in dataframe.columns}
+    required_columns = {
+        'id': 'ID',
+        'groupname': 'Group Name',
+        'crpname': 'CRP Name',
+        'referredby': 'Referred By',
+        'groupinductiondate': 'Group Induction Date',
+    }
+    missing_columns = [
+        label for key, label in required_columns.items()
+        if key not in column_map
+    ]
+    if missing_columns:
+        flash('Missing Excel column(s): ' + ', '.join(missing_columns) + '.', 'error')
+        return redirect(url_for('client_group_master_view'))
+
+    conn = connect_debtor_db()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute('SELECT id, group_name FROM client_group_master')
+        existing_groups = {
+            int(row['id']): normalize_master_name(row['group_name'])
+            for row in cursor.fetchall()
+        }
+        cursor.execute('SELECT crp_name FROM crp_master WHERE crp_name IS NOT NULL AND trim(crp_name) != ? ', ('',))
+        valid_crps = {
+            master_name_key(row['crp_name']): normalize_master_name(row['crp_name'])
+            for row in cursor.fetchall()
+        }
+
+        updates = []
+        seen_ids = set()
+        for dataframe_index, row in dataframe.iterrows():
+            excel_row = dataframe_index + 2
+            raw_id = clean_excel_value(row[column_map['id']])
+            raw_group_name = clean_excel_value(row[column_map['groupname']])
+            if not raw_id and not raw_group_name:
+                continue
+            try:
+                numeric_id = float(raw_id)
+                group_id = int(numeric_id)
+                if numeric_id != group_id:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise ValueError(f'Excel row {excel_row}: ID must be a whole number.')
+            if group_id in seen_ids:
+                raise ValueError(f'Excel row {excel_row}: duplicate ID {group_id}.')
+            seen_ids.add(group_id)
+
+            existing_group_name = existing_groups.get(group_id)
+            if existing_group_name is None:
+                raise ValueError(f'Excel row {excel_row}: ID {group_id} does not exist.')
+            group_name = normalize_master_name(raw_group_name)
+            if master_name_key(group_name) != master_name_key(existing_group_name):
+                raise ValueError(
+                    f'Excel row {excel_row}: Group Name for ID {group_id} was changed. '
+                    'Bulk Update does not rename groups.'
+                )
+
+            crp_name = normalize_master_name(clean_excel_value(row[column_map['crpname']]))
+            if crp_name:
+                canonical_crp = valid_crps.get(master_name_key(crp_name))
+                if not canonical_crp:
+                    raise ValueError(f'Excel row {excel_row}: CRP Name "{crp_name}" is not in CRP Master.')
+                crp_name = canonical_crp
+            reffered_by = normalize_master_name(clean_excel_value(row[column_map['referredby']]))
+
+            raw_date = row[column_map['groupinductiondate']]
+            date_text = clean_excel_value(raw_date)
+            date_obj = parse_input_date(raw_date) if date_text else None
+            if date_text and not date_obj:
+                raise ValueError(
+                    f'Excel row {excel_row}: Group Induction Date must be a valid Excel date or dd-mm-yyyy.'
+                )
+            induction_date = date_obj.strftime('%Y-%m-%d') if date_obj else ''
+            updates.append((crp_name, reffered_by, induction_date, group_id, existing_group_name))
+
+        if not updates:
+            raise ValueError('Excel file has no Client Group rows to update.')
+
+        updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        for crp_name, reffered_by, induction_date, group_id, group_name in updates:
+            cursor.execute('''
+                UPDATE client_group_master
+                SET crp_name = ?, reffered_by = ?, group_induction_date = ?, updated_at = ?
+                WHERE id = ?
+            ''', (crp_name, reffered_by, induction_date, updated_at, group_id))
+            cursor.execute('''
+                UPDATE client_master
+                SET crp_of_group = ?, reffered_by = ?
+                WHERE lower(trim(client_group)) = lower(trim(?))
+            ''', (crp_name, reffered_by, group_name))
+
+        conn.commit()
+        flash(f'Bulk Update successful: {len(updates)} Client Group(s) updated.', 'success')
+    except ValueError as exc:
+        conn.rollback()
+        flash(str(exc), 'error')
+    except Exception as exc:
+        conn.rollback()
+        flash(f'Unable to bulk update Client Group Master: {exc}', 'error')
+    finally:
+        conn.close()
+    return redirect(url_for('client_group_master_view'))
+
 @app.route('/client-group-master/add', methods=['POST'])
 def add_client_group():
     group_name = normalize_master_name(request.form.get('group_name'))
     crp_name = normalize_master_name(request.form.get('crp_name'))
     reffered_by = normalize_master_name(request.form.get('reffered_by'))
+    induction_date_raw = (request.form.get('group_induction_date') or '').strip()
+    induction_date_obj = parse_input_date(induction_date_raw) if induction_date_raw else None
+    group_induction_date = induction_date_obj.strftime('%Y-%m-%d') if induction_date_obj else ''
 
     if not group_name:
         flash('Group name is required.')
+        return redirect(url_for('client_group_master_view'))
+    if induction_date_raw and not induction_date_obj:
+        flash('Please select a valid Group Induction Date.')
         return redirect(url_for('client_group_master_view'))
 
     conn = connect_debtor_db()
@@ -5636,11 +5796,12 @@ def add_client_group():
         if existing_group:
             cursor.execute('''
                 UPDATE client_group_master
-                SET crp_name = ?, reffered_by = ?, updated_at = ?
+                SET crp_name = ?, reffered_by = ?, group_induction_date = ?, updated_at = ?
                 WHERE id = ?
             ''', (
                 crp_name or existing_group.get('crp_name') or '',
                 reffered_by or existing_group.get('reffered_by') or '',
+                group_induction_date or existing_group.get('group_induction_date') or '',
                 datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 existing_group.get('id'),
             ))
@@ -5649,9 +5810,9 @@ def add_client_group():
             return redirect(url_for('client_group_master_view'))
 
         cursor.execute('''
-            INSERT INTO client_group_master (group_name, crp_name, reffered_by, updated_at)
-            VALUES (?, ?, ?, ?)
-        ''', (group_name, crp_name, reffered_by, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+            INSERT INTO client_group_master (group_name, crp_name, reffered_by, group_induction_date, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (group_name, crp_name, reffered_by, group_induction_date, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
         conn.commit()
         flash('Client group added successfully.')
     except sqlite3.IntegrityError:
@@ -5713,12 +5874,19 @@ def update_client_group():
     group_name = normalize_master_name(request.form.get('group_name'))
     crp_name = normalize_master_name(request.form.get('crp_name'))
     reffered_by = normalize_master_name(request.form.get('reffered_by'))
+    induction_date_raw = (request.form.get('group_induction_date') or '').strip()
+    induction_date_obj = parse_input_date(induction_date_raw) if induction_date_raw else None
+    group_induction_date = induction_date_obj.strftime('%Y-%m-%d') if induction_date_obj else ''
 
     if not group_id or not group_name:
         flash('Group name is required.')
         return redirect(url_for('client_group_master_view'))
+    if induction_date_raw and not induction_date_obj:
+        flash('Please select a valid Group Induction Date.')
+        return redirect(url_for('client_group_master_view'))
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = connect_debtor_db()
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('SELECT group_name FROM client_group_master WHERE id = ?', (group_id,))
     old_row = cursor.fetchone()
@@ -5743,11 +5911,12 @@ def update_client_group():
             ''', (crp_name, reffered_by, canonical_group))
             cursor.execute('''
                 UPDATE client_group_master
-                SET crp_name = ?, reffered_by = ?, updated_at = ?
+                SET crp_name = ?, reffered_by = ?, group_induction_date = ?, updated_at = ?
                 WHERE id = ?
             ''', (
                 crp_name or duplicate_group.get('crp_name') or '',
                 reffered_by or duplicate_group.get('reffered_by') or '',
+                group_induction_date or duplicate_group.get('group_induction_date') or '',
                 datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 duplicate_group.get('id'),
             ))
@@ -5758,12 +5927,13 @@ def update_client_group():
 
         cursor.execute('''
             UPDATE client_group_master
-            SET group_name = ?, crp_name = ?, reffered_by = ?, updated_at = ?
+            SET group_name = ?, crp_name = ?, reffered_by = ?, group_induction_date = ?, updated_at = ?
             WHERE id = ?
         ''', (
             group_name,
             crp_name,
             reffered_by,
+            group_induction_date,
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             group_id,
         ))

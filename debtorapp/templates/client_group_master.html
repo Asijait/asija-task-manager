@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='client_master.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='client_group_master.css') }}?v=group-actions-20260710">
+    <link rel="stylesheet" href="{{ url_for('static', filename='client_group_master.css') }}?v=group-bulk-update-20260817">
 </head>
 <body>
     {% set active_page = 'client_group_master' %}
@@ -35,6 +35,12 @@
                     {% if can_edit_client_group_master %}
                     <button type="button" class="secondary-btn group-add-toggle" id="showGroupAddRow">Add Group</button>
                     {% endif %}
+                    {% if is_arif_user %}
+                    <form action="{{ debtor_url('/client-group-master/bulk-update') }}" method="POST" enctype="multipart/form-data" class="group-bulk-update-form" id="groupBulkUpdateForm">
+                        <input type="file" name="file" id="groupBulkUpdateFile" accept=".xlsx" hidden>
+                        <button type="button" class="secondary-btn group-bulk-update-btn" id="groupBulkUpdateBtn">Bulk Update</button>
+                    </form>
+                    {% endif %}
                     <a class="excel-icon-btn" href="{{ debtor_url('/download/client-group-master-excel') }}" title="Export Client Group Master" aria-label="Export Client Group Master">XLS</a>
                 </div>
             </div>
@@ -49,6 +55,7 @@
                         <col class="group-col-name">
                         <col class="group-col-crp">
                         <col class="group-col-referred">
+                        <col class="group-col-induction-date">
                         <col class="group-col-clients">
                         {% if can_edit_client_group_master %}<col class="group-col-action">{% endif %}
                     </colgroup>
@@ -58,6 +65,7 @@
                             <th>Group Name</th>
                             <th>CRP Name</th>
                             <th>Referred By</th>
+                            <th>Group Induction Date</th>
                             <th>Clients</th>
                             {% if can_edit_client_group_master %}<th>Edit</th>{% endif %}
                         </tr>
@@ -79,6 +87,7 @@
                                 </select>
                             </td>
                             <td><input type="text" name="reffered_by" form="groupAddForm" placeholder="Referred By"></td>
+                            <td><input type="date" name="group_induction_date" form="groupAddForm"></td>
                             <td>0</td>
                             <td class="group-add-actions">
                                 <button type="submit" class="group-row-action" form="groupAddForm" id="addGroupSubmit" title="Save group" aria-label="Save group">Save</button>
@@ -96,11 +105,13 @@
                             data-client-group="{{ group.group_name or '' }}"
                             data-crp-of-group="{{ group.crp_name or '' }}"
                             data-reffered-by="{{ group.reffered_by or '' }}"
+                            data-group-induction-date="{{ group.group_induction_date or '' }}"
                         >
                             <td>{{ group.id }}</td>
                             <td><a class="group-name-link" href="#" data-group-url="{{ debtor_url('/client-group-master/' ~ group.id ~ '/clients-data') }}">{{ group.group_name }}</a></td>
                             <td>{{ group.crp_name or '' }}</td>
                             <td>{{ group.reffered_by or '' }}</td>
+                            <td>{{ group.group_induction_date | display_date_full }}</td>
                             <td>{{ group.client_count or 0 }}</td>
                             {% if can_edit_client_group_master %}<td><button type="button" class="client-edit-btn" title="Edit group" aria-label="Edit group">✎</button></td>{% endif %}
                         </tr>
@@ -138,6 +149,10 @@
                     <label>
                         Referred By
                         <input type="text" name="reffered_by" id="editRefferedBy">
+                    </label>
+                    <label>
+                        Group Induction Date
+                        <input type="date" name="group_induction_date" id="editGroupInductionDate">
                     </label>
                 </div>
                 <div class="client-modal-actions">
@@ -189,6 +204,9 @@
         const showGroupAddRow = document.getElementById('showGroupAddRow');
         const hideGroupAddRow = document.getElementById('hideGroupAddRow');
         const groupAddRow = document.getElementById('groupAddRow');
+        const groupBulkUpdateForm = document.getElementById('groupBulkUpdateForm');
+        const groupBulkUpdateFile = document.getElementById('groupBulkUpdateFile');
+        const groupBulkUpdateBtn = document.getElementById('groupBulkUpdateBtn');
 
         const groupRows = Array.from(document.querySelectorAll('.group-click-row'));
         const groupNameIndex = new Map();
@@ -271,6 +289,26 @@
         if (hideGroupAddRow && groupAddRow) {
             hideGroupAddRow.addEventListener('click', function() {
                 groupAddRow.hidden = true;
+            });
+        }
+
+        if (groupBulkUpdateBtn && groupBulkUpdateFile && groupBulkUpdateForm) {
+            groupBulkUpdateBtn.addEventListener('click', function() {
+                groupBulkUpdateFile.click();
+            });
+            groupBulkUpdateFile.addEventListener('change', function() {
+                if (!groupBulkUpdateFile.files.length) return;
+                const confirmed = window.confirm(
+                    'Update existing Client Groups from this Excel file?\n\n' +
+                    'ID and Group Name must remain unchanged. CRP Name, Referred By and Group Induction Date will be updated.'
+                );
+                if (!confirmed) {
+                    groupBulkUpdateFile.value = '';
+                    return;
+                }
+                groupBulkUpdateBtn.disabled = true;
+                groupBulkUpdateBtn.textContent = 'Updating...';
+                groupBulkUpdateForm.submit();
             });
         }
 

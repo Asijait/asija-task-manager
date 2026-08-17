@@ -42,6 +42,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const numberFilterStorageKey = `billingReportNumberFiltersV3:${pageStorageKey}`;
     const noMatchFilterValue = '__NO_MATCH__';
 
+    function syncFilterMenuScrollLock() {
+        document.body.classList.toggle(
+            'filter-menu-open',
+            Boolean(document.querySelector('.filter-menu.is-open'))
+        );
+    }
+
+    const filterMenuObserver = new MutationObserver(syncFilterMenuScrollLock);
+    filterMenuObserver.observe(table, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class']
+    });
+
     function moveColumn(tableElement, fromIndex, toIndex) {
         const colgroup = tableElement.querySelector('colgroup');
         const cols = Array.from(colgroup?.children || []);
@@ -978,6 +992,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         menu.addEventListener('click', event => event.stopPropagation());
+        menu.addEventListener('wheel', event => event.stopPropagation());
+        menu.addEventListener('touchmove', event => event.stopPropagation());
 
         actions.appendChild(selectAll);
         actions.appendChild(clear);
@@ -1450,7 +1466,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         function updateReceiptPostingLabels() {
             const mode = receiptMode?.value || 'Cash';
-            const isAdjustment = mode === 'Bad Debt' || mode === 'Discount' || mode === 'Credit Note';
+            const isAdjustment = mode === 'Bad Debt' || mode === 'Discount' || mode === 'Credit Note' || mode === 'TDS & Others';
             if (receiptAmountHeader) {
                 receiptAmountHeader.textContent = isAdjustment ? 'Adjustment Amount' : 'Actual Received Amt';
             }
