@@ -27,12 +27,6 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 app = Flask(__name__)
 app.secret_key = "dev-secret-key"
 
-try:
-    from .TallyConnect.web import tally_connect_bp
-except ImportError:
-    from TallyConnect.web import tally_connect_bp
-app.register_blueprint(tally_connect_bp)
-
 # Add the Indian currency formatting function
 def format_indian_currency(amount, decimals=True):
     if amount is None:

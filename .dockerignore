@@ -12,6 +12,7 @@ postgres_backups
 database_backups
 restore_points
 debtorapp/backups
+debtorapp/TallyConnect
 debtorapp/__pycache__
 client_analytic/__pycache__
 *.log
