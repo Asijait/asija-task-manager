@@ -36,6 +36,10 @@
                     <button type="button" class="nav-import-btn import-data-btn">Import Tally Debtors</button>
                     <input type="file" name="file" class="import-file-input" accept=".csv, .xlsx, .xls" hidden>
                 </form>
+                <form action="{{ debtor_url('/bulk-import') }}" method="post" enctype="multipart/form-data" class="nav-import-form bulk-import-form">
+                    <button type="button" class="nav-import-btn bulk-import-btn">Bulk Import</button>
+                    <input type="file" name="file" class="bulk-import-file" accept=".csv, .xlsx, .xls" hidden>
+                </form>
                 {% endif %}
                 {% if 'import_tally_debtors' in debtor_nav_access %}
                 <a href="{{ debtor_url('/import-errors') }}" class="{{ 'active' if active_page == 'import_errors' else '' }}">Missing Clients Report</a>
@@ -112,6 +116,10 @@
         <button type="button" class="sidebar-btn sidebar-action import-data-btn">Import Tally Debtors</button>
         <input type="file" name="file" class="import-file-input" accept=".csv, .xlsx, .xls" hidden>
         <a href="{{ debtor_url('/download/billing-template') }}" class="sidebar-btn small">Download Template</a>
+    </form>
+    <form action="{{ debtor_url('/bulk-import') }}" method="post" enctype="multipart/form-data" class="bulk-import-form">
+        <button type="button" class="sidebar-btn sidebar-action bulk-import-btn">Bulk Import</button>
+        <input type="file" name="file" class="bulk-import-file" accept=".csv, .xlsx, .xls" hidden>
     </form>
     {% endif %}
     {% if 'import_tally_debtors' in debtor_nav_access %}

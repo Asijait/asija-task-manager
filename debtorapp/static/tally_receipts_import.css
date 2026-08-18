@@ -59,7 +59,19 @@ body {
     align-items: end;
     gap: 8px;
     flex-wrap: wrap;
+    margin: 0;
+}
+
+.receipt-filter-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
     margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid #d8e1e7;
+    border-radius: 6px;
+    background: #f7fafc;
 }
 
 .tally-controls label {
@@ -98,10 +110,25 @@ body {
 
 .receipt-file-import {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 10px;
     flex-wrap: wrap;
     margin-bottom: 10px;
+}
+
+.receipt-file-import #chooseTallyReceiptFile,
+.receipt-file-import #postTallyReceipts {
+    min-width: 190px;
+}
+
+.receipt-file-import #postTallyReceipts {
+    background: #34495e;
+    border-color: #34495e;
+}
+
+.receipt-file-import #postTallyReceipts:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
 }
 
 .receipt-file-import button {
@@ -126,11 +153,12 @@ body {
     align-items: end;
     gap: 8px;
     flex-wrap: wrap;
-    margin: 0 0 10px;
-    padding: 10px;
-    border: 1px solid #d8e1e7;
-    border-radius: 6px;
-    background: #f7fafc;
+    margin: 0;
+    padding: 0 0 0 12px;
+    border: 0;
+    border-left: 1px solid #d8e1e7;
+    border-radius: 0;
+    background: transparent;
 }
 
 .tally-import-summary-form label {

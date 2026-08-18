@@ -132,6 +132,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    document.querySelectorAll('.bulk-import-form').forEach(function(form) {
+        const button = form.querySelector('.bulk-import-btn');
+        const fileInput = form.querySelector('.bulk-import-file');
+        if (!button || !fileInput) return;
+        button.addEventListener('click', function(event) {
+            event.stopPropagation();
+            fileInput.value = '';
+            fileInput.click();
+        });
+        fileInput.addEventListener('change', function() {
+            if (fileInput.files.length > 0) form.submit();
+        });
+    });
+
     if (importDialog) {
         importDialog.addEventListener('click', function(event) {
             if (event.target === importDialog) closeImportDialog();

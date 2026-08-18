@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Import Tally Receipts</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='tally_receipts_import.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='tally_receipts_import.css', v='3') }}">
 </head>
 <body class="import-tally-receipts-page"
       data-preview-url="{{ debtor_url('/api/import-tally-receipts/preview') }}"
@@ -19,45 +19,43 @@
             <div class="tally-header">
                 <div>
                     <h1>Import Tally Receipts</h1>
-                    <p>Preview from <strong>fcRece.xlsx</strong>, match with debtor bills, then post to Receipt Register.</p>
                 </div>
                 <span class="trial-badge">Tally Import</span>
             </div>
 
-            <form class="tally-controls" id="tallyReceiptForm">
-                <label>
-                    Receipt Date
-                    <input type="date" id="tallyReceiptDate">
-                </label>
-                <button type="submit">Preview</button>
-                <button type="button" id="clearTallyDate">All Dates</button>
-                {% if can_edit_tally_receipts %}
-                <button type="button" id="postTallyReceipts" disabled>Post Matched Receipts</button>
-                {% endif %}
-            </form>
-
             {% if can_edit_tally_receipts %}
             <form class="receipt-file-import" id="tallyReceiptUploadForm" action="{{ debtor_url('/import-tally-receipts/upload') }}" method="post" enctype="multipart/form-data">
-                <button type="button" id="chooseTallyReceiptFile">Import Receipts File</button>
-                <span id="tallyReceiptFileName">Current file: fcRece.xlsx</span>
+                <button type="button" id="chooseTallyReceiptFile">Browse File</button>
+                <button type="button" id="postTallyReceipts" disabled>Post Matched Receipts</button>
                 <input type="file" name="file" id="tallyReceiptFileInput" accept=".xlsx,.xlsm" hidden>
             </form>
             {% endif %}
 
-            <form class="tally-import-summary-form" action="{{ debtor_url('/tally-receipts/import-summary') }}" method="get">
-                <label>
-                    Import From
-                    <input type="date" name="start_date" value="{{ import_summary.start_date if import_summary else '' }}" required>
-                </label>
-                <label>
-                    Import To
-                    <input type="date" name="end_date" value="{{ import_summary.end_date if import_summary else '' }}" required>
-                </label>
-                <button type="submit">Import Summary</button>
-                {% if import_summary and import_summary.message %}
-                <span>{{ import_summary.message }}</span>
-                {% endif %}
-            </form>
+            <div class="receipt-filter-row">
+                <form class="tally-controls" id="tallyReceiptForm">
+                    <label>
+                        Receipt Date
+                        <input type="date" id="tallyReceiptDate">
+                    </label>
+                    <button type="submit">Preview</button>
+                    <button type="button" id="clearTallyDate">All Dates</button>
+                </form>
+
+                <form class="tally-import-summary-form" action="{{ debtor_url('/tally-receipts/import-summary') }}" method="get">
+                    <label>
+                        Import From
+                        <input type="date" name="start_date" value="{{ import_summary.start_date if import_summary else '' }}" required>
+                    </label>
+                    <label>
+                        Import To
+                        <input type="date" name="end_date" value="{{ import_summary.end_date if import_summary else '' }}" required>
+                    </label>
+                    <button type="submit">Import Summary</button>
+                    {% if import_summary and import_summary.message %}
+                    <span>{{ import_summary.message }}</span>
+                    {% endif %}
+                </form>
+            </div>
 
             {% if import_summary and import_summary.message %}
             <div class="tally-summary-panel">
@@ -152,12 +150,6 @@
 
             <div class="tally-status" id="tallyStatus">Select a date and preview Tally receipts.</div>
 
-            <div class="tally-meta" id="tallyMeta" hidden>
-                <span id="tallyFileName"></span>
-                <span id="tallySheetName"></span>
-                <span id="tallyStartRow"></span>
-            </div>
-
             <div class="tally-table-wrap">
                 <table class="tally-table">
                     <thead>
@@ -181,6 +173,6 @@
     </main>
 
     <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/tally_receipts_import.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tally_receipts_import.js', v='3') }}"></script>
 </body>
 </html>

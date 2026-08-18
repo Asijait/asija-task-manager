@@ -14,6 +14,7 @@ import tempfile
 import zipfile
 import html
 import re
+import secrets
 from urllib.parse import urlencode
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, session, jsonify
@@ -713,7 +714,7 @@ def has_debtor_nav_access(user_email, access_key):
 
 def get_debtor_access_key_for_path(path):
     path = path or '/'
-    if path in ('/upload', '/import-followup-choice') or path == '/download/billing-template':
+    if path in ('/upload', '/bulk-import', '/bulk-import/confirm', '/import-followup-choice') or path == '/download/billing-template':
         return 'import_tally_debtors'
     if path == '/import-errors' or path == '/download/missing-clients-report':
         return 'import_tally_debtors'
@@ -2221,6 +2222,7 @@ def find_report_header(df):
         party_idx = next((index for index, label in enumerate(combined) if 'party' in label and 'name' in label), None)
         amount_idx = next((index for index, label in enumerate(combined) if label in ('amount', 'pendingamount') or ('pending' in label and 'amount' in label)), None)
         due_idx = next((index for index, label in enumerate(combined) if label in ('dueon', 'duedate')), None)
+        firm_idx = next((index for index, label in enumerate(combined) if label in ('firm', 'firmname', 'company', 'companyname')), None)
         if date_idx is not None and ref_idx is not None and party_idx is not None and amount_idx is not None:
             return {
                 'row_index': row_index,
@@ -2229,21 +2231,19 @@ def find_report_header(df):
                 'party_idx': party_idx,
                 'amount_idx': amount_idx,
                 'due_idx': due_idx,
+                'firm_idx': firm_idx,
             }
     return None
 
 def find_sales_register_header(df, source_filename=''):
-    source_name = normalize_cell(os.path.basename(source_filename or ''))
     title_labels = {
         normalize_cell(value)
         for row_index in range(min(len(df), 12))
         for value in df.iloc[row_index].tolist()
     }
-    is_sales_register = (
-        'salreg' in source_name
-        or 'salesregister' in title_labels
+    title_is_sales_register = (
+        'salesregister' in title_labels
         or 'salesregister' in ''.join(title_labels)
-        or 'daybook' in title_labels
     )
 
     for row_index in range(min(len(df), 30)):
@@ -2259,17 +2259,95 @@ def find_sales_register_header(df, source_filename=''):
         ref_idx = next((index for index, label in enumerate(combined) if label in ('vchno', 'voucherno', 'vouchernumber')), None)
         debit_idx = next((index for index, label in enumerate(combined) if label in ('debitamount', 'debit')), None)
         amount_idx = next((index for index, label in enumerate(combined) if label in ('amount', 'netamount', 'invoiceamount')), None)
+        voucher_type_idx = next((index for index, label in enumerate(combined) if label in ('vchtype', 'vouchertype')), None)
+        firm_idx = next((index for index, label in enumerate(combined) if label in ('firm', 'firmname', 'company', 'companyname')), None)
 
         if date_idx is not None and party_idx is not None and ref_idx is not None and (debit_idx is not None or amount_idx is not None):
+            has_sales_vouchers = False
+            if voucher_type_idx is not None:
+                for data_index in range(row_index + 1, min(len(df), row_index + 501)):
+                    voucher_type = normalize_cell(df.iloc[data_index, voucher_type_idx])
+                    if 'sale' in voucher_type:
+                        has_sales_vouchers = True
+                        break
             return {
                 'row_index': row_index,
                 'date_idx': date_idx,
                 'ref_idx': ref_idx,
                 'party_idx': party_idx,
                 'amount_idx': debit_idx if debit_idx is not None else amount_idx,
-                'is_sales_register': is_sales_register,
+                'voucher_type_idx': voucher_type_idx,
+                'firm_idx': firm_idx,
+                'is_sales_register': title_is_sales_register or has_sales_vouchers,
             }
     return None
+
+def extract_import_rows(data_file):
+    """Read a debtor file without changing the database."""
+    extracted_rows = []
+
+    def add_row(firm_name, bill_date_value, ref_no, party_name, amount_value, due_date_value=None):
+        bill_date_obj = parse_input_date(bill_date_value)
+        amount = to_float(amount_value)
+        ref_text = '' if is_blank(ref_no) else re.sub(r'\s+', ' ', str(ref_no).strip())
+        party_text = '' if is_blank(party_name) else str(party_name).strip()
+        if not bill_date_obj or not ref_text or not party_text or amount is None:
+            return
+        due_date_obj = parse_input_date(due_date_value) if due_date_value is not None else None
+        extracted_rows.append({
+            'source_firm': (firm_name or '').strip(),
+            'bill_date': bill_date_obj.strftime('%Y-%m-%d'),
+            'ref_no': ref_text,
+            'party_name': party_text,
+            'amount': amount,
+            'due_date': due_date_obj.strftime('%Y-%m-%d') if due_date_obj else '',
+        })
+
+    if data_file.lower().endswith('.csv'):
+        with open(data_file, 'r', encoding='utf-8', errors='ignore') as file_handle:
+            reader = list(csv.reader(file_handle))
+        if not reader:
+            return []
+        fallback_firm = first_nonblank(reader[0]) or ''
+        for row in reader[1:]:
+            if len(row) >= 4:
+                add_row(fallback_firm, row[0], row[1], row[2], row[3])
+        return extracted_rows
+
+    with pd.ExcelFile(data_file) as xls:
+        df = pd.read_excel(xls, header=None)
+        fallback_firm = first_nonblank(df.iloc[0].tolist()) if not df.empty else ''
+        header = find_report_header(df)
+        if header:
+            for row_index in range(header['row_index'] + 1, len(df)):
+                row = df.iloc[row_index]
+                row_firm = fallback_firm
+                if header.get('firm_idx') is not None and not is_blank(row.iloc[header['firm_idx']]):
+                    row_firm = str(row.iloc[header['firm_idx']]).strip()
+                due_value = row.iloc[header['due_idx']] if header.get('due_idx') is not None else None
+                add_row(row_firm, row.iloc[header['date_idx']], row.iloc[header['ref_idx']], row.iloc[header['party_idx']], row.iloc[header['amount_idx']], due_value)
+            return extracted_rows
+
+        sales_header = find_sales_register_header(df)
+        if sales_header and sales_header['is_sales_register']:
+            for row_index in range(sales_header['row_index'] + 1, len(df)):
+                row = df.iloc[row_index]
+                voucher_type_idx = sales_header.get('voucher_type_idx')
+                if voucher_type_idx is not None:
+                    voucher_type = normalize_cell(row.iloc[voucher_type_idx])
+                    if voucher_type and 'sale' not in voucher_type:
+                        continue
+                row_firm = fallback_firm
+                if sales_header.get('firm_idx') is not None and not is_blank(row.iloc[sales_header['firm_idx']]):
+                    row_firm = str(row.iloc[sales_header['firm_idx']]).strip()
+                add_row(row_firm, row.iloc[sales_header['date_idx']], row.iloc[sales_header['ref_idx']], row.iloc[sales_header['party_idx']], row.iloc[sales_header['amount_idx']])
+            return extracted_rows
+
+        df_main = pd.read_excel(xls, skiprows=1, header=None)
+        for row in df_main.values.tolist():
+            if len(row) >= 4:
+                add_row(fallback_firm, row[0], row[1], row[2], row[3])
+    return extracted_rows
 
 def process_data_file(data_file, manual_firm_name='', source_filename=''):
     """Parses a file and appends rows to the database."""
@@ -2342,10 +2420,16 @@ def process_data_file(data_file, manual_firm_name='', source_filename=''):
                             party_name = row.iloc[header['party_idx']]
                             amount = to_float(row.iloc[header['amount_idx']])
                             due_date_obj = parse_input_date(row.iloc[header['due_idx']]) if header['due_idx'] is not None else None
-                            if insert_billing_row(cursor, firm_name, bill_date_obj, ref_no, party_name, amount, due_date_obj, import_batch_id=batch_id):
+                            row_firm_name = ''
+                            if header.get('firm_idx') is not None:
+                                raw_firm_name = row.iloc[header['firm_idx']]
+                                if pd.notna(raw_firm_name):
+                                    row_firm_name = str(raw_firm_name).strip()
+                            effective_firm_name = manual_firm_name.strip() or row_firm_name or firm_name
+                            if insert_billing_row(cursor, effective_firm_name, bill_date_obj, ref_no, party_name, amount, due_date_obj, import_batch_id=batch_id):
                                 imported_count += 1
                                 imported_rows.append({
-                                    'firm_name': firm_name,
+                                    'firm_name': effective_firm_name,
                                     'ref_no': str(ref_no).strip(),
                                     'party_name': str(party_name).strip(),
                                     'amount': amount,
@@ -2361,16 +2445,27 @@ def process_data_file(data_file, manual_firm_name='', source_filename=''):
                         for row_index in range(start_index, len(df)):
                             row = df.iloc[row_index]
                             try:
+                                voucher_type_idx = sales_header.get('voucher_type_idx')
+                                if voucher_type_idx is not None:
+                                    voucher_type = normalize_cell(row.iloc[voucher_type_idx])
+                                    if voucher_type and 'sale' not in voucher_type:
+                                        continue
                                 bill_date_obj = parse_input_date(row.iloc[sales_header['date_idx']])
                                 if not bill_date_obj:
                                     continue
                                 ref_no = row.iloc[sales_header['ref_idx']]
                                 party_name = row.iloc[sales_header['party_idx']]
                                 amount = to_float(row.iloc[sales_header['amount_idx']])
-                                if insert_billing_row(cursor, firm_name, bill_date_obj, ref_no, party_name, amount, import_batch_id=batch_id):
+                                row_firm_name = ''
+                                if sales_header.get('firm_idx') is not None:
+                                    raw_firm_name = row.iloc[sales_header['firm_idx']]
+                                    if pd.notna(raw_firm_name):
+                                        row_firm_name = str(raw_firm_name).strip()
+                                effective_firm_name = manual_firm_name.strip() or row_firm_name or firm_name
+                                if insert_billing_row(cursor, effective_firm_name, bill_date_obj, ref_no, party_name, amount, import_batch_id=batch_id):
                                     imported_count += 1
                                     imported_rows.append({
-                                        'firm_name': firm_name,
+                                        'firm_name': effective_firm_name,
                                         'ref_no': str(ref_no).strip(),
                                         'party_name': str(party_name).strip(),
                                         'amount': amount,
@@ -6912,6 +7007,152 @@ def upload_file():
     else:
         flash("Invalid file type. Please upload .csv, .xlsx, or .xls.")
     return redirect(return_to)
+
+@app.route('/bulk-import', methods=['POST'])
+def bulk_import_preview():
+    file = request.files.get('file')
+    if not file or not file.filename:
+        flash('Please select a debtor file.', 'error')
+        return redirect(request.referrer or url_for('report'))
+    if not file.filename.lower().endswith(('.csv', '.xlsx', '.xls')):
+        flash('Bulk Import accepts .csv, .xlsx, or .xls files.', 'error')
+        return redirect(request.referrer or url_for('report'))
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    token = secrets.token_urlsafe(18)
+    ext = os.path.splitext(file.filename)[1].lower()
+    target_path = os.path.join(UPLOAD_DIR, f'bulk_preview_{token}{ext}')
+    file.save(target_path)
+    try:
+        rows = extract_import_rows(target_path)
+        if not rows:
+            raise ValueError('No valid bill rows were found in this file.')
+        if len(rows) > 10000:
+            raise ValueError('Bulk Import supports a maximum of 10,000 rows at a time.')
+    except Exception as exc:
+        try:
+            os.remove(target_path)
+        except OSError:
+            pass
+        flash(f'Unable to preview file: {exc}', 'error')
+        return redirect(request.referrer or url_for('report'))
+
+    conn = connect_debtor_db()
+    firms = conn.execute('SELECT firm_name, short_name FROM firm_master ORDER BY firm_name').fetchall()
+    conn.close()
+    if not firms:
+        try:
+            os.remove(target_path)
+        except OSError:
+            pass
+        flash('Firm Master is empty. Add firms before using Bulk Import.', 'error')
+        return redirect(url_for('firm_master_view'))
+
+    source_groups = {}
+    for row in rows:
+        source_name = row['source_firm'] or 'Unassigned / file firm not found'
+        group = source_groups.setdefault(source_name, {'name': source_name, 'count': 0, 'total': 0})
+        group['count'] += 1
+        group['total'] += float(row['amount'] or 0)
+
+    tokens = session.get('bulk_import_tokens', {})
+    tokens[token] = {'filename': file.filename, 'path': os.path.basename(target_path)}
+    session['bulk_import_tokens'] = tokens
+    session.modified = True
+    return render_template(
+        'bulk_import_preview.html', active_page='bulk_import', token=token,
+        source_filename=file.filename, rows=rows,
+        source_groups=list(source_groups.values()), firms=firms,
+        grand_total=sum(float(row['amount'] or 0) for row in rows),
+    )
+
+@app.route('/bulk-import/confirm', methods=['POST'])
+def bulk_import_confirm():
+    token = (request.form.get('token') or '').strip()
+    token_meta = session.get('bulk_import_tokens', {}).get(token)
+    if not token_meta:
+        flash('Bulk Import preview expired. Please select the file again.', 'error')
+        return redirect(url_for('report'))
+    stored_name = os.path.basename(token_meta.get('path') or '')
+    if not stored_name.startswith(f'bulk_preview_{token}'):
+        flash('Invalid Bulk Import preview.', 'error')
+        return redirect(url_for('report'))
+    target_path = os.path.join(UPLOAD_DIR, stored_name)
+    if not os.path.isfile(target_path):
+        flash('Bulk Import preview file is no longer available.', 'error')
+        return redirect(url_for('report'))
+
+    try:
+        rows = extract_import_rows(target_path)
+    except Exception as exc:
+        flash(f'Unable to read preview file: {exc}', 'error')
+        return redirect(url_for('report'))
+    selected_firms = request.form.getlist('firm_name')
+    if len(selected_firms) != len(rows):
+        flash('Firm selection is incomplete. Please preview the file again.', 'error')
+        return redirect(url_for('report'))
+
+    conn = connect_debtor_db()
+    cursor = conn.cursor()
+    master_firms = {
+        str(row[0]).strip().lower(): str(row[0]).strip()
+        for row in cursor.execute('SELECT firm_name FROM firm_master').fetchall()
+    }
+    canonical_firms = []
+    for selected in selected_firms:
+        canonical = master_firms.get(str(selected).strip().lower())
+        if not canonical:
+            conn.close()
+            flash('Every row must use a valid Firm Master selection.', 'error')
+            return redirect(url_for('report'))
+        canonical_firms.append(canonical)
+
+    batch_id = datetime.now().strftime('%Y%m%d%H%M%S%f')
+    imported_rows = []
+    duplicate_refs = []
+    try:
+        for row, firm_name in zip(rows, canonical_firms):
+            if insert_billing_row(
+                cursor, firm_name, parse_input_date(row['bill_date']), row['ref_no'],
+                row['party_name'], row['amount'], parse_input_date(row.get('due_date') or ''),
+                import_batch_id=batch_id
+            ):
+                imported_rows.append({**row, 'firm_name': firm_name})
+            else:
+                duplicate_refs.append(row['ref_no'])
+        missing_count = save_import_client_errors(cursor, batch_id, imported_rows)
+        if imported_rows:
+            set_app_meta(cursor, 'last_debtor_imported_at', datetime.now().strftime('%Y-%m-%d'))
+        conn.commit()
+    except Exception as exc:
+        conn.rollback()
+        conn.close()
+        flash(f'Bulk Import failed; no rows were saved: {exc}', 'error')
+        return redirect(url_for('report'))
+    conn.close()
+
+    tokens = session.get('bulk_import_tokens', {})
+    tokens.pop(token, None)
+    session['bulk_import_tokens'] = tokens
+    session.modified = True
+    try:
+        os.remove(target_path)
+    except OSError:
+        pass
+
+    message = f'Bulk Import successful: {len(imported_rows)} rows imported.'
+    if duplicate_refs:
+        samples = ', '.join(duplicate_refs[:10])
+        message += f' {len(duplicate_refs)} duplicate Ref. No. row(s) skipped: {samples}'
+        if len(duplicate_refs) > 10:
+            message += '...'
+    if missing_count:
+        message += f' {missing_count} imported party name(s) are missing in Client Master.'
+    flash(message, 'success')
+    destination = url_for('report', import_batch=batch_id)
+    if imported_rows:
+        destination += '&followup_prompt=1'
+    return redirect(destination)
 
 @app.route('/client-master/upload', methods=['POST'])
 def client_master_upload():

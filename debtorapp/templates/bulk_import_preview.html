@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Firm Mapping</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='bulk_import.css', v='3') }}">
+</head>
+<body class="bulk-import-page" data-active-page="bulk_import">
+    {% include 'navbar.html' %}
+    <main class="container bulk-import-container">
+        <section class="report-card">
+            <div class="bulk-import-header">
+                <div class="bulk-import-title-line">
+                    <h1>Bulk Firm Mapping</h1>
+                    <span>- {{ source_filename }} &middot; {{ rows|length }} bills &middot; Rs {{ grand_total|indian_currency }}</span>
+                </div>
+                <a href="{{ debtor_url('/report') }}" class="secondary-btn">Cancel</a>
+            </div>
+
+            <div class="mapping-card">
+                <div class="mapping-label-grid" style="--mapping-columns: {{ source_groups|length }};">
+                    {% for group in source_groups %}
+                    <div class="mapping-label-cell">
+                        <span class="source-firm" title="{{ group.name }}">{{ group.name }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="mapping-select-grid" style="--mapping-columns: {{ source_groups|length }};">
+                    {% for group in source_groups %}
+                    <label class="mapping-select-cell">
+                        <select class="group-firm-select" data-source-firm="{{ group.name }}">
+                            <option value="">Select Firm Master</option>
+                            {% for firm in firms %}
+                            <option value="{{ firm.firm_name }}">{{ firm.short_name }} - {{ firm.firm_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <form action="{{ debtor_url('/bulk-import/confirm') }}" method="post" id="bulkImportConfirmForm">
+                <input type="hidden" name="token" value="{{ token }}">
+                <div class="bulk-table-wrap">
+                    <table class="bulk-preview-table">
+                        <thead>
+                            <tr><th>#</th><th>Date</th><th>Ref. No.</th><th>Party Name</th><th>Amount</th><th>File Firm</th><th>Firm Name</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                            {% set source_label = row.source_firm or 'Unassigned / file firm not found' %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ row.bill_date|display_date_full }}</td>
+                                <td>{{ row.ref_no }}</td>
+                                <td>{{ row.party_name }}</td>
+                                <td class="amount-cell">{{ row.amount|indian_currency }}</td>
+                                <td class="file-firm-cell" title="{{ source_label }}">{{ source_label }}</td>
+                                <td>
+                                    <select name="firm_name" class="row-firm-select" data-source-firm="{{ source_label }}" required>
+                                        <option value="">Select Firm</option>
+                                        {% for firm in firms %}
+                                        <option value="{{ firm.firm_name }}">{{ firm.short_name }} - {{ firm.firm_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="bulk-import-actions">
+                    <span id="firmSelectionStatus">Select firm for all {{ rows|length }} bills.</span>
+                    <button type="submit" class="submit-btn" id="confirmBulkImport" disabled>Confirm Bulk Import</button>
+                </div>
+            </form>
+        </section>
+    </main>
+    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bulk_import.js', v='1') }}"></script>
+</body>
+</html>

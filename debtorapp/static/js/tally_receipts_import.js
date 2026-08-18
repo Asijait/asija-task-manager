@@ -3,13 +3,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const dateInput = document.getElementById('tallyReceiptDate');
     const clearButton = document.getElementById('clearTallyDate');
     const statusBox = document.getElementById('tallyStatus');
-    const metaBox = document.getElementById('tallyMeta');
     const rowsBody = document.getElementById('tallyReceiptRows');
     const postButton = document.getElementById('postTallyReceipts');
     const uploadForm = document.getElementById('tallyReceiptUploadForm');
     const chooseFileButton = document.getElementById('chooseTallyReceiptFile');
     const receiptFileInput = document.getElementById('tallyReceiptFileInput');
-    const receiptFileName = document.getElementById('tallyReceiptFileName');
     const previewUrl = document.body.dataset.previewUrl;
     const postUrl = document.body.dataset.postUrl;
     const autoPreview = document.body.dataset.autoPreview === '1';
@@ -36,11 +34,6 @@ document.addEventListener('DOMContentLoaded', function () {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
-    }
-
-    function setText(id, value) {
-        const element = document.getElementById(id);
-        if (element) element.textContent = value;
     }
 
     function sortRowsByStatus(rows) {
@@ -116,7 +109,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (dateInput.value) params.set('date', dateInput.value);
 
         setStatus('Reading fcRece.xlsx...');
-        metaBox.hidden = true;
         rowsBody.innerHTML = '';
         latestRows = [];
         if (postButton) postButton.disabled = true;
@@ -130,11 +122,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 renderRows([]);
                 return;
             }
-
-            setText('tallyFileName', `File: ${result.file_name}`);
-            setText('tallySheetName', `Sheet: ${result.sheet_name}`);
-            setText('tallyStartRow', `Data starts after Date header: row ${result.data_start_row || '-'}`);
-            metaBox.hidden = false;
 
             latestRows = sortRowsByStatus(result.rows || []);
             renderRows(latestRows);
@@ -214,7 +201,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (uploadForm && receiptFileInput) {
         receiptFileInput.addEventListener('change', function () {
             if (!receiptFileInput.files.length) return;
-            if (receiptFileName) receiptFileName.textContent = `Selected: ${receiptFileInput.files[0].name}`;
             uploadForm.submit();
         });
     }
