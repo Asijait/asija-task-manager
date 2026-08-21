@@ -1,3 +1,4 @@
+# main_db_compat.py
 import os
 import re
 import sqlite3 as _sqlite3
@@ -5,18 +6,20 @@ import sqlite3 as _sqlite3
 try:
     from dotenv import load_dotenv
 except ImportError:
+
     def load_dotenv(path=None):
-        env_path = path or os.path.join(os.path.dirname(__file__), '.env')
+        env_path = path or os.path.join(os.path.dirname(__file__), ".env")
         if not os.path.exists(env_path):
             return False
-        with open(env_path, 'r', encoding='utf-8') as env_file:
+        with open(env_path, "r", encoding="utf-8") as env_file:
             for line in env_file:
                 line = line.strip()
-                if not line or line.startswith('#') or '=' not in line:
+                if not line or line.startswith("#") or "=" not in line:
                     continue
-                key, value = line.split('=', 1)
+                key, value = line.split("=", 1)
                 os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
         return True
+
 
 try:
     import psycopg2
@@ -26,9 +29,10 @@ except ImportError:
 
 load_dotenv()
 
-APP_DATABASE_URL = os.environ.get('APP_DATABASE_URL')
+APP_DATABASE_URL = os.environ.get("APP_DATABASE_URL")
 APP_SQLITE_PATH = os.path.abspath(
-    os.environ.get('APP_SQLITE_PATH') or os.path.join(os.path.dirname(__file__), 'tasks.db')
+    os.environ.get("APP_SQLITE_PATH")
+    or os.path.join(os.path.dirname(__file__), "tasks.db")
 )
 
 
@@ -68,7 +72,7 @@ class PgRow:
 def use_postgres(database=None):
     if not APP_DATABASE_URL:
         return False
-    if database in (None, ''):
+    if database in (None, ""):
         return True
     try:
         return os.path.abspath(database) == APP_SQLITE_PATH
@@ -81,8 +85,8 @@ def connect(database=None, *args, **kwargs):
         return _sqlite3.connect(database, *args, **kwargs)
     if psycopg2 is None:
         raise OperationalError(
-            'PostgreSQL mode requires psycopg2-binary. Install it with: '
-            'python -m pip install psycopg2-binary'
+            "PostgreSQL mode requires psycopg2-binary. Install it with: "
+            "python -m pip install psycopg2-binary"
         )
     try:
         raw = psycopg2.connect(APP_DATABASE_URL)
@@ -99,7 +103,9 @@ class PgConnection:
         self._last_insert_id = None
 
     def cursor(self):
-        return PgCursor(self.raw.cursor(cursor_factory=psycopg2.extras.RealDictCursor), self)
+        return PgCursor(
+            self.raw.cursor(cursor_factory=psycopg2.extras.RealDictCursor), self
+        )
 
     def execute(self, sql, params=None):
         cursor = self.cursor()
@@ -137,7 +143,10 @@ class PgCursor:
         if self._buffer is not None:
             if not self._buffer:
                 return None
-            return [(key, None, None, None, None, None, None) for key in self._buffer[0].keys()]
+            return [
+                (key, None, None, None, None, None, None)
+                for key in self._buffer[0].keys()
+            ]
         return self.raw.description
 
     @property
@@ -155,10 +164,14 @@ class PgCursor:
         translated = translate_sql(sql)
         try:
             if isinstance(translated, TableInfoQuery):
-                self._buffer = load_table_info(self.connection.raw, translated.table_name)
+                self._buffer = load_table_info(
+                    self.connection.raw, translated.table_name
+                )
                 return self
             if isinstance(translated, LastInsertIdQuery):
-                self._buffer = [PgRow({'last_insert_rowid()': self.connection._last_insert_id or 0})]
+                self._buffer = [
+                    PgRow({"last_insert_rowid()": self.connection._last_insert_id or 0})
+                ]
                 return self
             self.raw.execute(translated, params)
             self._update_last_insert_id(translated)
@@ -197,12 +210,16 @@ class PgCursor:
 
     def _update_last_insert_id(self, sql):
         self.connection._last_insert_id = None
-        match = re.match(r'\s*INSERT\s+INTO\s+"?([A-Za-z_][A-Za-z0-9_]*)"?\b', sql, re.IGNORECASE)
-        if not match or re.search(r'\bON\s+CONFLICT\b', sql, re.IGNORECASE):
+        match = re.match(
+            r'\s*INSERT\s+INTO\s+"?([A-Za-z_][A-Za-z0-9_]*)"?\b', sql, re.IGNORECASE
+        )
+        if not match or re.search(r"\bON\s+CONFLICT\b", sql, re.IGNORECASE):
             return
         table_name = match.group(1)
         try:
-            with self.connection.raw.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+            with self.connection.raw.cursor(
+                cursor_factory=psycopg2.extras.RealDictCursor
+            ) as cursor:
                 cursor.execute(
                     """
                     SELECT 1
@@ -215,13 +232,15 @@ class PgCursor:
                 )
                 if cursor.fetchone() is None:
                     return
-                cursor.execute("SELECT pg_get_serial_sequence(%s, 'id') AS seq", (table_name,))
+                cursor.execute(
+                    "SELECT pg_get_serial_sequence(%s, 'id') AS seq", (table_name,)
+                )
                 row = cursor.fetchone()
-                sequence_name = row['seq'] if row and row.get('seq') else None
+                sequence_name = row["seq"] if row and row.get("seq") else None
                 if sequence_name:
-                    cursor.execute('SELECT currval(%s) AS id', (sequence_name,))
+                    cursor.execute("SELECT currval(%s) AS id", (sequence_name,))
                     id_row = cursor.fetchone()
-                    self.connection._last_insert_id = id_row['id'] if id_row else None
+                    self.connection._last_insert_id = id_row["id"] if id_row else None
         except Exception:
             self.connection.rollback()
             self.connection._last_insert_id = None
@@ -238,20 +257,31 @@ class LastInsertIdQuery:
 
 def translate_sql(sql):
     compact = sql.strip()
-    if re.match(r'SELECT\s+last_insert_rowid\(\)', compact, re.IGNORECASE):
+    if re.match(r"SELECT\s+last_insert_rowid\(\)", compact, re.IGNORECASE):
         return LastInsertIdQuery()
-    pragma_match = re.match(r'PRAGMA\s+table_info\(([^)]+)\)', compact, re.IGNORECASE)
+    pragma_match = re.match(r"PRAGMA\s+table_info\(([^)]+)\)", compact, re.IGNORECASE)
     if pragma_match:
-        return TableInfoQuery(pragma_match.group(1).strip().strip('"\''))
-    if re.match(r'PRAGMA\s+(busy_timeout|journal_mode|synchronous)\b', compact, re.IGNORECASE):
-        return 'SELECT 1'
+        return TableInfoQuery(pragma_match.group(1).strip().strip("\"'"))
+    if re.match(
+        r"PRAGMA\s+(busy_timeout|journal_mode|synchronous)\b", compact, re.IGNORECASE
+    ):
+        return "SELECT 1"
 
-    had_insert_or_ignore = bool(re.match(r'\s*INSERT\s+OR\s+IGNORE\s+INTO\b', sql, re.IGNORECASE))
-    sql = re.sub(r'INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT', 'SERIAL PRIMARY KEY', sql, flags=re.IGNORECASE)
-    sql = re.sub(r'\bINSERT\s+OR\s+IGNORE\s+INTO\b', 'INSERT INTO', sql, flags=re.IGNORECASE)
-    if had_insert_or_ignore and 'ON CONFLICT' not in sql.upper():
-        sql = sql.rstrip().rstrip(';') + ' ON CONFLICT DO NOTHING'
-    return sql.replace('?', '%s')
+    had_insert_or_ignore = bool(
+        re.match(r"\s*INSERT\s+OR\s+IGNORE\s+INTO\b", sql, re.IGNORECASE)
+    )
+    sql = re.sub(
+        r"INTEGER\s+PRIMARY\s+KEY\s+AUTOINCREMENT",
+        "SERIAL PRIMARY KEY",
+        sql,
+        flags=re.IGNORECASE,
+    )
+    sql = re.sub(
+        r"\bINSERT\s+OR\s+IGNORE\s+INTO\b", "INSERT INTO", sql, flags=re.IGNORECASE
+    )
+    if had_insert_or_ignore and "ON CONFLICT" not in sql.upper():
+        sql = sql.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
+    return sql.replace("?", "%s")
 
 
 def load_table_info(connection, table_name):
@@ -283,14 +313,18 @@ def load_table_info(connection, table_name):
         )
         rows = []
         for index, row in enumerate(cursor.fetchall()):
-            rows.append(PgRow({
-                'cid': index,
-                'name': row['column_name'],
-                'type': row['data_type'],
-                'notnull': 1 if row['is_nullable'] == 'NO' else 0,
-                'dflt_value': row['column_default'],
-                'pk': row['is_pk'],
-            }))
+            rows.append(
+                PgRow(
+                    {
+                        "cid": index,
+                        "name": row["column_name"],
+                        "type": row["data_type"],
+                        "notnull": 1 if row["is_nullable"] == "NO" else 0,
+                        "dflt_value": row["column_default"],
+                        "pk": row["is_pk"],
+                    }
+                )
+            )
         return rows
 
 
