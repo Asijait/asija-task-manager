@@ -73,6 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (event.key === 'Escape') {
             setOpen(false);
             closeWeeklyReportDialog();
+            closeDebtorRecoDialog();
         }
     });
 
@@ -85,6 +86,106 @@ document.addEventListener('DOMContentLoaded', function() {
     const weeklyReportDialog = document.getElementById('weeklyReportDialog');
     const weeklyReportClose = document.getElementById('weeklyReportDialogClose');
     const weeklyReportCancel = document.getElementById('weeklyReportCancel');
+    const debtorRecoButton = document.getElementById('debtorRecoBtn');
+    const debtorRecoDialog = document.getElementById('debtorRecoDialog');
+    const debtorRecoClose = document.getElementById('debtorRecoDialogClose');
+    const debtorRecoCancel = document.getElementById('debtorRecoCancel');
+    const debtorRecoForm = document.getElementById('debtorRecoForm');
+    const debtorRecoSubmit = document.getElementById('debtorRecoSubmit');
+    const debtorRecoStatus = document.getElementById('debtorRecoStatus');
+    const debtorRecoResults = document.getElementById('debtorRecoResults');
+    const debtorRecoSummary = document.getElementById('debtorRecoSummary');
+    const debtorRecoDeleteTable = document.getElementById('debtorRecoDeleteTable');
+    const debtorRecoUpdateTable = document.getElementById('debtorRecoUpdateTable');
+    const debtorRecoReceiptTable = document.getElementById('debtorRecoReceiptTable');
+    const debtorRecoExport = document.getElementById('debtorRecoExport');
+
+    function closeDebtorRecoDialog() {
+        if (!debtorRecoDialog) return;
+        debtorRecoDialog.classList.remove('is-open');
+        debtorRecoDialog.setAttribute('aria-hidden', 'true');
+    }
+
+    function openDebtorRecoDialog() {
+        if (!debtorRecoDialog) return;
+        debtorRecoDialog.classList.add('is-open');
+        debtorRecoDialog.setAttribute('aria-hidden', 'false');
+        debtorRecoDialog.querySelector('input[type="file"]')?.focus();
+    }
+
+    debtorRecoButton?.addEventListener('click', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        openDebtorRecoDialog();
+    });
+    debtorRecoClose?.addEventListener('click', closeDebtorRecoDialog);
+    debtorRecoCancel?.addEventListener('click', closeDebtorRecoDialog);
+    debtorRecoDialog?.addEventListener('click', function(event) {
+        if (event.target === debtorRecoDialog) closeDebtorRecoDialog();
+    });
+
+    function renderRecoTable(container, rows) {
+        container.textContent = '';
+        if (!rows.length) {
+            container.textContent = 'No records found.';
+            return;
+        }
+        const table = document.createElement('table');
+        table.className = 'debtor-reco-table';
+        const columns = Object.keys(rows[0]);
+        const head = table.createTHead().insertRow();
+        columns.forEach(function(column) {
+            const cell = document.createElement('th');
+            cell.textContent = column;
+            head.appendChild(cell);
+        });
+        const body = table.createTBody();
+        rows.forEach(function(row) {
+            const tableRow = body.insertRow();
+            columns.forEach(function(column) {
+                const cell = tableRow.insertCell();
+                cell.textContent = row[column] == null ? '' : row[column];
+            });
+        });
+        container.appendChild(table);
+    }
+
+    debtorRecoForm?.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        debtorRecoSubmit.disabled = true;
+        debtorRecoSubmit.textContent = 'Comparing...';
+        debtorRecoStatus.textContent = '';
+        debtorRecoResults.hidden = true;
+        debtorRecoExport.hidden = true;
+        try {
+            const response = await fetch(debtorRecoForm.action, { method: 'POST', body: new FormData(debtorRecoForm) });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Unable to reconcile the report.');
+            const summary = result.summary;
+            debtorRecoSummary.innerHTML = '';
+            [['Total records', summary.total], ['To delete', summary.delete], ['To update', summary.update], ['Already correct', summary.correct]].forEach(function(item) {
+                const box = document.createElement('div');
+                box.className = 'debtor-reco-summary-item';
+                box.innerHTML = '<strong></strong><span></span>';
+                box.querySelector('strong').textContent = item[1];
+                box.querySelector('span').textContent = item[0];
+                debtorRecoSummary.appendChild(box);
+            });
+            renderRecoTable(debtorRecoDeleteTable, result.delete_rows);
+            renderRecoTable(debtorRecoUpdateTable, result.update_rows);
+            renderRecoTable(debtorRecoReceiptTable, result.receipt_rows);
+            debtorRecoExport.href = result.download_url;
+            debtorRecoExport.download = result.filename;
+            debtorRecoResults.hidden = false;
+            debtorRecoExport.hidden = false;
+            debtorRecoStatus.textContent = 'Reconciliation complete.';
+        } catch (error) {
+            debtorRecoStatus.textContent = error.message;
+        } finally {
+            debtorRecoSubmit.disabled = false;
+            debtorRecoSubmit.textContent = 'Reconcile';
+        }
+    });
 
     function closeImportDialog() {
         if (!importDialog) return;
