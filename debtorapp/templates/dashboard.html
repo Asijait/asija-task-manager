@@ -96,7 +96,7 @@
                     <h2>Category Wise</h2>
                     <span>Client categories</span>
                 </div>
-                <canvas id="categoryChart" height="230"></canvas>
+                <canvas id="categoryChart" height="230" style="cursor: pointer;"></canvas>
             </article>
 
             <article class="panel">
@@ -186,8 +186,12 @@
     </div>
 </div>
 
+    <script>
+        window.DASHBOARD_API_BASE =
+            "{{ request.script_root }}";
+    </script>
     <script id="dashboardData" type="application/json">{{ chart_data | tojson }}</script>
     <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=20260824-5"></script>
 </body>
 </html>

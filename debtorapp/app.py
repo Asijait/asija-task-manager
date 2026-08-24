@@ -4419,96 +4419,115 @@ def build_dashboard_context():
 
 @app.route("/api/dashboard/card-detail")
 def dashboard_card_detail():
+    """
+    Returns detail rows for dashboard chart drill-downs.
+    """
+
     card_type = (request.args.get("type") or "").strip().lower()
     value = (request.args.get("value") or "").strip()
 
     allowed_types = {
-        "followup": "followup_partner",
         "category": "client_category",
+        "followup": "followup_partner",
         "ep": "final_ep",
         "fy": "financial_year",
     }
 
     if card_type not in allowed_types:
         return jsonify(
-            {
-                "success": False,
-                "message": "Invalid dashboard card type.",
-            }
+            {"success": False, "message": "Invalid dashboard detail type."}
         ), 400
 
     if not value:
         return jsonify(
-            {
-                "success": False,
-                "message": "Dashboard card value is required.",
-            }
+            {"success": False, "message": "Dashboard detail value is required."}
         ), 400
 
-    conn = connect_debtor_db()
-    conn.row_factory = sqlite3.Row
+    field_name = allowed_types[card_type]
 
     try:
+        conn = connect_debtor_db()
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        rows = get_report_rows(cursor)
+
+        report_rows = get_report_rows(cursor)
+
+    except Exception as exc:
+        app.logger.exception("Unable to load dashboard detail.")
+        return jsonify({"success": False, "message": str(exc)}), 500
+
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except Exception:
+            pass
 
-    field = allowed_types[card_type]
+    def normalized_value(row):
+        raw = row.get(field_name)
 
-    def normalized(row):
-        if field == "financial_year":
-            return (row.get(field) or "Unknown").strip() or "Unknown"
+        if raw is None:
+            return "Unknown" if card_type == "fy" else "Unassigned"
 
-        return (row.get(field) or "Unassigned").strip() or "Unassigned"
+        text = str(raw).strip()
 
-    filtered_rows = [row for row in rows if normalized(row) == value]
+        if not text:
+            return "Unknown" if card_type == "fy" else "Unassigned"
+
+        return text
+
+    filtered_rows = [row for row in report_rows if normalized_value(row) == value]
 
     detail_rows = []
 
     for row in filtered_rows:
-        amount = float(row.get("amount") or 0)
+        try:
+            amount = float(row.get("amount") or 0)
+        except (TypeError, ValueError):
+            amount = 0.0
+
+        try:
+            overdue_days = int(float(row.get("overdue_days") or 0))
+        except (TypeError, ValueError):
+            overdue_days = 0
 
         detail_rows.append(
             {
-                "bill_date": row.get("bill_date_display")
-                or format_display_date(row.get("bill_date")),
-                "firm": row.get("short_name") or row.get("firm_name") or "",
-                "ref_no": row.get("ref_no") or "",
-                "party_name": row.get("party_name") or "",
+                "bill_date": (
+                    row.get("bill_date_display")
+                    or format_display_date(row.get("bill_date"))
+                    or ""
+                ),
+                "firm": (row.get("short_name") or row.get("firm_name") or ""),
+                "ref_no": (row.get("ref_no") or ""),
+                "party_name": (row.get("party_name") or ""),
                 "amount": amount,
                 "amount_display": format_indian_currency(amount, decimals=False),
-                "due_date": row.get("due_date_display")
-                or format_display_date(row.get("due_date")),
-                "overdue_days": row.get("overdue_days") or 0,
-                "followup": row.get("followup_partner") or "Unassigned",
-                "ep": row.get("final_ep") or "Unassigned",
-                "category": row.get("client_category") or "Unassigned",
-                "fy": row.get("financial_year") or "Unknown",
+                "due_date": (
+                    row.get("due_date_display")
+                    or format_display_date(row.get("due_date"))
+                    or ""
+                ),
+                "overdue_days": overdue_days,
+                "followup_partner": (row.get("followup_partner") or "Unassigned"),
+                "final_ep": (row.get("final_ep") or "Unassigned"),
+                "client_category": (row.get("client_category") or "Unassigned"),
+                "financial_year": (row.get("financial_year") or "Unknown"),
             }
         )
 
     total_amount = sum(row["amount"] for row in detail_rows)
-
-    titles = {
-        "followup": "Followup Wise",
-        "category": "Category Wise",
-        "ep": "EP Wise",
-        "fy": "Financial Year",
-    }
 
     return jsonify(
         {
             "success": True,
             "type": card_type,
             "value": value,
-            "title": titles[card_type],
+            "rows": detail_rows,
             "count": len(detail_rows),
             "total_amount": total_amount,
             "total_amount_display": format_indian_currency(
                 total_amount, decimals=False
             ),
-            "rows": detail_rows,
         }
     )
 
