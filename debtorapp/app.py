@@ -4339,9 +4339,9 @@ def build_dashboard_context():
     fy_summary = {}
     ageing_summary = {
         "0-30 Days": {"label": "0-30 Days", "count": 0, "total": 0},
-        "31-90 Days": {"label": "31-90 Days", "count": 0, "total": 0},
-        "91-180 Days": {"label": "91-180 Days", "count": 0, "total": 0},
-        "180+ Days": {"label": "180+ Days", "count": 0, "total": 0},
+        "30-60 Days": {"label": "30-60 Days", "count": 0, "total": 0},
+        "60-90 Days": {"label": "60-90 Days", "count": 0, "total": 0},
+        "90+ Days": {"label": "90+ Days", "count": 0, "total": 0},
     }
 
     overdue_total = 0
@@ -4362,7 +4362,7 @@ def build_dashboard_context():
             overdue_days = int(float(row.get("overdue_days") or 0))
         except (TypeError, ValueError):
             overdue_days = 0
-        if overdue_days > 30:
+        if overdue_days > 0:
             overdue_total += amount
             overdue_count += 1
 
@@ -5836,14 +5836,17 @@ def due_ageing_bucket(row):
         days = int(float(row.get("overdue_days") or 0))
     except (TypeError, ValueError):
         days = 0
-    days = max(0, days)
-    if days <= 30:
+
+    if days <= 0:
         return "0-30 Days"
-    if days <= 90:
-        return "31-90 Days"
-    if days <= 180:
-        return "91-180 Days"
-    return "180+ Days"
+
+    if days <= 30:
+        return "30-60 Days"
+
+    if days <= 60:
+        return "60-90 Days"
+
+    return "90+ Days"
 
 
 def filter_sub_report_rows(rows, partner="", ep="", category="", fy="", ageing=""):
