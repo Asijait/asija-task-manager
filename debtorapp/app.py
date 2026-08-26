@@ -29,6 +29,7 @@ from flask import (
     session,
     jsonify,
 )
+import unicodedata
 import pandas as pd
 import io
 from openpyxl import load_workbook, Workbook
@@ -38,6 +39,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 
 app = Flask(__name__)
 app.secret_key = "dev-secret-key"
+
 
 
 # Add the Indian currency formatting function
@@ -80,6 +82,7 @@ def format_indian_currency(amount, decimals=True):
     return result
 
 
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "database.db")
 MAIN_DB_PATH = os.path.join(os.path.dirname(BASE_DIR), "tasks.db")
@@ -94,7 +97,6 @@ TALLY_RECEIPT_TRIAL_PATH = os.path.join(BASE_DIR, "fcRece.xlsx")
 BACKUP_EXCLUDE_DIRS = {"backups", "__pycache__"}
 BACKUP_EXCLUDE_FILES = {"server.out.log", "server.err.log"}
 DB_BUSY_TIMEOUT_MS = 30000
-
 
 def connect_debtor_db():
     conn = sqlite3.connect(DB_PATH, timeout=DB_BUSY_TIMEOUT_MS / 1000)
@@ -273,6 +275,7 @@ DEBTOR_NAV_ACCESS_KEYS = {
     for key in (item.get("view_key"), item.get("full_key"))
     if key
 }
+DEBTOR_ADMIN_EMAILS = {"arif.siddiqui@asija.in", "admin@example.com"}
 DEBTOR_NAV_EDIT_TO_VIEW = {
     "import_tally_receipts": "import_tally_receipts_view",
     "client_master_edit": "client_master_view",
@@ -290,7 +293,6 @@ def debtor_url(path="/"):
     if not path.startswith("/"):
         path = "/" + path
     return f"{request.script_root}{path}"
-
 
 @app.context_processor
 def debtor_report_template_helpers():
@@ -1046,7 +1048,7 @@ def get_all_debtor_nav_access():
 
 def get_debtor_nav_access_for_user(user_email):
     user_email = str(user_email or "").lower()
-    if user_email == "arif.siddiqui@asija.in":
+    if user_email in DEBTOR_ADMIN_EMAILS:
         return set(DEBTOR_NAV_ACCESS_KEYS)
     return get_all_debtor_nav_access().get(user_email, set())
 
@@ -1231,7 +1233,7 @@ def enforce_debtor_nav_access():
     if request.endpoint == "static":
         return None
     user_email = str(session.get("user_email", "")).lower()
-    if user_email == "arif.siddiqui@asija.in":
+    if user_email in DEBTOR_ADMIN_EMAILS:
         return None
 
     access_key = get_debtor_access_key_for_path(request.path)
@@ -1432,8 +1434,15 @@ def create_project_backup(note="", backup_type="manual"):
                     arcname = os.path.relpath(file_path, BASE_DIR)
 
                     try:
-                        # SQLite development database
-                        if os.path.abspath(file_path) == os.path.abspath(DB_PATH):
+                        if os.path.abspath(file_path) == os.path.abspath(
+                            DB_PATH
+                        ) and sqlite3.use_postgres(DB_PATH):
+                            backup_zip.writestr(
+                                "POSTGRES_DATABASE.txt",
+                                "Debtor app is configured to use PostgreSQL via DEBTOR_DATABASE_URL. "
+                                "Use pg_dump to back up the live debtor database.\n",
+                            )
+                        elif os.path.abspath(file_path) == os.path.abspath(DB_PATH):
                             with tempfile.NamedTemporaryFile(
                                 delete=False, suffix=".db", dir=BACKUP_DIR
                             ) as temp_file:
@@ -1451,7 +1460,12 @@ def create_project_backup(note="", backup_type="manual"):
                                 source_conn.close()
 
                             backup_zip.write(temp_db_copy, arcname)
-
+                        else:
+                            backup_zip.write(file_path, arcname)
+                    except Exception as exc:
+                        skipped.append({"file": arcname, "reason": str(exc)})
+                    finally:
+                        if temp_db_copy and os.path.exists(temp_db_copy):
                             try:
                                 os.remove(temp_db_copy)
                             except OSError:
@@ -4211,9 +4225,9 @@ def build_dashboard_context():
     fy_summary = {}
     ageing_summary = {
         "0-30 Days": {"label": "0-30 Days", "count": 0, "total": 0},
-        "31-90 Days": {"label": "31-90 Days", "count": 0, "total": 0},
-        "91-180 Days": {"label": "91-180 Days", "count": 0, "total": 0},
-        "180+ Days": {"label": "180+ Days", "count": 0, "total": 0},
+        "30-60 Days": {"label": "30-60 Days", "count": 0, "total": 0},
+        "60-90 Days": {"label": "60-90 Days", "count": 0, "total": 0},
+        "90+ Days": {"label": "90+ Days", "count": 0, "total": 0},
     }
 
     overdue_total = 0
@@ -4234,7 +4248,7 @@ def build_dashboard_context():
             overdue_days = int(float(row.get("overdue_days") or 0))
         except (TypeError, ValueError):
             overdue_days = 0
-        if overdue_days > 30:
+        if overdue_days > 0:
             overdue_total += amount
             overdue_count += 1
 
@@ -4287,6 +4301,121 @@ def build_dashboard_context():
         "high_risk_rows": high_risk_rows,
         "page_title": "Debtor Dashboard",
     }
+
+
+@app.route("/api/dashboard/card-detail")
+def dashboard_card_detail():
+    """
+    Returns detail rows for dashboard chart drill-downs.
+    """
+
+    card_type = (request.args.get("type") or "").strip().lower()
+    value = (request.args.get("value") or "").strip()
+
+    allowed_types = {
+        "category": "client_category",
+        "followup": "followup_partner",
+        "ep": "final_ep",
+        "fy": "financial_year",
+    }
+
+    if card_type not in allowed_types:
+        return jsonify(
+            {"success": False, "message": "Invalid dashboard detail type."}
+        ), 400
+
+    if not value:
+        return jsonify(
+            {"success": False, "message": "Dashboard detail value is required."}
+        ), 400
+
+    field_name = allowed_types[card_type]
+
+    try:
+        conn = connect_debtor_db()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        report_rows = get_report_rows(cursor)
+
+    except Exception as exc:
+        app.logger.exception("Unable to load dashboard detail.")
+        return jsonify({"success": False, "message": str(exc)}), 500
+
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    def normalized_value(row):
+        raw = row.get(field_name)
+
+        if raw is None:
+            return "Unknown" if card_type == "fy" else "Unassigned"
+
+        text = str(raw).strip()
+
+        if not text:
+            return "Unknown" if card_type == "fy" else "Unassigned"
+
+        return text
+
+    filtered_rows = [row for row in report_rows if normalized_value(row) == value]
+
+    detail_rows = []
+
+    for row in filtered_rows:
+        try:
+            amount = float(row.get("amount") or 0)
+        except (TypeError, ValueError):
+            amount = 0.0
+
+        try:
+            overdue_days = int(float(row.get("overdue_days") or 0))
+        except (TypeError, ValueError):
+            overdue_days = 0
+
+        detail_rows.append(
+            {
+                "bill_date": (
+                    row.get("bill_date_display")
+                    or format_display_date(row.get("bill_date"))
+                    or ""
+                ),
+                "firm": (row.get("short_name") or row.get("firm_name") or ""),
+                "ref_no": (row.get("ref_no") or ""),
+                "party_name": (row.get("party_name") or ""),
+                "amount": amount,
+                "amount_display": format_indian_currency(amount, decimals=False),
+                "due_date": (
+                    row.get("due_date_display")
+                    or format_display_date(row.get("due_date"))
+                    or ""
+                ),
+                "overdue_days": overdue_days,
+                "followup_partner": (row.get("followup_partner") or "Unassigned"),
+                "final_ep": (row.get("final_ep") or "Unassigned"),
+                "client_category": (row.get("client_category") or "Unassigned"),
+                "financial_year": (row.get("financial_year") or "Unknown"),
+            }
+        )
+
+    total_amount = sum(row["amount"] for row in detail_rows)
+
+    return jsonify(
+        {
+            "success": True,
+            "type": card_type,
+            "value": value,
+            "rows": detail_rows,
+            "count": len(detail_rows),
+            "total_amount": total_amount,
+            "total_amount_display": format_indian_currency(
+                total_amount, decimals=False
+            ),
+        }
+    )
 
 
 @app.route("/dashboard")
@@ -5611,14 +5740,17 @@ def due_ageing_bucket(row):
         days = int(float(row.get("overdue_days") or 0))
     except (TypeError, ValueError):
         days = 0
-    days = max(0, days)
-    if days <= 30:
+
+    if days <= 0:
         return "0-30 Days"
-    if days <= 90:
-        return "31-90 Days"
-    if days <= 180:
-        return "91-180 Days"
-    return "180+ Days"
+
+    if days <= 30:
+        return "30-60 Days"
+
+    if days <= 60:
+        return "60-90 Days"
+
+    return "90+ Days"
 
 
 def filter_sub_report_rows(rows, partner="", ep="", category="", fy="", ageing=""):
@@ -7156,6 +7288,71 @@ def download_report_excel():
         as_attachment=True,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+
+@app.route("/debtor-report-reco", methods=["POST"])
+def debtor_report_reconciliation():
+    uploaded_file = request.files.get("file")
+    if not uploaded_file or not uploaded_file.filename:
+        return jsonify(
+            {"error": "Please choose the Bill_Wise_Debtor_Report.xlsx file."}
+        ), 400
+    if not uploaded_file.filename.lower().endswith((".xlsx", ".xls")):
+        return jsonify(
+            {"error": "Debtor Report Reco accepts an Excel file (.xlsx or .xls)."}
+        ), 400
+
+    try:
+        receipt_file = request.files.get("receipt_file")
+        output, counts = build_debtor_reconciliation_workbook(
+            uploaded_file, receipt_file
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": f"Unable to reconcile the debtor report: {exc}"}), 500
+
+    token = secrets.token_urlsafe(18)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    report_path = os.path.join(UPLOAD_DIR, f"debtor_reco_{token}.xlsx")
+    with open(report_path, "wb") as report_file:
+        report_file.write(output.getvalue())
+
+    filename = (
+        f"Debtor_Report_Corrections_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    )
+    download_url = debtor_url(f"/debtor-report-reco/download/{token}")
+    return jsonify(
+        {
+            "summary": {
+                key: counts[key] for key in ("total", "delete", "update", "correct")
+            },
+            "delete_rows": counts["delete_rows"],
+            "update_rows": counts["update_rows"],
+            "receipt_rows": counts["receipt_rows"],
+            "download_url": download_url,
+            "filename": filename,
+        }
+    )
+
+
+@app.route("/debtor-report-reco/download/<token>")
+def download_debtor_report_reconciliation(token):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{12,40}", token or ""):
+        return "Invalid reconciliation report token.", 404
+    report_path = os.path.join(UPLOAD_DIR, f"debtor_reco_{token}.xlsx")
+    if not os.path.isfile(report_path):
+        return "Reconciliation report not found or expired.", 404
+    filename = (
+        f"Debtor_Report_Corrections_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    )
+    response = send_file(
+        report_path,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    return response
 
 
 @app.route("/download/current-report-excel", methods=["POST"])

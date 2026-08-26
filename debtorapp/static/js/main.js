@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     console.log("Billing Report Application Initialized");
 
     const flashMessages = document.querySelectorAll('.flash-message');
@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const activeFilters = {};
     const activeNumberFilters = {};
     const filterButtonsByColumn = {};
-    let updateBulkDeleteReportState = () => {};
+    let updateBulkDeleteReportState = () => { };
     const columnLabels = Array.from(table.tHead.rows[0].cells).map(th => th.textContent.trim());
     const visibleColumns = new Set(columnLabels.map((_, index) => index));
     const pageStorageKey = isReceiptsPage ? 'receipts' : (isOverduePage ? 'overdue' : 'report');
@@ -384,7 +384,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (operator === '>=') return cellNumber >= first;
             if (operator === '<') return cellNumber < first;
             if (operator === '<=') return cellNumber <= first;
-            if (operator === '!=' ) return cellNumber !== first;
+            if (operator === '!=') return cellNumber !== first;
             return cellNumber === first;
         }
 
@@ -396,7 +396,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (operator === '>=') return cellNumber >= target;
             if (operator === '<') return cellNumber < target;
             if (operator === '<=') return cellNumber <= target;
-            if (operator === '!=' ) return cellNumber !== target;
+            if (operator === '!=') return cellNumber !== target;
             return cellNumber === target;
         }
 
@@ -1549,7 +1549,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert(result.message || 'Unable to post receipt.');
                     return;
                 }
-                window.location.href = result.redirect_url || '/receipt-register';
+                alert(result.message || 'Receipt posted successfully.');
+                closeReceiptModal();
             } catch (error) {
                 alert('Unable to post receipt.');
             } finally {

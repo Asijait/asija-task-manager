@@ -37,11 +37,50 @@
         .toggle-btn:hover { background: #eef2f7; }
         .toggle-btn.active { background: #3498db; color: white; border-color: #3498db; }
 
+        .report-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.report-controls .search-container {
+    position: relative;
+    width: 400px;
+    min-width: 400px;
+    max-width: 400px;
+    flex: 0 0 400px;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.report-controls .search-container .report-search {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.report-controls .toggle-container {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    margin: 0;
+    white-space: nowrap;
+}
+
         .search-container { max-width: 400px; margin: 0 auto 20px; position: relative; }
         .report-search { 
-            width: 100%; padding: 10px 15px; border-radius: 20px; border: 1px solid #ddd;
-            font-size: 14px; outline: none; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 15px;
+    border-radius: 20px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+    outline: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
         .report-search:focus { border-color: #3498db; box-shadow: 0 2px 8px rgba(52,152,219,0.2); }
 
         .amt-red { color: #e74c3c !important; font-weight: bold; }
@@ -226,7 +265,146 @@
             font-weight: 800;
         }
 
+
+        /* Excel-style column filters for Periodic Report */
+        .periodic-filter-header {
+            position: relative;
+            padding-right: 28px !important;
+        }
+
+        .periodic-filter-toggle {
+            position: absolute;
+            top: 50%;
+            right: 5px;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            padding: 0;
+            border: 1px solid rgba(255,255,255,0.35);
+            border-radius: 4px;
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+            cursor: pointer;
+            font-size: 9px;
+            line-height: 1;
+        }
+
+        .periodic-filter-toggle:hover,
+        .periodic-filter-toggle.is-filtered {
+            background: #3498db;
+            border-color: #3498db;
+        }
+
+        .periodic-filter-menu {
+            display: none;
+            position: fixed;
+            width: 300px;
+            max-width: calc(100vw - 16px);
+            max-height: min(420px, calc(100vh - 90px));
+            overflow: hidden;
+            padding: 8px;
+            box-sizing: border-box;
+            background: #fff;
+            color: #2c3e50;
+            border: 1px solid #bdc3c7;
+            border-radius: 6px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            z-index: 5000;
+        }
+
+        .periodic-filter-menu.is-open {
+            display: block;
+        }
+
+        .periodic-filter-search {
+            width: 100%;
+            padding: 6px 8px;
+            margin-bottom: 8px;
+            box-sizing: border-box;
+            border: 1px solid #8b8b8b;
+            border-radius: 2px;
+            font-size: 12px;
+        }
+
+        .periodic-filter-number {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .periodic-filter-number select,
+        .periodic-filter-number input {
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            padding: 7px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .periodic-filter-options {
+            max-height: 230px;
+            overflow-y: auto;
+            border: 1px solid #d0d0d0;
+            padding: 4px 3px;
+        }
+
+        .periodic-filter-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 2px;
+            color: #2c3e50;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .periodic-filter-option:hover {
+            background: #eef3f7;
+        }
+
+        .periodic-filter-option span {
+            overflow-wrap: anywhere;
+        }
+
+        .periodic-filter-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+
+        .periodic-filter-actions button {
+            min-width: 68px;
+            padding: 6px 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            background: #ecf0f1;
+            color: #2c3e50;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .periodic-filter-actions button:hover {
+            background: #dfe6e9;
+        }
+
+        body.periodic-filter-menu-open {
+            overflow: hidden;
+        }
+
         @media (max-width: 1024px) {
+            .report-controls {
+                flex-wrap: wrap;
+            }
+            .report-controls .search-container {
+                flex: 1 1 300px;
+            }
+            .report-controls .toggle-container {
+                flex-wrap: wrap;
+            }
             .report-grid { grid-template-columns: 1fr; }
             .previous-view {
                 grid-template-columns: 1fr;
@@ -240,15 +418,17 @@
     {% include 'navbar.html' %}
 
     <div class="report-body">
-        <div class="search-container">
-            <input type="text" class="report-search" id="periodicSearch" placeholder="🔍 Search by Group or EP name..." oninput="filterPeriodicTables()">
-        </div>
+        <div class="report-controls">
+            <div class="search-container">
+                <input type="text" class="report-search" id="periodicSearch" placeholder="🔍 Search by Group or EP name..." oninput="filterPeriodicTables()">
+            </div>
 
-        <div class="toggle-container">
-            <button class="toggle-btn active" onclick="switchView('both', this)">Show All</button>
-            <button class="toggle-btn" onclick="switchView('current', this)">Current Period Only</button>
-            <button class="toggle-btn" onclick="switchView('previous', this)">Previous Years Only</button>
-            <button class="toggle-btn" onclick="switchView('ep', this)">EP Summary Only</button>
+            <div class="toggle-container">
+                <button class="toggle-btn active" onclick="switchView('both', this)">Show All</button>
+                <button class="toggle-btn" onclick="switchView('current', this)">Current Period Only</button>
+                <button class="toggle-btn" onclick="switchView('previous', this)">Previous Years Only</button>
+                <button class="toggle-btn" onclick="switchView('ep', this)">EP Summary Only</button>
+            </div>
         </div>
         
         {% set total_curr = current_only_summary.values() | map(attribute='total') | sum %}
@@ -930,7 +1110,698 @@
                 });
             });
         }
-    </script>
+    
+
+        /*
+         * Periodic Report Excel-style filters.
+         * This is intentionally isolated from the existing report logic.
+         */
+        (() => {
+            'use strict';
+
+            const STORAGE_PREFIX = 'periodicReportExcelFiltersV1:';
+            const NO_MATCH = '__PERIODIC_NO_MATCH__';
+            const tableStates = new Map();
+            let openMenu = null;
+
+            function tableKey(table) {
+                return `${STORAGE_PREFIX}${Array.from(
+                    document.querySelectorAll('.summary-table')
+                ).indexOf(table)}`;
+            }
+
+            function bodyRows(table) {
+                return Array.from(table.tBodies?.[0]?.rows || []).filter(row => {
+                    if (!row.cells.length) return false;
+                    return !Array.from(row.cells).some(cell =>
+                        /no records found/i.test(cell.textContent.trim())
+                    );
+                });
+            }
+
+            function headerInfo(table) {
+                const headRows = Array.from(table.tHead?.rows || []);
+                if (!headRows.length) return [];
+
+                const bodyCount = bodyRows(table).reduce(
+                    (max, row) => Math.max(max, row.cells.length), 0
+                );
+
+                /*
+                 * For normal tables the only header row is used.
+                 * For pivot tables, the last header row has one physical cell
+                 * per body column. Its labels are enriched with the category/
+                 * period name from the row above.
+                 */
+                const headerRow = headRows.length === 1
+                    ? headRows[0]
+                    : headRows[headRows.length - 1];
+
+                const topRow = headRows[0];
+                const topLabels = [];
+                if (topRow) {
+                    Array.from(topRow.cells).forEach(cell => {
+                        const span = cell.colSpan || 1;
+                        const label = cell.textContent.trim();
+                        for (let i = 0; i < span; i++) topLabels.push(label);
+                    });
+                }
+
+                const infos = [];
+                let physicalIndex = 0;
+
+                Array.from(headerRow.cells).forEach(cell => {
+                    const span = cell.colSpan || 1;
+                    for (let localIndex = 0; localIndex < span; localIndex++) {
+                        const bodyIndex = physicalIndex;
+                        let label = cell.textContent.trim();
+
+                        if (!label && topLabels[bodyIndex]) {
+                            label = topLabels[bodyIndex];
+                        }
+
+                        /*
+                         * Pivot second-row cells are all called "Amount".
+                         * Give each one its parent category as the filter label.
+                         */
+                        if (
+                            headRows.length > 1 &&
+                            topLabels[bodyIndex] &&
+                            topLabels[bodyIndex] !== label &&
+                            /^(amount|%)$/i.test(label)
+                        ) {
+                            label = `${topLabels[bodyIndex]} - ${label}`;
+                        }
+
+                        if (bodyIndex < bodyCount || bodyCount === 0) {
+                            infos.push({
+                                index: bodyIndex,
+                                label: label || `Column ${bodyIndex + 1}`,
+                                cell
+                            });
+                        }
+
+                        physicalIndex++;
+                    }
+                });
+
+                return infos;
+            }
+
+            function parseNumber(value) {
+                const cleaned = String(value || '')
+                    .replace(/₹/g, '')
+                    .replace(/Rs\.?/gi, '')
+                    .replace(/,/g, '')
+                    .replace(/%/g, '')
+                    .trim();
+
+                const number = Number(cleaned);
+                return Number.isFinite(number) ? number : null;
+            }
+
+            function isDateValue(value) {
+                const match = String(value || '').trim().match(
+                    /^(\\d{2})[-/](\\d{2})[-/](\\d{2,4})$/
+                );
+                if (!match) return false;
+
+                const day = Number(match[1]);
+                const month = Number(match[2]);
+                const year = Number(match[3]) < 100
+                    ? 2000 + Number(match[3])
+                    : Number(match[3]);
+
+                const date = new Date(year, month - 1, day);
+                return date.getFullYear() === year &&
+                    date.getMonth() === month - 1 &&
+                    date.getDate() === day;
+            }
+
+            function isNumericColumn(table, index, label) {
+                if (/%|amount|total|overdue/i.test(label)) return true;
+
+                const values = bodyRows(table)
+                    .map(row => row.cells[index]?.textContent.trim())
+                    .filter(Boolean);
+
+                return values.length > 0 &&
+                    values.every(value => parseNumber(value) !== null);
+            }
+
+            function isDateColumn(table, index, label) {
+                if (/date/i.test(label)) return true;
+
+                const values = bodyRows(table)
+                    .map(row => row.cells[index]?.textContent.trim())
+                    .filter(Boolean);
+
+                return values.length > 0 && values.every(isDateValue);
+            }
+
+            function uniqueValues(table, index, excludeIndex = null) {
+                const state = tableStates.get(table);
+                const values = new Set();
+
+                bodyRows(table).forEach(row => {
+                    if (!rowMatches(row, table, excludeIndex)) return;
+                    values.add(row.cells[index]?.textContent.trim() || '');
+                });
+
+                return Array.from(values).sort((a, b) =>
+                    a.localeCompare(b, undefined, {
+                        numeric: true,
+                        sensitivity: 'base'
+                    })
+                );
+            }
+
+            function rowMatches(row, table, excludeIndex = null) {
+                const state = tableStates.get(table);
+                if (!state) return true;
+
+                for (const [index, filter] of state.filters.entries()) {
+                    if (Number(index) === Number(excludeIndex)) continue;
+
+                    const value = row.cells[index]?.textContent.trim() || '';
+
+                    if (filter.values?.has(NO_MATCH)) return false;
+
+                    if (filter.values && filter.values.size > 0 &&
+                        !filter.values.has(value)) {
+                        return false;
+                    }
+
+                    if (filter.number &&
+                        !numberMatches(value, filter.number)) {
+                        return false;
+                    }
+                }
+
+                const search = document.getElementById('periodicSearch');
+                const term = search?.value.trim().toLowerCase() || '';
+
+                if (term) {
+                    const searchable = row.cells[0]?.textContent.trim().toLowerCase() || '';
+                    if (!searchable.includes(term)) return false;
+                }
+
+                return true;
+            }
+
+            function numberMatches(value, condition) {
+                const actual = parseNumber(value);
+                if (actual === null) return false;
+
+                if (condition.operator === 'between') {
+                    return actual >= Math.min(condition.first, condition.second) &&
+                        actual <= Math.max(condition.first, condition.second);
+                }
+
+                switch (condition.operator) {
+                    case '>': return actual > condition.first;
+                    case '>=': return actual >= condition.first;
+                    case '<': return actual < condition.first;
+                    case '<=': return actual <= condition.first;
+                    case '!=': return actual !== condition.first;
+                    case '=': return actual === condition.first;
+                    default: return true;
+                }
+            }
+
+            function saveState(table) {
+                const state = tableStates.get(table);
+                if (!state) return;
+
+                const serializable = {};
+                state.filters.forEach((filter, index) => {
+                    serializable[index] = {
+                        values: filter.values ? Array.from(filter.values) : [],
+                        number: filter.number || null
+                    };
+                });
+
+                try {
+                    localStorage.setItem(tableKey(table), JSON.stringify(serializable));
+                } catch (_) {
+                    // Filtering remains functional if storage is unavailable.
+                }
+            }
+
+            function loadState(table) {
+                const state = tableStates.get(table);
+                if (!state) return;
+
+                try {
+                    const raw = localStorage.getItem(tableKey(table));
+                    if (!raw) return;
+
+                    const parsed = JSON.parse(raw);
+                    Object.entries(parsed).forEach(([index, filter]) => {
+                        if (!filter) return;
+
+                        const values = Array.isArray(filter.values)
+                            ? new Set(filter.values)
+                            : new Set();
+
+                        if (values.size || filter.number) {
+                            state.filters.set(Number(index), {
+                                values,
+                                number: filter.number || null
+                            });
+                        }
+                    });
+                } catch (_) {
+                    try {
+                        localStorage.removeItem(tableKey(table));
+                    } catch (_) {}
+                }
+            }
+
+            function createMenu(table, info) {
+                const state = tableStates.get(table);
+                const menu = document.createElement('div');
+                menu.className = 'periodic-filter-menu';
+
+                const search = document.createElement('input');
+                search.type = 'search';
+                search.className = 'periodic-filter-search';
+                search.placeholder = `Search ${info.label}...`;
+                search.autocomplete = 'off';
+
+                const numeric = isNumericColumn(table, info.index, info.label);
+                const date = isDateColumn(table, info.index, info.label);
+
+                let numberControls = null;
+                if (numeric) {
+                    numberControls = document.createElement('div');
+                    numberControls.className = 'periodic-filter-number';
+
+                    const operator = document.createElement('select');
+                    [
+                        ['', 'Condition'],
+                        ['=', 'Equals'],
+                        ['!=', 'Not equal'],
+                        ['>', 'Greater than'],
+                        ['>=', 'Greater or equal'],
+                        ['<', 'Less than'],
+                        ['<=', 'Less or equal'],
+                        ['between', 'Between']
+                    ].forEach(([value, text]) => {
+                        const option = document.createElement('option');
+                        option.value = value;
+                        option.textContent = text;
+                        operator.appendChild(option);
+                    });
+
+                    const first = document.createElement('input');
+                    first.type = 'number';
+                    first.step = 'any';
+                    first.placeholder = 'Value';
+
+                    const second = document.createElement('input');
+                    second.type = 'number';
+                    second.step = 'any';
+                    second.placeholder = 'To';
+                    second.hidden = true;
+
+                    operator.addEventListener('change', () => {
+                        second.hidden = operator.value !== 'between';
+                    });
+
+                    numberControls.append(operator, first, second);
+                    menu.appendChild(numberControls);
+                    menu._numberControls = { operator, first, second };
+                }
+
+                const options = document.createElement('div');
+                options.className = 'periodic-filter-options';
+
+                const actions = document.createElement('div');
+                actions.className = 'periodic-filter-actions';
+
+                const clear = document.createElement('button');
+                clear.type = 'button';
+                clear.textContent = 'Clear';
+
+                const apply = document.createElement('button');
+                apply.type = 'button';
+                apply.textContent = 'Apply';
+
+                actions.append(clear, apply);
+                menu.append(search, options, actions);
+                document.body.appendChild(menu);
+
+                menu._meta = { table, info, options, search, numeric, date };
+
+                search.addEventListener('input', () => {
+                    const term = search.value.trim().toLowerCase();
+                    options.querySelectorAll('.periodic-filter-option').forEach(option => {
+                        option.hidden = Boolean(
+                            term && !option.dataset.search.includes(term)
+                        );
+                    });
+                });
+
+                clear.addEventListener('click', () => {
+                    state.filters.delete(info.index);
+                    saveState(table);
+                    renderMenu(menu);
+                    applyAll();
+                    closeMenu();
+                });
+
+                apply.addEventListener('click', () => {
+                    const checked = Array.from(
+                        options.querySelectorAll(
+                            'input[data-filter-value]:checked'
+                        )
+                    ).map(input => input.value);
+
+                    const all = uniqueValues(table, info.index);
+                    const controls = menu._numberControls;
+
+                    let number = null;
+                    if (controls?.operator.value && controls.first.value.trim()) {
+                        const first = Number(controls.first.value);
+                        const second = Number(controls.second.value);
+
+                        if (
+                            controls.operator.value !== 'between' ||
+                            Number.isFinite(second)
+                        ) {
+                            number = {
+                                operator: controls.operator.value,
+                                first,
+                                second
+                            };
+                        }
+                    }
+
+                    if (checked.length === all.length) {
+                        state.filters.delete(info.index);
+                    } else if (checked.length === 0) {
+                        state.filters.set(info.index, {
+                            values: new Set([NO_MATCH]),
+                            number
+                        });
+                    } else {
+                        state.filters.set(info.index, {
+                            values: new Set(checked),
+                            number
+                        });
+                    }
+
+                    if (number) {
+                        const existing = state.filters.get(info.index) || {
+                            values: new Set()
+                        };
+                        existing.number = number;
+                        state.filters.set(info.index, existing);
+                    }
+
+                    saveState(table);
+                    updateButton(table, info.index);
+                    applyAll();
+                    closeMenu();
+                });
+
+                return menu;
+            }
+
+            function renderMenu(menu) {
+                const { table, info, options, search, numeric, date } = menu._meta;
+                const state = tableStates.get(table);
+                const active = state.filters.get(info.index);
+                const values = uniqueValues(table, info.index, info.index);
+
+                options.innerHTML = '';
+
+                const selectAllRow = document.createElement('label');
+                selectAllRow.className = 'periodic-filter-option';
+                selectAllRow.dataset.search = '(select all)';
+
+                const selectAll = document.createElement('input');
+                selectAll.type = 'checkbox';
+                selectAll.dataset.selectAll = 'true';
+
+                const selectAllText = document.createElement('span');
+                selectAllText.textContent = '(Select All)';
+                selectAllRow.append(selectAll, selectAllText);
+                options.appendChild(selectAllRow);
+
+                values.forEach(value => {
+                    const row = document.createElement('label');
+                    row.className = 'periodic-filter-option';
+                    row.dataset.search = (value || '(blank)').toLowerCase();
+
+                    const input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.dataset.filterValue = 'true';
+                    input.value = value;
+
+                    const text = document.createElement('span');
+                    text.textContent = value || '(blank)';
+
+                    row.append(input, text);
+                    options.appendChild(row);
+                });
+
+                const inputs = () => Array.from(
+                    options.querySelectorAll('input[data-filter-value]')
+                );
+
+                const syncSelectAll = () => {
+                    const allInputs = inputs();
+                    const checked = allInputs.filter(input => input.checked);
+                    selectAll.checked =
+                        allInputs.length > 0 &&
+                        checked.length === allInputs.length;
+                    selectAll.indeterminate =
+                        checked.length > 0 &&
+                        checked.length < allInputs.length;
+                };
+
+                selectAll.addEventListener('change', () => {
+                    inputs().forEach(input => {
+                        input.checked = selectAll.checked;
+                    });
+                    syncSelectAll();
+                });
+
+                inputs().forEach(input => {
+                    input.addEventListener('change', syncSelectAll);
+                });
+
+                if (!active || !active.values?.size) {
+                    inputs().forEach(input => input.checked = true);
+                } else if (active.values.has(NO_MATCH)) {
+                    inputs().forEach(input => input.checked = false);
+                } else {
+                    inputs().forEach(input => {
+                        input.checked = active.values.has(input.value);
+                    });
+                }
+
+                syncSelectAll();
+
+                if (numeric) {
+                    const controls = menu._numberControls;
+                    const number = active?.number;
+
+                    controls.operator.value = number?.operator || '';
+                    controls.first.value =
+                        number ? String(number.first) : '';
+                    controls.second.value =
+                        number?.operator === 'between'
+                            ? String(number.second)
+                            : '';
+                    controls.second.hidden =
+                        controls.operator.value !== 'between';
+                }
+
+                search.value = '';
+                options.querySelectorAll('.periodic-filter-option')
+                    .forEach(option => option.hidden = false);
+            }
+
+            function updateButton(table, index) {
+                const state = tableStates.get(table);
+                const button = state?.buttons.get(index);
+                const filter = state?.filters.get(index);
+                if (!button) return;
+
+                const active = Boolean(
+                    filter?.values?.size || filter?.number
+                );
+
+                button.classList.toggle('is-filtered', active);
+                button.title = active ? 'Filter applied' : 'Filter';
+            }
+
+            function positionMenu(button, menu) {
+                const rect = button.getBoundingClientRect();
+                const width = Math.min(300, window.innerWidth - 16);
+                const left = Math.min(
+                    Math.max(8, rect.left),
+                    window.innerWidth - width - 8
+                );
+                const top = Math.min(
+                    rect.bottom + 6,
+                    window.innerHeight - 90
+                );
+
+                menu.style.width = `${width}px`;
+                menu.style.left = `${left}px`;
+                menu.style.top = `${Math.max(8, top)}px`;
+            }
+
+            function openFilter(table, index) {
+                const state = tableStates.get(table);
+                const button = state.buttons.get(index);
+                const menu = state.menus.get(index);
+                if (!button || !menu) return;
+
+                closeMenu();
+
+                renderMenu(menu);
+                positionMenu(button, menu);
+                menu.classList.add('is-open');
+                button.setAttribute('aria-expanded', 'true');
+                openMenu = { table, index, menu, button };
+                document.body.classList.add('periodic-filter-menu-open');
+            }
+
+            function closeMenu() {
+                if (!openMenu) return;
+
+                openMenu.menu.classList.remove('is-open');
+                openMenu.button.setAttribute('aria-expanded', 'false');
+                openMenu = null;
+                document.body.classList.remove('periodic-filter-menu-open');
+            }
+
+            function registerTable(table) {
+                if (!table || tableStates.has(table)) return;
+
+                const state = {
+                    table,
+                    filters: new Map(),
+                    buttons: new Map(),
+                    menus: new Map()
+                };
+
+                tableStates.set(table, state);
+                loadState(table);
+
+                headerInfo(table).forEach(info => {
+                    if (!info.cell) return;
+
+                    info.cell.classList.add('periodic-filter-header');
+
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'periodic-filter-toggle';
+                    button.textContent = '▼';
+                    button.title = 'Filter';
+                    button.setAttribute(
+                        'aria-label',
+                        `Filter ${info.label}`
+                    );
+                    button.setAttribute('aria-expanded', 'false');
+
+                    info.cell.appendChild(button);
+
+                    const menu = createMenu(table, info);
+                    state.buttons.set(info.index, button);
+                    state.menus.set(info.index, menu);
+
+                    button.addEventListener('click', event => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        openFilter(table, info.index);
+                    });
+
+                    menu.addEventListener('click', event => {
+                        event.stopPropagation();
+                    });
+
+                    updateButton(table, info.index);
+                });
+            }
+
+            function applyTable(table) {
+                const state = tableStates.get(table);
+                if (!state) return;
+
+                bodyRows(table).forEach(row => {
+                    row.style.display = rowMatches(row, table) ? '' : 'none';
+                });
+            }
+
+            function applyAll() {
+                tableStates.forEach(state => applyTable(state.table));
+            }
+
+            function refreshMenus() {
+                tableStates.forEach(state => {
+                    state.menus.forEach((menu, index) => {
+                        renderMenu(menu);
+                        updateButton(state.table, index);
+                    });
+                });
+            }
+
+            document.addEventListener('click', closeMenu);
+
+            window.addEventListener('resize', () => {
+                if (openMenu) {
+                    positionMenu(openMenu.button, openMenu.menu);
+                }
+            });
+
+            window.addEventListener('scroll', () => {
+                if (openMenu) {
+                    positionMenu(openMenu.button, openMenu.menu);
+                }
+            }, true);
+
+            document.querySelectorAll('.summary-table').forEach(registerTable);
+
+            /*
+             * The existing search box still runs filterPeriodicTables() from its
+             * inline oninput handler. This listener runs immediately afterwards
+             * and reapplies the column filters, preserving both behaviors.
+             */
+            document.getElementById('periodicSearch')?.addEventListener(
+                'input',
+                () => {
+                    applyAll();
+                }
+            );
+
+            /*
+             * The detail table is populated by fetch() later. Register it once,
+             * then refresh its values whenever its tbody changes.
+             */
+            const detailTable = document.querySelector('.periodic-detail-table');
+            if (detailTable) {
+                if (!tableStates.has(detailTable)) registerTable(detailTable);
+
+                const detailBody = detailTable.tBodies?.[0];
+                if (detailBody) {
+                    const observer = new MutationObserver(() => {
+                        refreshMenus();
+                        applyAll();
+                    });
+                    observer.observe(detailBody, { childList: true });
+                }
+            }
+
+            applyAll();
+        })();
+
+</script>
     <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
 </body>
 </html>

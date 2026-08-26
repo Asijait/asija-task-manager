@@ -76,6 +76,7 @@
         </div>
         {% endif %}
     </nav>
+    <button type="button" class="nav-reconcile-btn" id="debtorRecoBtn">Debtor Report Reco</button>
     {% if report_as_on_lines %}
     <div class="report-as-on-title">
         {% for line in report_as_on_lines %}
@@ -167,6 +168,51 @@
     {% endif %}
     {% endif %}
 </aside>
+
+<div class="import-dialog" id="debtorRecoDialog" aria-hidden="true">
+    <div class="import-dialog-panel debtor-reco-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="debtorRecoDialogTitle">
+        <div class="import-dialog-header">
+            <h2 id="debtorRecoDialogTitle">Debtor Report Reco</h2>
+            <button type="button" class="import-dialog-close" id="debtorRecoDialogClose" aria-label="Close">x</button>
+        </div>
+        <form action="{{ debtor_url('/debtor-report-reco') }}" method="post" enctype="multipart/form-data" id="debtorRecoForm">
+            <div class="import-dialog-body">
+                <p>Upload the Bill Wise Debtor Report to compare it with the active debtor report using Ref No.</p>
+                <label>
+                    Bill Wise Debtor Report
+                    <input type="file" name="file" accept=".xlsx,.xls" required>
+                </label>
+                <label>
+                    Receipt Bill Wise Report (optional)
+                    <input type="file" name="receipt_file" accept=".xlsx,.xls">
+                </label>
+                <div id="debtorRecoStatus" class="debtor-reco-status" role="status"></div>
+                <div id="debtorRecoResults" class="debtor-reco-results" hidden>
+                    <h3>Summary</h3>
+                    <div id="debtorRecoSummary" class="debtor-reco-summary"></div>
+                    <section>
+                        <h3>Records to Delete</h3>
+                        <div id="debtorRecoDeleteTable" class="debtor-reco-table-wrap"></div>
+                    </section>
+                    <section>
+                        <h3>Records to Update</h3>
+                        <div id="debtorRecoUpdateTable" class="debtor-reco-table-wrap"></div>
+                    </section>
+                    <section>
+                        <h3>Receipts to Post</h3>
+                        <p>These receipt references were found for records marked for deletion. They are not posted automatically.</p>
+                        <div id="debtorRecoReceiptTable" class="debtor-reco-table-wrap"></div>
+                    </section>
+                </div>
+            </div>
+            <div class="import-dialog-actions">
+                <button type="button" class="nav-dialog-btn" id="debtorRecoCancel">Cancel</button>
+                <a href="#" class="nav-dialog-btn primary debtor-reco-export" id="debtorRecoExport" hidden>Export Report</a>
+                <button type="submit" class="nav-dialog-btn primary" id="debtorRecoSubmit">Reconcile</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 {% if 'import_tally_debtors' in debtor_nav_access %}
 <div class="import-dialog" id="importDialog" aria-hidden="true">

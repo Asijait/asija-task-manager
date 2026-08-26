@@ -123,6 +123,87 @@ body.nav-visible {
     color: #ffffff;
 }
 
+.nav-reconcile-btn {
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 4px;
+    background: #e67e22;
+    color: #ffffff;
+    cursor: pointer;
+    font: 600 13px "Times New Roman", Times, serif;
+    white-space: nowrap;
+}
+
+.nav-reconcile-btn:hover {
+    background: #d35400;
+}
+
+.debtor-reco-status {
+    margin-top: 10px;
+    color: #8e2c2c;
+    font-weight: 600;
+}
+
+.debtor-reco-results {
+    margin-top: 12px;
+    max-height: 48vh;
+    overflow: auto;
+}
+
+.debtor-reco-results h3 {
+    margin: 14px 0 6px;
+    color: #34495e;
+}
+
+.debtor-reco-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(90px, 1fr));
+    gap: 6px;
+}
+
+.debtor-reco-summary-item {
+    padding: 8px;
+    border: 1px solid #d5dce0;
+    border-radius: 4px;
+    background: #f7f9fa;
+    text-align: center;
+}
+
+.debtor-reco-summary-item strong,
+.debtor-reco-summary-item span {
+    display: block;
+}
+
+.debtor-reco-summary-item strong {
+    font-size: 18px;
+    color: #2c3e50;
+}
+
+.debtor-reco-table-wrap {
+    overflow: auto;
+    max-width: 100%;
+    border: 1px solid #d5dce0;
+}
+
+.debtor-reco-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.debtor-reco-table th,
+.debtor-reco-table td {
+    padding: 5px 7px;
+    border: 1px solid #e0e5e8;
+    text-align: left;
+}
+
+.debtor-reco-table th {
+    background: #34495e;
+    color: #ffffff;
+}
+
 .top-nav-links .nav-dashboard-btn {
     position: relative;
     display: inline-flex;
@@ -279,7 +360,7 @@ body.nav-visible {
     transition: transform 0.22s ease;
 }
 
-.sidebar-hover-zone:hover + .sidebar,
+.sidebar-hover-zone:hover+.sidebar,
 .sidebar:hover,
 .sidebar.is-open {
     transform: translateX(0);
@@ -373,6 +454,10 @@ body.nav-visible {
 
 .weekly-dialog-panel {
     width: min(650px, 94vw);
+}
+
+.debtor-reco-dialog-panel {
+    width: min(1180px, 96vw);
 }
 
 .import-dialog-header {
@@ -511,15 +596,208 @@ body.nav-visible {
         transform: translateX(-100%);
     }
 }
+
 .top-nav-links a[href$="/control-panel"] {
     display: none !important;
 }
 
-.top-nav-links > a[href$="/receipts"],
-.top-nav-links > a[href$="/receipt-register"],
-.top-nav-links > a[href$="/client-master"],
-.top-nav-links > a[href$="/firm-master"],
-.top-nav-links > a[href$="/executive-partner-master"],
-.top-nav-links > a[href$="/download/report-excel"] {
+.top-nav-links>a[href$="/receipts"],
+.top-nav-links>a[href$="/receipt-register"],
+.top-nav-links>a[href$="/client-master"],
+.top-nav-links>a[href$="/firm-master"],
+.top-nav-links>a[href$="/executive-partner-master"],
+.top-nav-links>a[href$="/download/report-excel"] {
     display: none !important;
+}
+
+/* ==========================================================
+   DASHBOARD DETAIL DIALOG
+   ========================================================== */
+
+.dashboard-detail-dialog {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.45);
+    box-sizing: border-box;
+}
+
+.dashboard-detail-dialog.is-open {
+    display: flex;
+}
+
+.dashboard-dialog-open {
+    overflow: hidden;
+}
+
+.dashboard-detail-panel {
+    width: min(1250px, 96vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border: 1px solid #b7c4cc;
+    border-radius: 8px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    overflow: hidden;
+}
+
+.dashboard-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    background: #34495e;
+    color: #ffffff;
+}
+
+.dashboard-detail-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-family: "Times New Roman", Times, serif;
+}
+
+.dashboard-detail-header span {
+    display: block;
+    margin-top: 3px;
+    color: #dce6ec;
+    font-size: 11px;
+}
+
+.dashboard-detail-close {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 21px;
+    line-height: 1;
+}
+
+.dashboard-detail-close:hover {
+    background: #2c3e50;
+}
+
+.dashboard-detail-summary {
+    display: grid;
+    grid-template-columns: 150px 220px;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #d5dce0;
+    background: #f7f9fa;
+}
+
+.dashboard-detail-summary>div {
+    padding: 7px 10px;
+    border: 1px solid #d5dce0;
+    border-radius: 4px;
+    background: #ffffff;
+}
+
+.dashboard-detail-summary span,
+.dashboard-detail-summary strong {
+    display: block;
+}
+
+.dashboard-detail-summary span {
+    color: #607382;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.dashboard-detail-summary strong {
+    margin-top: 2px;
+    color: #2c3e50;
+    font-size: 15px;
+}
+
+.dashboard-detail-status {
+    min-height: 15px;
+    padding: 7px 14px;
+    color: #607382;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.dashboard-detail-table-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    margin: 0 14px 14px;
+    border: 1px solid #d5dce0;
+}
+
+.dashboard-detail-table {
+    width: 100%;
+    min-width: 1050px;
+    border-collapse: collapse;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.dashboard-detail-table th,
+.dashboard-detail-table td {
+    padding: 6px 8px;
+    border: 1px solid #e0e5e8;
+    text-align: left;
+}
+
+.dashboard-detail-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #34495e;
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.dashboard-detail-table tbody tr:nth-child(even) {
+    background: #f7f9fa;
+}
+
+.dashboard-detail-table tbody tr:hover {
+    background: #e9f1f6;
+}
+
+.dashboard-detail-amount {
+    text-align: right !important;
+    font-weight: 600;
+}
+
+.dashboard-detail-empty,
+.dashboard-detail-error {
+    padding: 20px !important;
+    text-align: center !important;
+    color: #607382;
+}
+
+.dashboard-detail-error {
+    color: #8e2c2c;
+}
+
+@media (max-width: 720px) {
+    .dashboard-detail-dialog {
+        padding: 8px;
+    }
+
+    .dashboard-detail-panel {
+        width: 98vw;
+        max-height: 94vh;
+    }
+
+    .dashboard-detail-summary {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .dashboard-detail-table-wrap {
+        margin: 0 8px 8px;
+    }
 }

@@ -96,7 +96,7 @@
                     <h2>Category Wise</h2>
                     <span>Client categories</span>
                 </div>
-                <canvas id="categoryChart" height="230"></canvas>
+                <canvas id="categoryChart" height="230" style="cursor: pointer;"></canvas>
             </article>
 
             <article class="panel">
@@ -116,70 +116,82 @@
             </article>
         </section>
 
-        <!-- <section class="insight-grid">
-            <article class="panel">
-                <div class="panel-head">
-                    <h2>Top Followup Partners</h2>
-                    <span>By outstanding</span>
-                </div>
-                <div class="rank-list">
-                    {% for item in top_followups %}
-                    <a href="{{ debtor_url('/sub-report/followup-detail') }}?partner={{ item.label | urlencode }}">
-                        <span>{{ item.label }}</span>
-                        <strong>₹ {{ item.total | indian_currency(decimals=False) }}</strong>
-                    </a>
-                    {% endfor %}
-                </div>
-            </article>
-
-            <article class="panel">
-                <div class="panel-head">
-                    <h2>Top Categories</h2>
-                    <span>By outstanding</span>
-                </div>
-                <div class="rank-list">
-                    {% for item in top_categories %}
-                    <a href="{{ debtor_url('/sub-report/detail') }}?category={{ item.label | urlencode }}">
-                        <span>{{ item.label }}</span>
-                        <strong>₹ {{ item.total | indian_currency(decimals=False) }}</strong>
-                    </a>
-                    {% endfor %}
-                </div>
-            </article>
-
-            <article class="panel high-risk-panel">
-                <div class="panel-head">
-                    <h2>Largest Open Bills</h2>
-                    <span>Highest amount first</span>
-                </div>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Party</th>
-                                <th>Followup</th>
-                                <th>FY</th>
-                                <th>Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in high_risk_rows %}
-                            <tr>
-                                <td>{{ row.party_name }}</td>
-                                <td>{{ row.followup_partner or 'Unassigned' }}</td>
-                                <td>{{ row.financial_year }}</td>
-                                <td class="amount">₹ {{ row.amount | indian_currency(decimals=False) }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </article>
-        </section> -->
     </main>
+    <!-- Dashboard Detail Dialog -->
+<div
+    id="dashboardDetailDialog"
+    class="dashboard-detail-dialog"
+    aria-hidden="true"
+>
+    <div
+        class="dashboard-detail-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dashboardDetailTitle"
+    >
+        <div class="dashboard-detail-header">
+            <div>
+                <h2 id="dashboardDetailTitle">Details</h2>
+                <span id="dashboardDetailSubtitle"></span>
+            </div>
 
+            <button
+                type="button"
+                id="dashboardDetailClose"
+                class="dashboard-detail-close"
+                aria-label="Close"
+            >
+                ×
+            </button>
+        </div>
+
+        <div class="dashboard-detail-summary">
+            <div>
+                <span>Records</span>
+                <strong id="dashboardDetailCount">0</strong>
+            </div>
+
+            <div>
+                <span>Total Outstanding</span>
+                <strong id="dashboardDetailTotal">₹ 0</strong>
+            </div>
+        </div>
+
+        <div
+            id="dashboardDetailStatus"
+            class="dashboard-detail-status"
+        ></div>
+
+        <div class="dashboard-detail-table-wrap">
+            <table class="dashboard-detail-table">
+                <thead>
+                    <tr>
+                        <th>Bill Date</th>
+                        <th>Firm</th>
+                        <th>Ref No.</th>
+                        <th>Party</th>
+                        <th>Amount</th>
+                        <th>Due Date</th>
+                        <th>Overdue</th>
+                        <th>Followup</th>
+                        <th>EP</th>
+                        <th>Category</th>
+                        <th>FY</th>
+                    </tr>
+                </thead>
+
+                <tbody id="dashboardDetailBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+    <script>
+        window.DASHBOARD_API_BASE =
+            "{{ request.script_root }}";
+    </script>
     <script id="dashboardData" type="application/json">{{ chart_data | tojson }}</script>
     <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=20260803-2"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=20260824-5"></script>
 </body>
 </html>
