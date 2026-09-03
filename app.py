@@ -701,12 +701,14 @@ def init_db():
     # Backfill pending access requests for verified users created before the
     # signup approval notification was introduced. Users with any assigned
     # page power are treated as already processed.
+    admin_emails = tuple(email.lower() for email in ADMIN_EMAILS)
+    admin_placeholders = ", ".join("?" for _ in admin_emails)
     unassigned_users = c.execute(
-        """
+        f"""
         SELECT u.id, u.email
         FROM users u
         WHERE lower(u.email) LIKE '%@asija.in'
-          AND lower(u.email) NOT IN (?, ?)
+          AND lower(u.email) NOT IN ({admin_placeholders})
           AND NOT EXISTS (
               SELECT 1 FROM user_permissions up WHERE up.user_id = u.id
           )
@@ -1331,6 +1333,7 @@ def send_signup_email(recipient_email, subject, html_content, text_content):
 
 def queue_signup_email(recipient_email, subject, html_content, text_content):
     """Send signup mail outside the page request so Mailjet latency does not block users."""
+
     def deliver():
         try:
             send_signup_email(recipient_email, subject, html_content, text_content)
@@ -1426,7 +1429,9 @@ def signup():
         )
 
     if action != "verify_otp":
-        return render_template("signup.html", error="Invalid signup action.", email=email)
+        return render_template(
+            "signup.html", error="Invalid signup action.", email=email
+        )
 
     otp = str(request.form.get("otp", "")).strip()
     conn = get_db_connection()
@@ -1449,7 +1454,9 @@ def signup():
             conn.execute("DELETE FROM signup_otps WHERE email = ?", (email,))
             conn.commit()
             return render_template(
-                "signup.html", error="OTP has expired. Please send a new OTP.", email=email
+                "signup.html",
+                error="OTP has expired. Please send a new OTP.",
+                email=email,
             )
         if not otp or not OTPService.verify(otp, pending["otp_hash"]):
             return render_template(
@@ -3049,8 +3056,8 @@ def save_user_roles():
             if visible_user_id in valid_user_ids and visible_user_id != int(user_id):
                 conn.execute(
                     "INSERT INTO work_report_visibility (viewer_user_id, visible_user_id) VALUES (?, ?)",
-                (user_id, visible_user_id),
-            )
+                    (user_id, visible_user_id),
+                )
         # Saving User Powers completes the access request created at signup.
         conn.execute(
             """
