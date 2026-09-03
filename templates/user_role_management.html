@@ -135,6 +135,11 @@
                 allUsers = await usersRes.json();
                 allAssignees = await assigneesRes.json();
                 renderUserSelect();
+                const requestedUserId = Number(new URLSearchParams(window.location.search).get('user_id'));
+                if (requestedUserId && allUsers.some(user => user.id === requestedUserId)) {
+                    document.getElementById('userSelect').value = String(requestedUserId);
+                    renderSelectedUser();
+                }
             } catch (err) {
                 console.error(err);
                 document.getElementById('powersBody').innerHTML = '<div class="empty-state" style="color:#dc2626;">Error loading user powers.</div>';

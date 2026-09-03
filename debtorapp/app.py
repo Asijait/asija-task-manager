@@ -41,7 +41,6 @@ app = Flask(__name__)
 app.secret_key = "dev-secret-key"
 
 
-
 # Add the Indian currency formatting function
 def format_indian_currency(amount, decimals=True):
     if amount is None:
@@ -82,7 +81,6 @@ def format_indian_currency(amount, decimals=True):
     return result
 
 
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "database.db")
 MAIN_DB_PATH = os.path.join(os.path.dirname(BASE_DIR), "tasks.db")
@@ -97,6 +95,7 @@ TALLY_RECEIPT_TRIAL_PATH = os.path.join(BASE_DIR, "fcRece.xlsx")
 BACKUP_EXCLUDE_DIRS = {"backups", "__pycache__"}
 BACKUP_EXCLUDE_FILES = {"server.out.log", "server.err.log"}
 DB_BUSY_TIMEOUT_MS = 30000
+
 
 def connect_debtor_db():
     conn = sqlite3.connect(DB_PATH, timeout=DB_BUSY_TIMEOUT_MS / 1000)
@@ -293,6 +292,7 @@ def debtor_url(path="/"):
     if not path.startswith("/"):
         path = "/" + path
     return f"{request.script_root}{path}"
+
 
 @app.context_processor
 def debtor_report_template_helpers():
@@ -1474,8 +1474,8 @@ def create_project_backup(note="", backup_type="manual"):
                         else:
                             backup_zip.write(file_path, arcname)
 
-                    except Exception as exc:
-                        skipped.append({"file": arcname, "reason": str(exc)})
+                    # except Exception as exc:
+                    #     skipped.append({"file": arcname, "reason": str(exc)})
 
         # ======================================================
         # 3. ATOMICALLY FINALIZE ZIP

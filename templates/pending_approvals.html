@@ -17,7 +17,7 @@
         .approval-status.approved { background: #dcfce7; color: #166534; }
         .approval-status.rejected { background: #fee2e2; color: #991b1b; }
         .approval-actions { display: flex; gap: 8px; flex-shrink: 0; }
-        .approval-btn { border: none; border-radius: 5px; padding: 7px 12px; color: #fff; cursor: pointer; font-size: 0.85rem; }
+        .approval-btn { border: none; border-radius: 5px; padding: 7px 12px; color: #fff; cursor: pointer; font-size: 0.85rem; text-decoration: none; }
         .approval-approve { background: #16a34a; }
         .approval-reject { background: #dc2626; }
         .empty-state { color: #64748b; padding: 28px; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center; margin-top: 16px; }
@@ -43,7 +43,7 @@
     <main class="approvals-page">
         <div class="approval-card">
             <h1>Pending Approvals</h1>
-            <p style="color:#64748b; margin-top:6px;">Task Master create, edit, and delete requests.</p>
+            <p style="color:#64748b; margin-top:6px;">Task requests and verified user access requests.</p>
             <div id="approvalList" class="approval-list"></div>
             <div id="emptyState" class="empty-state" style="display:none;">No approval requests found.</div>
         </div>
@@ -68,11 +68,18 @@
 
                 empty.style.display = 'none';
                 list.innerHTML = requests.map(req => {
+                    const isUserAccessRequest = req.action === 'user_access';
                     const payloadName = req.payload && req.payload.work_name ? req.payload.work_name : '';
-                    const taskName = payloadName || req.current_work_name || `Task #${req.work_id || ''}`;
-                    const actionLabel = capitalize(req.action);
+                    const taskName = isUserAccessRequest
+                        ? ((req.payload && req.payload.email) || req.requester_email || 'New user')
+                        : (payloadName || req.current_work_name || `Task #${req.work_id || ''}`);
+                    const actionLabel = isUserAccessRequest ? 'User Access Request' : capitalize(req.action);
                     const requester = req.requester_email || 'Unknown user';
-                    const actions = req.can_approve ? `
+                    const actions = isUserAccessRequest && req.status === 'pending' && req.payload && req.payload.user_id ? `
+                        <div class="approval-actions">
+                            <a class="approval-btn approval-approve" href="/user-role-management?user_id=${encodeURIComponent(req.payload.user_id)}">Manage User Powers</a>
+                        </div>
+                    ` : req.can_approve ? `
                         <div class="approval-actions">
                             <button class="approval-btn approval-approve" onclick="reviewRequest(${req.id}, 'approve')">Approve</button>
                             <button class="approval-btn approval-reject" onclick="reviewRequest(${req.id}, 'reject')">Reject</button>

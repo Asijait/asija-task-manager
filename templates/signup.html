@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up | Asija Workspace</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; font-family: 'Segoe UI', Arial, sans-serif; background: #f4f8fb; color: #123a5a; }
+        .signup-shell { min-height: 100vh; display: grid; place-items: center; padding: 28px 16px; }
+        .signup-card { width: min(500px, 100%); padding: 34px; background: #fff; border: 1px solid #d6e4ee; border-radius: 8px; box-shadow: 0 16px 40px rgba(18,58,90,.12); }
+        h1 { margin: 0; color: #123a5a; font-size: 1.7rem; }
+        .subtitle { margin: 9px 0 25px; color: #64748b; line-height: 1.5; }
+        label { display: block; margin-bottom: 7px; color: #243b53; font-size: .92rem; font-weight: 600; }
+        .field { margin-bottom: 17px; }
+        input { width: 100%; padding: 12px 13px; border: 1px solid #b8c9d6; border-radius: 6px; color: #123a5a; font-size: 1rem; }
+        input:focus { outline: none; border-color: #1f5f93; box-shadow: 0 0 0 3px rgba(31,95,147,.14); }
+        .actions { display: grid; gap: 10px; margin-top: 20px; }
+        button { width: 100%; padding: 12px; border: 1px solid #123a5a; border-radius: 6px; background: #123a5a; color: #fff; cursor: pointer; font-size: 1rem; font-weight: 650; }
+        button:hover { background: #1f5f93; }
+        .secondary { background: #fff; color: #123a5a; }
+        .secondary:hover { background: #eef6fb; }
+        .message { margin: 0 0 17px; padding: 10px 12px; border-radius: 6px; font-size: .92rem; }
+        .error { color: #b42318; background: #fff3f0; border: 1px solid #ffd2ca; }
+        .success { color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; }
+        .otp-area { margin-top: 25px; padding-top: 22px; border-top: 1px solid #e2e8f0; }
+        .otp-area h2 { margin: 0 0 7px; font-size: 1.1rem; }
+        .otp-area p { margin: 0 0 16px; color: #64748b; font-size: .9rem; }
+        .login-link { margin: 20px 0 0; text-align: center; color: #64748b; font-size: .9rem; }
+        .login-link a { color: #174a73; font-weight: 650; }
+    </style>
+</head>
+<body>
+    <main class="signup-shell">
+        <section class="signup-card">
+            <h1>Create your workspace account</h1>
+            <p class="subtitle">Use your Asija email address. After verification, an administrator will choose the pages available to you.</p>
+            {% if error %}<div class="message error">{{ error }}</div>{% endif %}
+            {% if success %}<div class="message success">{{ success }}</div>{% endif %}
+
+            {% if not verified %}
+            <form method="post" id="signupForm">
+                <div class="field">
+                    <label for="email">Email address</label>
+                    <input id="email" type="email" name="email" required value="{{ email or '' }}" placeholder="name@asija.in" autocomplete="email">
+                </div>
+                <div class="field">
+                    <label for="password">Password</label>
+                    <input id="password" type="password" name="password" {% if not otp_sent %}required{% endif %} minlength="8" autocomplete="new-password">
+                </div>
+                <div class="field">
+                    <label for="confirm_password">Confirm password</label>
+                    <input id="confirm_password" type="password" name="confirm_password" {% if not otp_sent %}required{% endif %} minlength="8" autocomplete="new-password">
+                </div>
+                <div class="actions">
+                    <button type="submit" name="action" value="send_otp">Send OTP</button>
+                </div>
+
+                <div class="otp-area">
+                    <h2>Verify email</h2>
+                    <p>After receiving the OTP, enter it here. Sending a new OTP replaces the previous one.</p>
+                    <div class="field">
+                        <label for="otp">OTP</label>
+                        <input id="otp" type="text" name="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="6-digit OTP" autocomplete="one-time-code">
+                    </div>
+                    <button type="submit" class="secondary" name="action" value="verify_otp">Verify Email</button>
+                </div>
+            </form>
+            {% endif %}
+            <p class="login-link"><a href="{{ url_for('login') }}">Return to sign in</a></p>
+        </section>
+    </main>
+</body>
+</html>
