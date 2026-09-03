@@ -707,7 +707,7 @@ def init_db():
         f"""
         SELECT u.id, u.email
         FROM users u
-        WHERE lower(u.email) LIKE '%@asija.in'
+        WHERE lower(u.email) LIKE '%%@asija.in'
           AND lower(u.email) NOT IN ({admin_placeholders})
           AND NOT EXISTS (
               SELECT 1 FROM user_permissions up WHERE up.user_id = u.id
