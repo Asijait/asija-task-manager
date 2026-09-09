@@ -7290,6 +7290,236 @@ def download_report_excel():
     )
 
 
+def normalize_reconciliation_text(value):
+    """Create a reliable comparison key without altering the displayed value."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    text = unicodedata.normalize("NFKC", str(value)).strip()
+    return re.sub(r"\s+", " ", text).casefold()
+
+
+def extract_receipt_bill_rows(receipt_file):
+    """Read bill allocations from Tally's Receipt Bill Wise workbook layout."""
+    try:
+        receipt_df = pd.read_excel(receipt_file, sheet_name=0, header=None)
+    except Exception as exc:
+        raise ValueError(f"Unable to read the receipt Excel file: {exc}") from exc
+
+    receipt_rows = []
+    current_receipt = {}
+    for values in receipt_df.itertuples(index=False, name=None):
+        row = list(values) + [None] * max(0, 11 - len(values))
+        voucher_type = normalize_reconciliation_text(row[6])
+        particulars = normalize_reconciliation_text(row[1])
+
+        if voucher_type == "receipt":
+            current_receipt = {
+                "receipt_date": row[0],
+                "party_name": row[1] or "",
+                "voucher_no": row[7] or "",
+                "firm": row[10] or "",
+            }
+
+        if particulars not in {"agst ref", "new ref"}:
+            continue
+        ref_no = "" if pd.isna(row[2]) else str(row[2]).strip()
+        if not normalize_reconciliation_text(ref_no):
+            continue
+        try:
+            receipt_amount = float(row[4])
+        except (TypeError, ValueError):
+            continue
+
+        receipt_date = parse_input_date(current_receipt.get("receipt_date"))
+        receipt_rows.append(
+            {
+                "Receipt Date": receipt_date.strftime("%Y-%m-%d") if receipt_date else "",
+                "Firm": str(current_receipt.get("firm") or "").strip(),
+                "Party's Name": str(current_receipt.get("party_name") or "").strip(),
+                "Ref. No.": ref_no,
+                "Receipt Amount": receipt_amount,
+                "Vch No.": str(current_receipt.get("voucher_no") or "").strip(),
+            }
+        )
+    return receipt_rows
+
+
+def build_debtor_reconciliation_workbook(uploaded_file, receipt_file=None):
+    """Build the debtor correction workbook; this never changes application data.
+
+    A source row is considered a match only when Ref No. matches and the
+    application party/client name matches either Party Name or GroupName in the
+    Bill Wise Debtor Report. This prevents a reused Ref No. from reconciling
+    against the wrong client.
+    """
+    try:
+        source_df = pd.read_excel(uploaded_file, sheet_name=0, header=3)
+    except Exception as exc:
+        raise ValueError(f"Unable to read the Bill Wise Debtor Report: {exc}") from exc
+
+    required_columns = {"Ref No.", "Party Name", "Pending Amount"}
+    missing_columns = required_columns.difference(source_df.columns)
+    if missing_columns:
+        raise ValueError(
+            "The uploaded Bill Wise Debtor Report is missing required column(s): "
+            + ", ".join(sorted(missing_columns))
+        )
+
+    source_by_ref = {}
+    for _, source_row in source_df.iterrows():
+        ref_key = normalize_reconciliation_text(source_row.get("Ref No."))
+        if ref_key:
+            source_by_ref.setdefault(ref_key, []).append(source_row)
+
+    conn = connect_debtor_db()
+    try:
+        app_rows = conn.execute(
+            """
+            SELECT id, firm_name, short_name, bill_date, ref_no, party_name, amount
+            FROM billing_report
+            WHERE deleted_at IS NULL
+              AND COALESCE(receipt_status, 'open') != 'full_paid'
+            ORDER BY firm_name, bill_date, ref_no, id
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+
+    delete_rows = []
+    update_rows = []
+    for sheet_row_number, app_row in enumerate(app_rows, start=2):
+        app_party_key = normalize_reconciliation_text(app_row["party_name"])
+        candidates = source_by_ref.get(normalize_reconciliation_text(app_row["ref_no"]), [])
+        source_row = next(
+            (
+                candidate
+                for candidate in candidates
+                if app_party_key
+                and app_party_key
+                in {
+                    normalize_reconciliation_text(candidate.get("Party Name")),
+                    normalize_reconciliation_text(candidate.get("GroupName")),
+                }
+            ),
+            None,
+        )
+        row_base = {
+            "Row No. in Sheet": sheet_row_number,
+            "Firm": app_row["short_name"] or app_row["firm_name"] or "",
+            "Bill Date": app_row["bill_date"] or "",
+            "Ref. No.": app_row["ref_no"] or "",
+            "Party's Name": app_row["party_name"] or "",
+        }
+        if source_row is None:
+            delete_rows.append(
+                {
+                    **row_base,
+                    "Amount": float(app_row["amount"] or 0),
+                    "Reason": "Ref No. and Party/Client Name not found in Bill Wise Debtor Report (source)",
+                }
+            )
+            continue
+
+        try:
+            current_amount = float(app_row["amount"] or 0)
+            correct_amount = float(source_row.get("Pending Amount"))
+        except (TypeError, ValueError):
+            continue
+        if abs(current_amount - correct_amount) > 0.005:
+            update_rows.append(
+                {
+                    **row_base,
+                    "Current Amount (in file)": current_amount,
+                    "Correct Amount (per source)": correct_amount,
+                    "Difference": correct_amount - current_amount,
+                }
+            )
+
+    receipt_rows = []
+    if receipt_file is not None and receipt_file.filename:
+        deleted_refs = {
+            normalize_reconciliation_text(row["Ref. No."]) for row in delete_rows
+        }
+        receipt_rows = [
+            row
+            for row in extract_receipt_bill_rows(receipt_file)
+            if normalize_reconciliation_text(row["Ref. No."]) in deleted_refs
+        ]
+
+    correct_count = len(app_rows) - len(delete_rows) - len(update_rows)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        summary_sheet = writer.book.create_sheet("Summary")
+        summary_sheet["B2"] = "Debtor Report - Correction Summary"
+        summary_sheet["B3"] = "Comparison base: uploaded Bill Wise Debtor Report vs active application debtor report"
+        summary_sheet["B4"] = "Match rule: Ref No. + Party Name / Client Name"
+        summary_sheet["B5"] = f"Generated: {datetime.now().strftime('%d-%b-%Y') }"
+        summary_items = [
+            ("Total records in debtor report", len(app_rows)),
+            ("Records to DELETE (Ref No. / Party mismatch vs source)", len(delete_rows)),
+            ("Records to UPDATE (Amount mismatch vs source)", len(update_rows)),
+            ("Receipt records to post", len(receipt_rows)),
+            ("Records already correct", correct_count),
+        ]
+        for row_number, (label, value) in enumerate(summary_items, start=7):
+            summary_sheet.cell(row=row_number, column=2, value=label)
+            summary_sheet.cell(row=row_number, column=4, value=value)
+
+        sheet_specs = [
+            (
+                "Delete",
+                "Records to DELETE from the active debtor report",
+                "Reason: Ref No. and Party/Client Name combination does not exist in the source report",
+                delete_rows,
+                ["Row No. in Sheet", "Firm", "Bill Date", "Ref. No.", "Party's Name", "Amount", "Reason"],
+            ),
+            (
+                "Update Record (Amount)",
+                "Records to UPDATE (Amount) in the active debtor report",
+                "Amount does not match Pending Amount in Bill Wise Debtor Report (source report)",
+                update_rows,
+                ["Row No. in Sheet", "Firm", "Bill Date", "Ref. No.", "Party's Name", "Current Amount (in file)", "Correct Amount (per source)", "Difference"],
+            ),
+            (
+                "Receipts to Post",
+                "Receipt records found for bills marked for deletion",
+                "These records are identified for posting as receipts and have not been posted automatically.",
+                receipt_rows,
+                ["Receipt Date", "Firm", "Party's Name", "Ref. No.", "Receipt Amount", "Vch No."],
+            ),
+        ]
+        for sheet_name, title, subtitle, rows, columns in sheet_specs:
+            pd.DataFrame(rows, columns=columns).to_excel(
+                writer, index=False, sheet_name=sheet_name, startrow=3
+            )
+            sheet = writer.book[sheet_name]
+            sheet["A1"] = title
+            sheet["A2"] = subtitle
+
+        for sheet in writer.book.worksheets:
+            sheet.freeze_panes = "A7" if sheet.title == "Summary" else "A5"
+            sheet["A1"].font = Font(bold=True, size=14)
+            if sheet.title != "Summary":
+                for cell in sheet[4]:
+                    cell.font = Font(bold=True, color="FFFFFF")
+                    cell.fill = PatternFill("solid", fgColor="34495E")
+            for cells in sheet.columns:
+                sheet.column_dimensions[cells[0].column_letter].width = min(
+                    max(max(len(str(cell.value or "")) for cell in cells) + 2, 12), 45
+                )
+
+    output.seek(0)
+    return output, {
+        "total": len(app_rows),
+        "delete": len(delete_rows),
+        "update": len(update_rows),
+        "correct": correct_count,
+        "delete_rows": delete_rows,
+        "update_rows": update_rows,
+        "receipt_rows": receipt_rows,
+    }
+
+
 @app.route("/debtor-report-reco", methods=["POST"])
 def debtor_report_reconciliation():
     uploaded_file = request.files.get("file")
