@@ -294,10 +294,44 @@ def debtor_url(path="/"):
     return f"{request.script_root}{path}"
 
 
+def is_debtor_admin_user(user_email=None):
+    """Recognize built-in admins and users granted the full admin power set."""
+    email = str(user_email if user_email is not None else session.get("user_email", "")).lower()
+    if email in DEBTOR_ADMIN_EMAILS:
+        return True
+    if not email or main_db is None:
+        return False
+
+    conn = None
+    try:
+        conn = main_db.connect(MAIN_DB_PATH, timeout=DB_BUSY_TIMEOUT_MS / 1000)
+        rows = conn.execute(
+            """
+            SELECT up.permission_key
+            FROM users u
+            JOIN user_permissions up ON up.user_id = u.id
+            WHERE lower(u.email) = lower(?)
+            """,
+            (email,),
+        ).fetchall()
+        permissions = {row["permission_key"] for row in rows}
+        return {
+            "control_panel",
+            "user_power_management",
+            "approve_requests",
+        }.issubset(permissions)
+    except (main_db.Error, sqlite3.Error):
+        return False
+    finally:
+        if conn is not None:
+            conn.close()
+
+
 @app.context_processor
 def debtor_report_template_helpers():
     user_email = str(session.get("user_email", "")).lower()
     is_arif = user_email == "arif.siddiqui@asija.in"
+    is_debtor_admin = is_debtor_admin_user(user_email)
     debtor_nav_access = get_debtor_nav_access_for_user(user_email)
     firm_options = []
     try:
@@ -308,11 +342,23 @@ def debtor_report_template_helpers():
         conn.close()
     except sqlite3.Error:
         firm_options = []
+    try:
+        debtor_backup_entries = [
+            entry
+            for entry in read_backup_log()
+            if entry.get("type") != "rollback"
+            and entry.get("file")
+            and os.path.isfile(os.path.join(BACKUP_DIR, entry.get("file")))
+        ]
+    except Exception:
+        debtor_backup_entries = []
     return {
         "debtor_url": debtor_url,
         "is_arif_user": is_arif,
+        "is_debtor_admin_user": is_debtor_admin,
         "debtor_nav_access": debtor_nav_access,
         "firm_options": firm_options,
+        "debtor_backup_entries": debtor_backup_entries,
         "report_as_on_label": get_report_as_on_label(),
         "report_as_on_lines": get_report_as_on_lines(),
     }
@@ -1048,7 +1094,7 @@ def get_all_debtor_nav_access():
 
 def get_debtor_nav_access_for_user(user_email):
     user_email = str(user_email or "").lower()
-    if user_email in DEBTOR_ADMIN_EMAILS:
+    if is_debtor_admin_user(user_email):
         return set(DEBTOR_NAV_ACCESS_KEYS)
     return get_all_debtor_nav_access().get(user_email, set())
 
@@ -1233,7 +1279,7 @@ def enforce_debtor_nav_access():
     if request.endpoint == "static":
         return None
     user_email = str(session.get("user_email", "")).lower()
-    if user_email in DEBTOR_ADMIN_EMAILS:
+    if is_debtor_admin_user(user_email):
         return None
 
     access_key = get_debtor_access_key_for_path(request.path)
@@ -9095,6 +9141,9 @@ def permanently_delete_report_record():
 
 @app.route("/control-panel/backup", methods=["POST"])
 def control_panel_backup():
+    if not is_debtor_admin_user():
+        flash("Only debtor report administrators can create backups.")
+        return redirect(url_for("dashboard"))
     note = request.form.get("note", "").strip() or "Manual backup from Control Panel"
     backup_id, skipped = create_project_backup(note=note, backup_type="manual")
     if skipped:
@@ -9106,6 +9155,9 @@ def control_panel_backup():
 
 @app.route("/control-panel/restore", methods=["POST"])
 def control_panel_restore():
+    if not is_debtor_admin_user():
+        flash("Only debtor report administrators can restore backups.")
+        return redirect(url_for("dashboard"))
     backup_id = request.form.get("backup_id", "").strip()
     success, message = restore_project_backup(backup_id)
     flash(message)

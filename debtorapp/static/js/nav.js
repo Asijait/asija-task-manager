@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setOpen(false);
             closeWeeklyReportDialog();
             closeDebtorRecoDialog();
+            closeDebtorBackupDialog();
         }
     });
 
@@ -99,6 +100,83 @@ document.addEventListener('DOMContentLoaded', function() {
     const debtorRecoUpdateTable = document.getElementById('debtorRecoUpdateTable');
     const debtorRecoReceiptTable = document.getElementById('debtorRecoReceiptTable');
     const debtorRecoExport = document.getElementById('debtorRecoExport');
+    const debtorBackupButton = document.getElementById('debtorBackupBtn');
+    const debtorBackupDialog = document.getElementById('debtorBackupDialog');
+    const debtorBackupClose = document.getElementById('debtorBackupDialogClose');
+    const debtorBackupCancel = document.getElementById('debtorBackupCancel');
+    const debtorBackupStatus = document.getElementById('debtorBackupStatus');
+
+    function closeDebtorBackupDialog() {
+        if (!debtorBackupDialog) return;
+        debtorBackupDialog.classList.remove('is-open');
+        debtorBackupDialog.setAttribute('aria-hidden', 'true');
+    }
+
+    function openDebtorBackupDialog() {
+        if (!debtorBackupDialog) return;
+        debtorBackupDialog.classList.add('is-open');
+        debtorBackupDialog.setAttribute('aria-hidden', 'false');
+    }
+
+    debtorBackupButton?.addEventListener('click', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        openDebtorBackupDialog();
+    });
+    debtorBackupClose?.addEventListener('click', closeDebtorBackupDialog);
+    debtorBackupCancel?.addEventListener('click', closeDebtorBackupDialog);
+    debtorBackupDialog?.addEventListener('click', function(event) {
+        if (event.target === debtorBackupDialog) closeDebtorBackupDialog();
+    });
+
+    document.querySelectorAll('.debtor-backup-restore-form').forEach(function(form) {
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            if (!window.confirm('Restore this point? A safety backup will be created before restoring.')) return;
+            const button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Restoring...';
+            }
+            if (debtorBackupStatus) debtorBackupStatus.textContent = 'Restoring backup. Please wait...';
+            try {
+                const response = await fetch(form.action, { method: 'POST', body: new FormData(form) });
+                if (!response.ok) throw new Error('Restore request failed.');
+                if (debtorBackupStatus) debtorBackupStatus.textContent = 'Restore completed. Restart the app if required.';
+            } catch (error) {
+                if (debtorBackupStatus) debtorBackupStatus.textContent = error.message;
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'Restore';
+                }
+            }
+        });
+    });
+
+    document.querySelectorAll('.debtor-backup-create-form').forEach(function(form) {
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Creating...';
+            }
+            if (debtorBackupStatus) debtorBackupStatus.textContent = 'Creating backup. Please wait...';
+            try {
+                const response = await fetch(form.action, { method: 'POST', body: new FormData(form) });
+                if (!response.ok) throw new Error('Backup creation failed.');
+                if (debtorBackupStatus) debtorBackupStatus.textContent = 'Backup created. Reload the page to see it in the restore list.';
+                form.reset();
+            } catch (error) {
+                if (debtorBackupStatus) debtorBackupStatus.textContent = error.message;
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'Create Backup';
+                }
+            }
+        });
+    });
 
     function closeDebtorRecoDialog() {
         if (!debtorRecoDialog) return;

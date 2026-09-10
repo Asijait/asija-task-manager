@@ -77,6 +77,9 @@
         {% endif %}
     </nav>
     <button type="button" class="nav-reconcile-btn" id="debtorRecoBtn">Debtor Report Reco</button>
+    {% if is_debtor_admin_user %}
+    <button type="button" class="nav-backup-btn" id="debtorBackupBtn">Backup / Restore</button>
+    {% endif %}
     {% if report_as_on_lines %}
     <div class="report-as-on-title">
         {% for line in report_as_on_lines %}
@@ -213,6 +216,49 @@
         </form>
     </div>
 </div>
+
+{% if is_debtor_admin_user %}
+<div class="import-dialog" id="debtorBackupDialog" aria-hidden="true">
+    <div class="import-dialog-panel debtor-backup-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="debtorBackupDialogTitle">
+        <div class="import-dialog-header">
+            <h2 id="debtorBackupDialogTitle">Debtor Report Backup / Restore</h2>
+            <button type="button" class="import-dialog-close" id="debtorBackupDialogClose" aria-label="Close">x</button>
+        </div>
+        <div class="import-dialog-body">
+            <div id="debtorBackupStatus" class="debtor-backup-status" role="status"></div>
+            <form action="{{ debtor_url('/control-panel/backup') }}" method="post" class="debtor-backup-create-form">
+                <label>
+                    Backup note
+                    <input type="text" name="note" placeholder="Manual backup note">
+                </label>
+                <button type="submit" class="nav-dialog-btn primary">Create Backup</button>
+            </form>
+            <h3 class="debtor-backup-list-title">Available Restore Points</h3>
+            <div class="debtor-backup-list">
+                {% for backup in debtor_backup_entries %}
+                <article class="debtor-backup-item">
+                    <div>
+                        <strong>{{ backup.created_at }}</strong>
+                        <span>{{ backup.note or 'Backup' }}</span>
+                        <small>{{ backup.file }}</small>
+                    </div>
+                    <form action="{{ debtor_url('/control-panel/restore') }}" method="post" class="debtor-backup-restore-form">
+                        <input type="hidden" name="backup_id" value="{{ backup.id }}">
+                        <button type="submit" class="nav-dialog-btn danger">Restore</button>
+                    </form>
+                </article>
+                {% else %}
+                <div class="debtor-backup-empty">No restore points are available.</div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="import-dialog-actions">
+            {% if is_arif_user %}<a href="{{ debtor_url('/control-panel') }}" class="nav-dialog-btn">Open Control Panel</a>{% endif %}
+            <button type="button" class="nav-dialog-btn" id="debtorBackupCancel">Close</button>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% if 'import_tally_debtors' in debtor_nav_access %}
 <div class="import-dialog" id="importDialog" aria-hidden="true">
