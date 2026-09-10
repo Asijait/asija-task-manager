@@ -9122,27 +9122,48 @@ def permanently_delete_report_record():
 
 @app.route("/control-panel/backup", methods=["POST"])
 def control_panel_backup():
+    wants_json = request.accept_mimetypes.best == "application/json"
     if not is_debtor_admin_user():
-        flash("Only debtor report administrators can create backups.")
-        return redirect(url_for("dashboard"))
+        message = "Only debtor report administrators can create backups."
+        if wants_json:
+            return jsonify({"ok": False, "error": message}), 403
+        flash(message)
+        return redirect(request.referrer or url_for("dashboard"))
     note = request.form.get("note", "").strip() or "Manual backup from Control Panel"
-    backup_id, skipped = create_project_backup(note=note, backup_type="manual")
+    try:
+        backup_id, skipped = create_project_backup(note=note, backup_type="manual")
+    except Exception as exc:
+        app.logger.exception("Unable to create debtor report backup")
+        message = f"Backup could not be created: {exc}"
+        if wants_json:
+            return jsonify({"ok": False, "error": message}), 500
+        flash(message)
+        return redirect(request.referrer or url_for("dashboard"))
     if skipped:
-        flash(f"Backup {backup_id} created. {len(skipped)} locked/skipped file(s).")
+        message = f"Backup {backup_id} created. {len(skipped)} locked/skipped file(s)."
     else:
-        flash(f"Backup {backup_id} created successfully.")
-    return redirect(url_for("control_panel"))
+        message = f"Backup {backup_id} created successfully."
+    if wants_json:
+        return jsonify({"ok": True, "backup_id": backup_id, "message": message})
+    flash(message)
+    return redirect(request.referrer or url_for("dashboard"))
 
 
 @app.route("/control-panel/restore", methods=["POST"])
 def control_panel_restore():
+    wants_json = request.accept_mimetypes.best == "application/json"
     if not is_debtor_admin_user():
-        flash("Only debtor report administrators can restore backups.")
-        return redirect(url_for("dashboard"))
+        message = "Only debtor report administrators can restore backups."
+        if wants_json:
+            return jsonify({"ok": False, "error": message}), 403
+        flash(message)
+        return redirect(request.referrer or url_for("dashboard"))
     backup_id = request.form.get("backup_id", "").strip()
     success, message = restore_project_backup(backup_id)
+    if wants_json:
+        return jsonify({"ok": success, "message": message, "error": "" if success else message}), (200 if success else 400)
     flash(message)
-    return redirect(url_for("control_panel"))
+    return redirect(request.referrer or url_for("dashboard"))
 
 
 @app.route("/executive-partner-master/add", methods=["POST"])

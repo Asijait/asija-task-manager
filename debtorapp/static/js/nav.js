@@ -152,8 +152,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (debtorBackupStatus) debtorBackupStatus.textContent = 'Restoring backup. Please wait...';
             try {
-                const response = await fetch(form.action, { method: 'POST', body: new FormData(form) });
-                if (!response.ok) throw new Error('Restore request failed.');
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: { 'Accept': 'application/json' }
+                });
+                const result = await response.json().catch(function() { return {}; });
+                if (!response.ok || !result.ok) throw new Error(result.error || 'Restore request failed.');
                 if (debtorBackupStatus) debtorBackupStatus.textContent = 'Restore completed. Reloading restored data...';
                 window.sessionStorage.setItem('debtorBackupRestoreCompleted', '1');
                 window.sessionStorage.setItem('openDebtorBackupDialogAfterReload', '1');
@@ -178,8 +183,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (debtorBackupStatus) debtorBackupStatus.textContent = 'Creating backup. Please wait...';
             try {
-                const response = await fetch(form.action, { method: 'POST', body: new FormData(form) });
-                if (!response.ok) throw new Error('Backup creation failed.');
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: { 'Accept': 'application/json' }
+                });
+                const result = await response.json().catch(function() { return {}; });
+                if (!response.ok || !result.ok) throw new Error(result.error || 'Backup creation failed.');
                 if (debtorBackupStatus) debtorBackupStatus.textContent = 'Backup created. Refreshing restore points...';
                 window.sessionStorage.setItem('openDebtorBackupDialogAfterReload', '1');
                 window.location.reload();

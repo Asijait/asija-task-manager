@@ -10,6 +10,7 @@ services:
       - "5001:5001"
     volumes:
       - ./client_analytic:/app/client_analytic
+      - ./debtorapp/backups:/app/debtorapp/backups
       - ./debtorapp/uploads:/app/debtorapp/uploads
       - ./logs:/app/logs
       - ./linksandothers:/app/linksandothers
