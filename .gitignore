@@ -147,3 +147,4 @@ Thumbs.db
 .LSOverride
 postgres_backups/
 uploads/
+debtorapp/backups

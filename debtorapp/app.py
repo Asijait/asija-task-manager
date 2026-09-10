@@ -295,7 +295,7 @@ def debtor_url(path="/"):
 
 
 def is_debtor_admin_user(user_email=None):
-    """Recognize built-in admins and users granted the full admin power set."""
+    """Recognize built-in admins and users who can access the Control Panel."""
     email = str(user_email if user_email is not None else session.get("user_email", "")).lower()
     if email in DEBTOR_ADMIN_EMAILS:
         return True
@@ -314,12 +314,11 @@ def is_debtor_admin_user(user_email=None):
             """,
             (email,),
         ).fetchall()
-        permissions = {row["permission_key"] for row in rows}
-        return {
-            "control_panel",
-            "user_power_management",
-            "approve_requests",
-        }.issubset(permissions)
+        permissions = {row[0] for row in rows}
+        # Control Panel is the application's admin-level permission.  Do not
+        # require unrelated approval permissions, since legitimate admins may
+        # intentionally not be granted those pages.
+        return "control_panel" in permissions
     except (main_db.Error, sqlite3.Error):
         return False
     finally:
@@ -1478,6 +1477,7 @@ def create_project_backup(note="", backup_type="manual"):
                         continue
 
                     arcname = os.path.relpath(file_path, BASE_DIR)
+                    temp_db_copy = None
 
                     try:
                         if os.path.abspath(file_path) == os.path.abspath(
@@ -1516,12 +1516,6 @@ def create_project_backup(note="", backup_type="manual"):
                                 os.remove(temp_db_copy)
                             except OSError:
                                 pass
-
-                        else:
-                            backup_zip.write(file_path, arcname)
-
-                    # except Exception as exc:
-                    #     skipped.append({"file": arcname, "reason": str(exc)})
 
         # ======================================================
         # 3. ATOMICALLY FINALIZE ZIP
@@ -1692,56 +1686,43 @@ def restore_project_backup(backup_id):
 
             return (False, f"PostgreSQL rollback failed: {exc}")
 
-    create_project_backup(
-        note=f"Automatic backup before rollback to {backup_entry.get('created_at', backup_id)}",
-        backup_type="pre-rollback",
-    )
+    # SQLite backups are restored into the live database, not by copying the
+    # project files back over the running application.  That makes Restore an
+    # in-app operation: data is returned to the selected point immediately and
+    # no container, server, or terminal restart is needed.
+    try:
+        create_project_backup(
+            note=f"Automatic safety backup before restoring {backup_entry.get('created_at', backup_id)}",
+            backup_type="pre-rollback",
+        )
 
-    with tempfile.TemporaryDirectory(dir=BACKUP_DIR) as temp_dir:
-        with zipfile.ZipFile(zip_path, "r") as backup_zip:
-            backup_zip.extractall(temp_dir)
-            backup_members = {
-                name.replace("/", os.sep)
-                for name in backup_zip.namelist()
-                if not name.endswith("/")
-            }
-
-        for current_dir, dirs, files in os.walk(BASE_DIR, topdown=False):
-            relative_dir = os.path.relpath(current_dir, BASE_DIR)
-            if relative_dir == ".":
-                relative_dir = ""
-
-            if relative_dir.split(os.sep)[0] in BACKUP_EXCLUDE_DIRS:
-                continue
-
-            for filename in files:
-                if filename in BACKUP_EXCLUDE_FILES or filename.startswith("~$"):
-                    continue
-
-                file_path = os.path.join(current_dir, filename)
-                relative_path = (
-                    os.path.join(relative_dir, filename) if relative_dir else filename
+        with tempfile.TemporaryDirectory(dir=BACKUP_DIR) as temp_dir:
+            with zipfile.ZipFile(zip_path, "r") as backup_zip:
+                database_member = next(
+                    (
+                        name
+                        for name in backup_zip.namelist()
+                        if name.replace("\\", "/").rstrip("/") == "database.db"
+                    ),
+                    None,
                 )
-                if relative_path not in backup_members:
-                    try:
-                        os.remove(file_path)
-                    except OSError:
-                        pass
+                if not database_member:
+                    return False, "This restore point does not contain the debtor database."
+                restored_database_path = backup_zip.extract(database_member, temp_dir)
 
-            if relative_dir and relative_dir not in BACKUP_EXCLUDE_DIRS:
-                try:
-                    if not os.listdir(current_dir):
-                        os.rmdir(current_dir)
-                except OSError:
-                    pass
-
-        for current_dir, dirs, files in os.walk(temp_dir):
-            for filename in files:
-                source_path = os.path.join(current_dir, filename)
-                relative_path = os.path.relpath(source_path, temp_dir)
-                target_path = os.path.join(BASE_DIR, relative_path)
-                os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                shutil.copy2(source_path, target_path)
+            source_conn = sqlite3.connect(restored_database_path)
+            target_conn = sqlite3.connect(DB_PATH, timeout=DB_BUSY_TIMEOUT_MS / 1000)
+            try:
+                # SQLite's backup API copies a consistent database snapshot
+                # into the existing live database without replacing the file.
+                source_conn.backup(target_conn)
+                target_conn.commit()
+            finally:
+                target_conn.close()
+                source_conn.close()
+    except Exception as exc:
+        app.logger.exception("Live SQLite restore failed")
+        return False, f"Restore failed: {exc}"
 
     add_backup_log_entry(
         {
@@ -1753,7 +1734,7 @@ def restore_project_backup(backup_id):
             "skipped": [],
         }
     )
-    return True, "Rollback completed. Restart the app if code files were restored."
+    return True, "Restore completed. The page can now reload with the restored data."
 
 
 def get_short_name(name):

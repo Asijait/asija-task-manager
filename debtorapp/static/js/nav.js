@@ -118,6 +118,18 @@ document.addEventListener('DOMContentLoaded', function() {
         debtorBackupDialog.setAttribute('aria-hidden', 'false');
     }
 
+    // Re-open the dialog after its page refresh so a newly created restore
+    // point is visible immediately instead of making the user find it again.
+    if (window.sessionStorage.getItem('openDebtorBackupDialogAfterReload') === '1') {
+        window.sessionStorage.removeItem('openDebtorBackupDialogAfterReload');
+        openDebtorBackupDialog();
+    }
+    if (window.sessionStorage.getItem('debtorBackupRestoreCompleted') === '1') {
+        window.sessionStorage.removeItem('debtorBackupRestoreCompleted');
+        openDebtorBackupDialog();
+        if (debtorBackupStatus) debtorBackupStatus.textContent = 'Restore completed. You are now viewing the restored data.';
+    }
+
     debtorBackupButton?.addEventListener('click', function(event) {
         event.preventDefault();
         event.stopPropagation();
@@ -142,7 +154,10 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 const response = await fetch(form.action, { method: 'POST', body: new FormData(form) });
                 if (!response.ok) throw new Error('Restore request failed.');
-                if (debtorBackupStatus) debtorBackupStatus.textContent = 'Restore completed. Restart the app if required.';
+                if (debtorBackupStatus) debtorBackupStatus.textContent = 'Restore completed. Reloading restored data...';
+                window.sessionStorage.setItem('debtorBackupRestoreCompleted', '1');
+                window.sessionStorage.setItem('openDebtorBackupDialogAfterReload', '1');
+                window.location.reload();
             } catch (error) {
                 if (debtorBackupStatus) debtorBackupStatus.textContent = error.message;
                 if (button) {
@@ -165,8 +180,9 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 const response = await fetch(form.action, { method: 'POST', body: new FormData(form) });
                 if (!response.ok) throw new Error('Backup creation failed.');
-                if (debtorBackupStatus) debtorBackupStatus.textContent = 'Backup created. Reload the page to see it in the restore list.';
-                form.reset();
+                if (debtorBackupStatus) debtorBackupStatus.textContent = 'Backup created. Refreshing restore points...';
+                window.sessionStorage.setItem('openDebtorBackupDialogAfterReload', '1');
+                window.location.reload();
             } catch (error) {
                 if (debtorBackupStatus) debtorBackupStatus.textContent = error.message;
             } finally {
