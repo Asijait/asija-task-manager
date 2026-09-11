@@ -187,6 +187,16 @@ document.addEventListener('DOMContentLoaded', function () {
             'dashboardDetailTotal'
         );
 
+    const dialogOverdue =
+        document.getElementById(
+            'dashboardDetailOverdue'
+        );
+
+    const dialogExcel =
+        document.getElementById(
+            'dashboardDetailExcel'
+        );
+
     const dialogStatus =
         document.getElementById(
             'dashboardDetailStatus'
@@ -201,6 +211,9 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById(
             'dashboardDetailClose'
         );
+
+    let currentDetailType = '';
+    let currentDetailValue = '';
 
     function escapeHtml(value) {
         return String(
@@ -319,19 +332,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     <td>
                         ${escapeHtml(
-                row.followup
+                row.followup_partner
             )}
                     </td>
 
                     <td>
                         ${escapeHtml(
-                row.ep
+                row.final_ep
             )}
                     </td>
 
                     <td>
                         ${escapeHtml(
-                row.category
+                row.client_category
             )}
                     </td>
 
@@ -352,6 +365,9 @@ document.addEventListener('DOMContentLoaded', function () {
             String(
                 item?.label || ''
             ).trim();
+
+        currentDetailType = type;
+        currentDetailValue = value;
 
         if (!value) {
             return;
@@ -382,6 +398,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (dialogTotal) {
             dialogTotal.textContent =
                 '₹ —';
+        }
+        if (dialogOverdue) {
+            dialogOverdue.textContent = '₹ —';
+        }
+
+        if (dialogExcel) {
+            dialogExcel.disabled = true;
         }
 
         if (dialogStatus) {
@@ -442,6 +465,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 dialogTotal.textContent =
                     `₹ ${result.total_amount_display || '0'}`;
             }
+            if (dialogOverdue) {
+                dialogOverdue.textContent =
+                    `₹ ${result.overdue_total_display || '0'}`;
+            }
 
             if (dialogStatus) {
                 dialogStatus.textContent =
@@ -449,6 +476,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         ? ''
                         : 's'
                     }`;
+            }
+            if (dialogExcel) {
+                dialogExcel.disabled = false;
             }
 
             renderDetailRows(
@@ -521,6 +551,31 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     );
+    if (dialogExcel) {
+        dialogExcel.addEventListener(
+            'click',
+            function () {
+                if (
+                    !currentDetailType ||
+                    !currentDetailValue
+                ) {
+                    return;
+                }
+
+                const apiBase =
+                    String(
+                        window.DASHBOARD_API_BASE || ''
+                    ).replace(/\/+$/, '');
+
+                const url =
+                    `${apiBase}/download/dashboard-card-excel` +
+                    `?type=${encodeURIComponent(currentDetailType)}` +
+                    `&value=${encodeURIComponent(currentDetailValue)}`;
+
+                window.location.href = url;
+            }
+        );
+    }
 
     // ==========================================================
     // BAR CHART

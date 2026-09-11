@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,16 +8,17 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='nav.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
 </head>
+
 <body class="dashboard-page">
     {% include 'navbar.html' %}
 
     <main class="dashboard-shell">
         {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            {% for message in messages %}
-              <div class="flash-message">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
+        {% if messages %}
+        {% for message in messages %}
+        <div class="flash-message">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
         {% endwith %}
 
         <section class="dashboard-header">
@@ -33,16 +35,17 @@
 
         <section class="dashboard-top-summary">
             <article class="combined-kpi-card panel">
-            <a class="combined-kpi-row" href="{{ debtor_url('/report') }}?clear_filters=1" title="Open Main Report">
-                <span>Total Outstanding</span>
-                <strong>₹ {{ total_amount | indian_currency(decimals=False) }}</strong>
-                <small>{{ total_bills }} open bills</small>
-            </a>
-            <a class="combined-kpi-row" href="{{ debtor_url('/report') }}?overdue=1" title="Open Main Report filtered by overdue">
-                <span>Overdue Amount</span>
-                <strong>₹ {{ overdue_total | indian_currency(decimals=False) }}</strong>
-                <small>{{ overdue_count }} overdue bills</small>
-            </a>
+                <a class="combined-kpi-row" href="{{ debtor_url('/report') }}?clear_filters=1" title="Open Main Report">
+                    <span>Total Outstanding</span>
+                    <strong>₹ {{ total_amount | indian_currency(decimals=False) }}</strong>
+                    <small>{{ total_bills }} open bills</small>
+                </a>
+                <a class="combined-kpi-row" href="{{ debtor_url('/report') }}?overdue=1"
+                    title="Open Main Report filtered by overdue">
+                    <span>Overdue Amount</span>
+                    <strong>₹ {{ overdue_total | indian_currency(decimals=False) }}</strong>
+                    <small>{{ overdue_count }} overdue bills</small>
+                </a>
             </article>
             <!-- <article class="kpi-card">
                 <span>Average Bill</span>
@@ -57,19 +60,19 @@
             <section class="firm-summary-panel panel">
                 <div class="panel-head">
                     <h2>Firm Wise Summary</h2>
-                <span>LLP, FC, AFS and remaining firms</span>
-            </div>
-            <div class="firm-summary-grid">
-                {% for item in firm_summary %}
-                <a class="firm-summary-card" href="{{ debtor_url('/report') }}?firm={{ item.label | urlencode }}">
-                    <span>{{ item.label }}</span>
-                    <strong>Rs {{ item.total | indian_currency(decimals=False) }}</strong>
-                    <small>{{ item.count }} bill{{ '' if item.count == 1 else 's' }}</small>
-                </a>
-                {% endfor %}
-                {% if not firm_summary %}
-                <article class="firm-summary-empty">No firm data available.</article>
-                {% endif %}
+                    <span>LLP, FC, AFS and remaining firms</span>
+                </div>
+                <div class="firm-summary-grid">
+                    {% for item in firm_summary %}
+                    <a class="firm-summary-card" href="{{ debtor_url('/report') }}?firm={{ item.label | urlencode }}">
+                        <span>{{ item.label }}</span>
+                        <strong>Rs {{ item.total | indian_currency(decimals=False) }}</strong>
+                        <small>{{ item.count }} bill{{ '' if item.count == 1 else 's' }}</small>
+                    </a>
+                    {% endfor %}
+                    {% if not firm_summary %}
+                    <article class="firm-summary-empty">No firm data available.</article>
+                    {% endif %}
                 </div>
             </section>
 
@@ -118,73 +121,102 @@
 
     </main>
     <!-- Dashboard Detail Dialog -->
-<div
-    id="dashboardDetailDialog"
-    class="dashboard-detail-dialog"
-    aria-hidden="true"
->
-    <div
-        class="dashboard-detail-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="dashboardDetailTitle"
-    >
-        <div class="dashboard-detail-header">
-            <div>
-                <h2 id="dashboardDetailTitle">Details</h2>
-                <span id="dashboardDetailSubtitle"></span>
+    <div id="dashboardDetailDialog" class="dashboard-detail-dialog" aria-hidden="true">
+        <div class="dashboard-detail-panel" role="dialog" aria-modal="true" aria-labelledby="dashboardDetailTitle">
+            <!-- <div class="dashboard-detail-header">
+                <div>
+                    <h2 id="dashboardDetailTitle">Details</h2>
+                    <span id="dashboardDetailSubtitle"></span>
+                </div>
+
+                <button type="button" id="dashboardDetailClose" class="dashboard-detail-close" aria-label="Close">
+                    ×
+                </button>
             </div>
 
-            <button
-                type="button"
-                id="dashboardDetailClose"
-                class="dashboard-detail-close"
-                aria-label="Close"
-            >
-                ×
-            </button>
-        </div>
+            <div class="dashboard-detail-summary">
 
-        <div class="dashboard-detail-summary">
-            <div>
-                <span>Records</span>
-                <strong id="dashboardDetailCount">0</strong>
+                <div class="dashboard-detail-kpi">
+                    <span>Records</span>
+                    <strong id="dashboardDetailCount">0</strong>
+                </div>
+
+                <div class="dashboard-detail-kpi">
+                    <span>Total Outstanding</span>
+                    <strong id="dashboardDetailTotal">₹ 0</strong>
+                </div>
+
+                <div class="dashboard-detail-kpi">
+                    <span>Total Overdue</span>
+                    <strong id="dashboardDetailOverdue">₹ 0</strong>
+                </div>
+
+                <button type="button" id="dashboardDetailExcel" class="dashboard-detail-excel" disabled>
+                    Excel Export
+                </button>
+
+            </div> -->
+            <div class="dashboard-detail-header">
+
+                <div class="dashboard-detail-heading">
+                    <h2 id="dashboardDetailTitle">Details</h2>
+                    <p id="dashboardDetailSubtitle"></p>
+                </div>
+
+                <div class="dashboard-detail-header-actions">
+
+                    <div class="dashboard-detail-kpi">
+                        <span>Records</span>
+                        <strong id="dashboardDetailCount">0</strong>
+                    </div>
+
+                    <div class="dashboard-detail-kpi">
+                        <span>Total Outstanding</span>
+                        <strong id="dashboardDetailTotal">₹ 0</strong>
+                    </div>
+
+                    <div class="dashboard-detail-kpi">
+                        <span>Total Overdue</span>
+                        <strong id="dashboardDetailOverdue">₹ 0</strong>
+                    </div>
+
+                    <button type="button" id="dashboardDetailExcel" class="dashboard-detail-excel" disabled>
+                        Export Excel
+                    </button>
+
+                    <button type="button" id="dashboardDetailClose" class="dashboard-detail-close" aria-label="Close">
+                        ×
+                    </button>
+
+                </div>
+
             </div>
 
-            <div>
-                <span>Total Outstanding</span>
-                <strong id="dashboardDetailTotal">₹ 0</strong>
+            <div id="dashboardDetailStatus" class="dashboard-detail-status"></div>
+
+            <div class="dashboard-detail-table-wrap">
+                <table class="dashboard-detail-table">
+                    <thead>
+                        <tr>
+                            <th>Bill Date</th>
+                            <th>Firm</th>
+                            <th>Ref No.</th>
+                            <th>Party</th>
+                            <th>Amount</th>
+                            <th>Due Date</th>
+                            <th>Overdue</th>
+                            <th>Followup</th>
+                            <th>EP</th>
+                            <th>Category</th>
+                            <th>FY</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="dashboardDetailBody"></tbody>
+                </table>
             </div>
-        </div>
-
-        <div
-            id="dashboardDetailStatus"
-            class="dashboard-detail-status"
-        ></div>
-
-        <div class="dashboard-detail-table-wrap">
-            <table class="dashboard-detail-table">
-                <thead>
-                    <tr>
-                        <th>Bill Date</th>
-                        <th>Firm</th>
-                        <th>Ref No.</th>
-                        <th>Party</th>
-                        <th>Amount</th>
-                        <th>Due Date</th>
-                        <th>Overdue</th>
-                        <th>Followup</th>
-                        <th>EP</th>
-                        <th>Category</th>
-                        <th>FY</th>
-                    </tr>
-                </thead>
-
-                <tbody id="dashboardDetailBody"></tbody>
-            </table>
         </div>
     </div>
-</div>
 
     <script>
         window.DASHBOARD_API_BASE =
@@ -194,4 +226,5 @@
     <script src="{{ url_for('static', filename='js/nav.js', v='backup-restore-20260910') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=20260824-5"></script>
 </body>
+
 </html>

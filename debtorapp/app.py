@@ -4467,6 +4467,7 @@ def dashboard_card_detail():
         )
 
     total_amount = sum(row["amount"] for row in detail_rows)
+    overdue_total = sum(row["amount"] for row in detail_rows if row["overdue_days"] > 0)
 
     return jsonify(
         {
@@ -4479,7 +4480,152 @@ def dashboard_card_detail():
             "total_amount_display": format_indian_currency(
                 total_amount, decimals=False
             ),
+            "overdue_total": overdue_total,
+            "overdue_total_display": format_indian_currency(
+                overdue_total,
+                decimals=False,
+            ),
         }
+    )
+
+
+@app.route("/download/dashboard-card-excel")
+def download_dashboard_card_excel():
+    """
+    Export the currently selected dashboard detail group to Excel.
+    """
+
+    card_type = (request.args.get("type") or "").strip().lower()
+
+    value = (request.args.get("value") or "").strip()
+
+    allowed_types = {
+        "category": "client_category",
+        "followup": "followup_partner",
+        "ep": "final_ep",
+        "fy": "financial_year",
+    }
+
+    if card_type not in allowed_types:
+        return jsonify(
+            {
+                "success": False,
+                "message": "Invalid dashboard detail type.",
+            }
+        ), 400
+
+    if not value:
+        return jsonify(
+            {
+                "success": False,
+                "message": "Dashboard detail value is required.",
+            }
+        ), 400
+
+    field_name = allowed_types[card_type]
+
+    conn = None
+
+    try:
+        conn = connect_debtor_db()
+        conn.row_factory = sqlite3.Row
+
+        cursor = conn.cursor()
+        report_rows = get_report_rows(cursor)
+
+        def normalized_value(row):
+            raw = row.get(field_name)
+
+            if raw is None:
+                return "Unknown" if card_type == "fy" else "Unassigned"
+
+            text = str(raw).strip()
+
+            if not text:
+                return "Unknown" if card_type == "fy" else "Unassigned"
+
+            return text
+
+        filtered_rows = [row for row in report_rows if normalized_value(row) == value]
+
+        export_rows = []
+
+        for row in filtered_rows:
+            try:
+                amount = float(row.get("amount") or 0)
+            except (TypeError, ValueError):
+                amount = 0.0
+
+            try:
+                overdue_days = int(float(row.get("overdue_days") or 0))
+            except (TypeError, ValueError):
+                overdue_days = 0
+
+            export_rows.append(
+                {
+                    "Bill Date": (
+                        row.get("bill_date_display")
+                        or format_display_date(row.get("bill_date"))
+                        or ""
+                    ),
+                    "Firm": (row.get("short_name") or row.get("firm_name") or ""),
+                    "Ref No.": (row.get("ref_no") or ""),
+                    "Party": (row.get("party_name") or ""),
+                    "Amount": amount,
+                    "Due Date": (
+                        row.get("due_date_display")
+                        or format_display_date(row.get("due_date"))
+                        or ""
+                    ),
+                    "Overdue": overdue_days,
+                    "Followup": (row.get("followup_partner") or "Unassigned"),
+                    "EP": (row.get("final_ep") or "Unassigned"),
+                    "Category": (row.get("client_category") or "Unassigned"),
+                    "FY": (row.get("financial_year") or "Unknown"),
+                }
+            )
+
+    except Exception:
+        app.logger.exception("Unable to create dashboard detail Excel export.")
+
+        return jsonify(
+            {
+                "success": False,
+                "message": "Unable to create Excel export.",
+            }
+        ), 500
+
+    finally:
+        if conn is not None:
+            conn.close()
+
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        pd.DataFrame(export_rows).to_excel(
+            writer,
+            index=False,
+            sheet_name="Dashboard Details",
+        )
+
+    output.seek(0)
+
+    safe_value = (
+        re.sub(
+            r"[^A-Za-z0-9_-]+",
+            "_",
+            value,
+        ).strip("_")
+        or "details"
+    )
+
+    filename = f"dashboard_{card_type}_{safe_value}.xlsx"
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype=("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
     )
 
 
