@@ -3837,8 +3837,9 @@ def mount_daily_debtor_report():
         if not has_user_permission("daily_debtor_report"):
             return redirect("/")
         if (
-            request.path.startswith("/control-panel")
-            or request.path.startswith("/deleted-records")
+            # request.path.startswith("/control-panel")
+            # or
+            request.path.startswith("/deleted-records")
         ) and not is_arif_user():
             return redirect("/daily-debtor-report/")
         return None

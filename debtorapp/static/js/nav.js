@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const button = document.getElementById('navMenuBtn');
     const sidebar = document.getElementById('appSidebar');
     const topNav = document.querySelector('.top-nav');
@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ['batch_id', batchId],
             ['choice', choice],
             ['return_to', cleanCurrentUrlWithoutImportPrompt()]
-        ].forEach(function(field) {
+        ].forEach(function (field) {
             const input = document.createElement('input');
             input.type = 'hidden';
             input.name = field[0];
@@ -42,41 +42,42 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    if (!button || !sidebar) return;
+    if (button && sidebar) {
 
-    if (topNav) {
-        topNav.classList.remove('is-hidden');
-        document.body.classList.remove('nav-hidden');
-        document.body.classList.add('nav-visible');
-    }
-
-    function setOpen(isOpen) {
-        sidebar.classList.toggle('is-open', isOpen);
-        button.classList.toggle('is-active', isOpen);
-        button.setAttribute('aria-expanded', String(isOpen));
-    }
-
-    button.addEventListener('click', function(event) {
-        event.stopPropagation();
-        setOpen(!sidebar.classList.contains('is-open'));
-    });
-
-    sidebar.addEventListener('click', function(event) {
-        event.stopPropagation();
-    });
-
-    document.addEventListener('click', function() {
-        setOpen(false);
-    });
-
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape') {
-            setOpen(false);
-            closeWeeklyReportDialog();
-            closeDebtorRecoDialog();
-            closeDebtorBackupDialog();
+        if (topNav) {
+            topNav.classList.remove('is-hidden');
+            document.body.classList.remove('nav-hidden');
+            document.body.classList.add('nav-visible');
         }
-    });
+
+        function setOpen(isOpen) {
+            sidebar.classList.toggle('is-open', isOpen);
+            button.classList.toggle('is-active', isOpen);
+            button.setAttribute('aria-expanded', String(isOpen));
+        }
+
+        button.addEventListener('click', function (event) {
+            event.stopPropagation();
+            setOpen(!sidebar.classList.contains('is-open'));
+        });
+
+        sidebar.addEventListener('click', function (event) {
+            event.stopPropagation();
+        });
+
+        document.addEventListener('click', function () {
+            setOpen(false);
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                setOpen(false);
+                closeWeeklyReportDialog();
+                closeDebtorRecoDialog();
+                closeDebtorBackupDialog();
+            }
+        });
+    }
 
     let activeImportForm = null;
     const importDialog = document.getElementById('importDialog');
@@ -130,19 +131,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (debtorBackupStatus) debtorBackupStatus.textContent = 'Restore completed. You are now viewing the restored data.';
     }
 
-    debtorBackupButton?.addEventListener('click', function(event) {
+    debtorBackupButton?.addEventListener('click', function (event) {
         event.preventDefault();
         event.stopPropagation();
         openDebtorBackupDialog();
     });
     debtorBackupClose?.addEventListener('click', closeDebtorBackupDialog);
     debtorBackupCancel?.addEventListener('click', closeDebtorBackupDialog);
-    debtorBackupDialog?.addEventListener('click', function(event) {
+    debtorBackupDialog?.addEventListener('click', function (event) {
         if (event.target === debtorBackupDialog) closeDebtorBackupDialog();
     });
 
-    document.querySelectorAll('.debtor-backup-restore-form').forEach(function(form) {
-        form.addEventListener('submit', async function(event) {
+    document.querySelectorAll('.debtor-backup-restore-form').forEach(function (form) {
+        form.addEventListener('submit', async function (event) {
             event.preventDefault();
             if (!window.confirm('Restore this point? A safety backup will be created before restoring.')) return;
             const button = form.querySelector('button[type="submit"]');
@@ -155,9 +156,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: new FormData(form),
-                    headers: { 'Accept': 'application/json' }
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
                 });
-                const result = await response.json().catch(function() { return {}; });
+                const result = await response.json().catch(function () { return {}; });
                 if (!response.ok || !result.ok) throw new Error(result.error || 'Restore request failed.');
                 if (debtorBackupStatus) debtorBackupStatus.textContent = 'Restore completed. Reloading restored data...';
                 window.sessionStorage.setItem('debtorBackupRestoreCompleted', '1');
@@ -173,8 +177,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    document.querySelectorAll('.debtor-backup-create-form').forEach(function(form) {
-        form.addEventListener('submit', async function(event) {
+    document.querySelectorAll('.debtor-backup-create-form').forEach(function (form) {
+        form.addEventListener('submit', async function (event) {
             event.preventDefault();
             const button = form.querySelector('button[type="submit"]');
             if (button) {
@@ -186,9 +190,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const response = await fetch(form.action, {
                     method: 'POST',
                     body: new FormData(form),
-                    headers: { 'Accept': 'application/json' }
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
                 });
-                const result = await response.json().catch(function() { return {}; });
+                const result = await response.json().catch(function () { return {}; });
                 if (!response.ok || !result.ok) throw new Error(result.error || 'Backup creation failed.');
                 if (debtorBackupStatus) debtorBackupStatus.textContent = 'Backup created. Refreshing restore points...';
                 window.sessionStorage.setItem('openDebtorBackupDialogAfterReload', '1');
@@ -217,14 +224,14 @@ document.addEventListener('DOMContentLoaded', function() {
         debtorRecoDialog.querySelector('input[type="file"]')?.focus();
     }
 
-    debtorRecoButton?.addEventListener('click', function(event) {
+    debtorRecoButton?.addEventListener('click', function (event) {
         event.preventDefault();
         event.stopPropagation();
         openDebtorRecoDialog();
     });
     debtorRecoClose?.addEventListener('click', closeDebtorRecoDialog);
     debtorRecoCancel?.addEventListener('click', closeDebtorRecoDialog);
-    debtorRecoDialog?.addEventListener('click', function(event) {
+    debtorRecoDialog?.addEventListener('click', function (event) {
         if (event.target === debtorRecoDialog) closeDebtorRecoDialog();
     });
 
@@ -238,15 +245,15 @@ document.addEventListener('DOMContentLoaded', function() {
         table.className = 'debtor-reco-table';
         const columns = Object.keys(rows[0]);
         const head = table.createTHead().insertRow();
-        columns.forEach(function(column) {
+        columns.forEach(function (column) {
             const cell = document.createElement('th');
             cell.textContent = column;
             head.appendChild(cell);
         });
         const body = table.createTBody();
-        rows.forEach(function(row) {
+        rows.forEach(function (row) {
             const tableRow = body.insertRow();
-            columns.forEach(function(column) {
+            columns.forEach(function (column) {
                 const cell = tableRow.insertCell();
                 cell.textContent = row[column] == null ? '' : row[column];
             });
@@ -254,7 +261,7 @@ document.addEventListener('DOMContentLoaded', function() {
         container.appendChild(table);
     }
 
-    debtorRecoForm?.addEventListener('submit', async function(event) {
+    debtorRecoForm?.addEventListener('submit', async function (event) {
         event.preventDefault();
         debtorRecoSubmit.disabled = true;
         debtorRecoSubmit.textContent = 'Comparing...';
@@ -267,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!response.ok) throw new Error(result.error || 'Unable to reconcile the report.');
             const summary = result.summary;
             debtorRecoSummary.innerHTML = '';
-            [['Total records', summary.total], ['To delete', summary.delete], ['To update', summary.update], ['Already correct', summary.correct]].forEach(function(item) {
+            [['Total records', summary.total], ['To delete', summary.delete], ['To update', summary.update], ['Already correct', summary.correct]].forEach(function (item) {
                 const box = document.createElement('div');
                 box.className = 'debtor-reco-summary-item';
                 box.innerHTML = '<strong></strong><span></span>';
@@ -319,52 +326,52 @@ document.addEventListener('DOMContentLoaded', function() {
         fileInput.click();
     }
 
-    document.querySelectorAll('.import-data-form').forEach(function(form) {
+    document.querySelectorAll('.import-data-form').forEach(function (form) {
         const importButton = form.querySelector('.import-data-btn');
         const fileInput = form.querySelector('.import-file-input');
 
         if (!importButton || !fileInput) return;
 
-        importButton.addEventListener('click', function(event) {
+        importButton.addEventListener('click', function (event) {
             event.stopPropagation();
             openImportDialog(form);
         });
 
-        fileInput.addEventListener('change', function() {
+        fileInput.addEventListener('change', function () {
             if (fileInput.files.length > 0) {
                 form.submit();
             }
         });
     });
 
-    document.querySelectorAll('.bulk-import-form').forEach(function(form) {
+    document.querySelectorAll('.bulk-import-form').forEach(function (form) {
         const button = form.querySelector('.bulk-import-btn');
         const fileInput = form.querySelector('.bulk-import-file');
         if (!button || !fileInput) return;
-        button.addEventListener('click', function(event) {
+        button.addEventListener('click', function (event) {
             event.stopPropagation();
             fileInput.value = '';
             fileInput.click();
         });
-        fileInput.addEventListener('change', function() {
+        fileInput.addEventListener('change', function () {
             if (fileInput.files.length > 0) form.submit();
         });
     });
 
     if (importDialog) {
-        importDialog.addEventListener('click', function(event) {
+        importDialog.addEventListener('click', function (event) {
             if (event.target === importDialog) closeImportDialog();
         });
     }
     if (importDialogClose) importDialogClose.addEventListener('click', closeImportDialog);
-    if (importUseFileFirm) importUseFileFirm.addEventListener('click', function() {
+    if (importUseFileFirm) importUseFileFirm.addEventListener('click', function () {
         chooseImportFile(true);
     });
-    if (importChooseFile) importChooseFile.addEventListener('click', function() {
+    if (importChooseFile) importChooseFile.addEventListener('click', function () {
         chooseImportFile(false);
     });
     if (importDialogInput) {
-        importDialogInput.addEventListener('keydown', function(event) {
+        importDialogInput.addEventListener('keydown', function (event) {
             if (event.key === 'Enter') {
                 event.preventDefault();
                 chooseImportFile(false);
@@ -388,25 +395,25 @@ document.addEventListener('DOMContentLoaded', function() {
     if (weeklyReportDialog) {
         const weeklyStartInput = weeklyReportDialog.querySelector('input[name="start_date"]');
         const weeklyTotalFromInput = weeklyReportDialog.querySelector('input[name="cumulative_start_date"]');
-        weeklyStartInput?.addEventListener('change', function() {
+        weeklyStartInput?.addEventListener('change', function () {
             if (weeklyTotalFromInput && !weeklyTotalFromInput.value) {
                 weeklyTotalFromInput.value = weeklyStartInput.value;
             }
         });
     }
 
-    document.querySelectorAll('.weekly-report-form').forEach(function(form) {
+    document.querySelectorAll('.weekly-report-form').forEach(function (form) {
         const startInput = form.querySelector('input[name="start_date"]');
         const totalFromInput = form.querySelector('input[name="cumulative_start_date"]');
-        startInput?.addEventListener('change', function() {
+        startInput?.addEventListener('change', function () {
             if (totalFromInput && !totalFromInput.value) {
                 totalFromInput.value = startInput.value;
             }
         });
     });
 
-    document.querySelectorAll('.weekly-report-btn').forEach(function(reportButton) {
-        reportButton.addEventListener('click', function(event) {
+    document.querySelectorAll('.weekly-report-btn').forEach(function (reportButton) {
+        reportButton.addEventListener('click', function (event) {
             event.preventDefault();
             event.stopPropagation();
             openWeeklyReportDialog();
@@ -414,7 +421,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     if (weeklyReportDialog) {
-        weeklyReportDialog.addEventListener('click', function(event) {
+        weeklyReportDialog.addEventListener('click', function (event) {
             if (event.target === weeklyReportDialog) closeWeeklyReportDialog();
         });
     }
@@ -513,21 +520,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    document.querySelectorAll('.nav-dropdown').forEach(function(dropdown) {
+    document.querySelectorAll('.nav-dropdown').forEach(function (dropdown) {
         const dropdownButton = dropdown.querySelector('.nav-dropdown-btn');
         if (!dropdownButton) return;
 
-        dropdownButton.addEventListener('click', function(event) {
+        dropdownButton.addEventListener('click', function (event) {
             event.stopPropagation();
             const isOpen = dropdown.classList.toggle('is-open');
             dropdownButton.setAttribute('aria-expanded', String(isOpen));
         });
 
-        dropdown.addEventListener('click', function(event) {
+        dropdown.addEventListener('click', function (event) {
             event.stopPropagation();
         });
 
-        document.addEventListener('click', function() {
+        document.addEventListener('click', function () {
             dropdown.classList.remove('is-open');
             dropdownButton.setAttribute('aria-expanded', 'false');
         });

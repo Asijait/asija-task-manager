@@ -36,6 +36,9 @@ from openpyxl import load_workbook, Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils.dataframe import dataframe_to_rows
+import sqlite3 as real_sqlite3
+
+from debtorapp import db_compat
 
 app = Flask(__name__)
 app.secret_key = "dev-secret-key"
@@ -82,7 +85,7 @@ def format_indian_currency(amount, decimals=True):
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "database.db")
+DB_PATH = db_compat.DEBTOR_SQLITE_PATH
 MAIN_DB_PATH = os.path.join(os.path.dirname(BASE_DIR), "tasks.db")
 CSV_PATH = os.path.join(BASE_DIR, "data.csv")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -296,7 +299,9 @@ def debtor_url(path="/"):
 
 def is_debtor_admin_user(user_email=None):
     """Recognize built-in admins and users who can access the Control Panel."""
-    email = str(user_email if user_email is not None else session.get("user_email", "")).lower()
+    email = str(
+        user_email if user_email is not None else session.get("user_email", "")
+    ).lower()
     if email in DEBTOR_ADMIN_EMAILS:
         return True
     if not email or main_db is None:
@@ -1396,6 +1401,9 @@ def create_postgres_backup(backup_dir, backup_id):
 
 
 def create_project_backup(note="", backup_type="manual"):
+
+    print("create_project_backup called", flush=True)
+
     os.makedirs(BACKUP_DIR, exist_ok=True)
 
     stamp = make_backup_stamp()
@@ -1494,12 +1502,25 @@ def create_project_backup(note="", backup_type="manual"):
                             ) as temp_file:
                                 temp_db_copy = temp_file.name
 
-                            source_conn = sqlite3.connect(DB_PATH)
-
-                            backup_conn = sqlite3.connect(temp_db_copy)
+                            source_conn = sqlite3.connect(
+                                DB_PATH,
+                                timeout=DB_BUSY_TIMEOUT_MS / 1000,
+                            )
+                            backup_conn = sqlite3.connect(
+                                temp_db_copy,
+                                timeout=DB_BUSY_TIMEOUT_MS / 1000,
+                            )
 
                             try:
+                                source_conn.execute("PRAGMA busy_timeout = 30000")
+                                backup_conn.execute("PRAGMA busy_timeout = 30000")
+
+                                source_conn.execute("PRAGMA wal_checkpoint(FULL)")
+
                                 source_conn.backup(backup_conn)
+                                backup_conn.commit()
+                            except Exception as e:
+                                print("The error", e)
 
                             finally:
                                 backup_conn.close()
@@ -1617,6 +1638,9 @@ def restore_postgres_backup(dump_path):
 
 
 def restore_project_backup(backup_id):
+
+    print("restore_project_backup called", flush=True)
+
     log = read_backup_log()
     backup_entry = next((entry for entry in log if entry.get("id") == backup_id), None)
     if not backup_entry:
@@ -1706,20 +1730,34 @@ def restore_project_backup(backup_id):
                     ),
                     None,
                 )
-                if not database_member:
-                    return False, "This restore point does not contain the debtor database."
-                restored_database_path = backup_zip.extract(database_member, temp_dir)
 
-            source_conn = sqlite3.connect(restored_database_path)
-            target_conn = sqlite3.connect(DB_PATH, timeout=DB_BUSY_TIMEOUT_MS / 1000)
-            try:
-                # SQLite's backup API copies a consistent database snapshot
-                # into the existing live database without replacing the file.
-                source_conn.backup(target_conn)
-                target_conn.commit()
-            finally:
-                target_conn.close()
-                source_conn.close()
+                if not database_member:
+                    return (
+                        False,
+                        "This restore point does not contain the debtor database.",
+                    )
+
+                restored_database_path = os.path.join(temp_dir, "database.db")
+
+                with backup_zip.open(database_member, "r") as source:
+                    with open(restored_database_path, "wb") as target:
+                        shutil.copyfileobj(source, target)
+
+            # Replace the live database with the restored snapshot.
+            os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
+            temp_live_path = f"{DB_PATH}.restore_tmp"
+            shutil.copy2(restored_database_path, temp_live_path)
+            os.replace(temp_live_path, DB_PATH)
+
+            # Remove SQLite WAL/SHM files from the old live database.
+            for suffix in ("-wal", "-shm"):
+                sidecar_path = DB_PATH + suffix
+                try:
+                    if os.path.exists(sidecar_path):
+                        os.remove(sidecar_path)
+                except OSError:
+                    pass
     except Exception as exc:
         app.logger.exception("Live SQLite restore failed")
         return False, f"Restore failed: {exc}"
@@ -7360,7 +7398,9 @@ def extract_receipt_bill_rows(receipt_file):
         receipt_date = parse_input_date(current_receipt.get("receipt_date"))
         receipt_rows.append(
             {
-                "Receipt Date": receipt_date.strftime("%Y-%m-%d") if receipt_date else "",
+                "Receipt Date": receipt_date.strftime("%Y-%m-%d")
+                if receipt_date
+                else "",
                 "Firm": str(current_receipt.get("firm") or "").strip(),
                 "Party's Name": str(current_receipt.get("party_name") or "").strip(),
                 "Ref. No.": ref_no,
@@ -7416,7 +7456,9 @@ def build_debtor_reconciliation_workbook(uploaded_file, receipt_file=None):
     update_rows = []
     for sheet_row_number, app_row in enumerate(app_rows, start=2):
         app_party_key = normalize_reconciliation_text(app_row["party_name"])
-        candidates = source_by_ref.get(normalize_reconciliation_text(app_row["ref_no"]), [])
+        candidates = source_by_ref.get(
+            normalize_reconciliation_text(app_row["ref_no"]), []
+        )
         source_row = next(
             (
                 candidate
@@ -7478,12 +7520,17 @@ def build_debtor_reconciliation_workbook(uploaded_file, receipt_file=None):
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         summary_sheet = writer.book.create_sheet("Summary")
         summary_sheet["B2"] = "Debtor Report - Correction Summary"
-        summary_sheet["B3"] = "Comparison base: uploaded Bill Wise Debtor Report vs active application debtor report"
+        summary_sheet["B3"] = (
+            "Comparison base: uploaded Bill Wise Debtor Report vs active application debtor report"
+        )
         summary_sheet["B4"] = "Match rule: Ref No. + Party Name / Client Name"
-        summary_sheet["B5"] = f"Generated: {datetime.now().strftime('%d-%b-%Y') }"
+        summary_sheet["B5"] = f"Generated: {datetime.now().strftime('%d-%b-%Y')}"
         summary_items = [
             ("Total records in debtor report", len(app_rows)),
-            ("Records to DELETE (Ref No. / Party mismatch vs source)", len(delete_rows)),
+            (
+                "Records to DELETE (Ref No. / Party mismatch vs source)",
+                len(delete_rows),
+            ),
             ("Records to UPDATE (Amount mismatch vs source)", len(update_rows)),
             ("Receipt records to post", len(receipt_rows)),
             ("Records already correct", correct_count),
@@ -7498,21 +7545,45 @@ def build_debtor_reconciliation_workbook(uploaded_file, receipt_file=None):
                 "Records to DELETE from the active debtor report",
                 "Reason: Ref No. and Party/Client Name combination does not exist in the source report",
                 delete_rows,
-                ["Row No. in Sheet", "Firm", "Bill Date", "Ref. No.", "Party's Name", "Amount", "Reason"],
+                [
+                    "Row No. in Sheet",
+                    "Firm",
+                    "Bill Date",
+                    "Ref. No.",
+                    "Party's Name",
+                    "Amount",
+                    "Reason",
+                ],
             ),
             (
                 "Update Record (Amount)",
                 "Records to UPDATE (Amount) in the active debtor report",
                 "Amount does not match Pending Amount in Bill Wise Debtor Report (source report)",
                 update_rows,
-                ["Row No. in Sheet", "Firm", "Bill Date", "Ref. No.", "Party's Name", "Current Amount (in file)", "Correct Amount (per source)", "Difference"],
+                [
+                    "Row No. in Sheet",
+                    "Firm",
+                    "Bill Date",
+                    "Ref. No.",
+                    "Party's Name",
+                    "Current Amount (in file)",
+                    "Correct Amount (per source)",
+                    "Difference",
+                ],
             ),
             (
                 "Receipts to Post",
                 "Receipt records found for bills marked for deletion",
                 "These records are identified for posting as receipts and have not been posted automatically.",
                 receipt_rows,
-                ["Receipt Date", "Firm", "Party's Name", "Ref. No.", "Receipt Amount", "Vch No."],
+                [
+                    "Receipt Date",
+                    "Firm",
+                    "Party's Name",
+                    "Ref. No.",
+                    "Receipt Amount",
+                    "Vch No.",
+                ],
             ),
         ]
         for sheet_name, title, subtitle, rows, columns in sheet_specs:
@@ -9122,13 +9193,21 @@ def permanently_delete_report_record():
 
 @app.route("/control-panel/backup", methods=["POST"])
 def control_panel_backup():
-    wants_json = request.accept_mimetypes.best == "application/json"
+    wants_json = request.headers.get(
+        "X-Requested-With"
+    ) == "XMLHttpRequest" or "application/json" in request.headers.get("Accept", "")
+    app.logger.warning(
+        "Debtor backup requested: user=%s, database=%s, json=%s",
+        session.get("user_email", ""),
+        "postgresql" if sqlite3.use_postgres(DB_PATH) else "sqlite",
+        wants_json,
+    )
     if not is_debtor_admin_user():
         message = "Only debtor report administrators can create backups."
         if wants_json:
             return jsonify({"ok": False, "error": message}), 403
         flash(message)
-        return redirect(request.referrer or url_for("dashboard"))
+        return redirect(url_for("report", backup_dialog="1"))
     note = request.form.get("note", "").strip() or "Manual backup from Control Panel"
     try:
         backup_id, skipped = create_project_backup(note=note, backup_type="manual")
@@ -9138,32 +9217,52 @@ def control_panel_backup():
         if wants_json:
             return jsonify({"ok": False, "error": message}), 500
         flash(message)
-        return redirect(request.referrer or url_for("dashboard"))
+        return redirect(url_for("report", backup_dialog="1"))
     if skipped:
         message = f"Backup {backup_id} created. {len(skipped)} locked/skipped file(s)."
     else:
         message = f"Backup {backup_id} created successfully."
+    app.logger.warning(
+        "Debtor backup completed: id=%s, skipped=%s", backup_id, len(skipped)
+    )
     if wants_json:
         return jsonify({"ok": True, "backup_id": backup_id, "message": message})
     flash(message)
-    return redirect(request.referrer or url_for("dashboard"))
+    return redirect(url_for("report", backup_dialog="1"))
 
 
 @app.route("/control-panel/restore", methods=["POST"])
 def control_panel_restore():
-    wants_json = request.accept_mimetypes.best == "application/json"
+    wants_json = request.headers.get(
+        "X-Requested-With"
+    ) == "XMLHttpRequest" or "application/json" in request.headers.get("Accept", "")
+    backup_id = request.form.get("backup_id", "").strip()
+    app.logger.warning(
+        "Debtor restore requested: user=%s, backup_id=%s, database=%s, json=%s",
+        session.get("user_email", ""),
+        backup_id,
+        "postgresql" if sqlite3.use_postgres(DB_PATH) else "sqlite",
+        wants_json,
+    )
     if not is_debtor_admin_user():
         message = "Only debtor report administrators can restore backups."
         if wants_json:
             return jsonify({"ok": False, "error": message}), 403
         flash(message)
-        return redirect(request.referrer or url_for("dashboard"))
-    backup_id = request.form.get("backup_id", "").strip()
+        return redirect(url_for("report", backup_dialog="1"))
     success, message = restore_project_backup(backup_id)
+    app.logger.warning(
+        "Debtor restore completed: backup_id=%s, success=%s, message=%s",
+        backup_id,
+        success,
+        message,
+    )
     if wants_json:
-        return jsonify({"ok": success, "message": message, "error": "" if success else message}), (200 if success else 400)
+        return jsonify(
+            {"ok": success, "message": message, "error": "" if success else message}
+        ), (200 if success else 400)
     flash(message)
-    return redirect(request.referrer or url_for("dashboard"))
+    return redirect(url_for("report", backup_dialog="1"))
 
 
 @app.route("/executive-partner-master/add", methods=["POST"])

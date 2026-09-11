@@ -191,7 +191,7 @@
             "{{ request.script_root }}";
     </script>
     <script id="dashboardData" type="application/json">{{ chart_data | tojson }}</script>
-    <script src="{{ url_for('static', filename='js/nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/nav.js', v='backup-restore-20260910') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=20260824-5"></script>
 </body>
 </html>
